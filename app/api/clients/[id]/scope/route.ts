@@ -45,19 +45,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       period: body.period?.trim() || "",
       label: body.label?.trim() || "",
       isActive: true,
-      socialMedia: body.socialMedia || {},
-      paidMedia: body.paidMedia || {},
-      emailWhatsapp: body.emailWhatsapp || {
-        transactional: { enabled: false, triggers: 0 },
-        promotional: { enabled: false, emails: 0 },
-      },
-      seo: body.seo || {
-        keywords: [],
-        gaAccess: { type: "none" },
-        gtmAccess: { type: "none" },
-        gscAccess: { type: "none" },
-      },
-      influencer: body.influencer || { influencersCount: 0, commission: 0, budget: 0 },
+      items: body.items || [],
     });
 
     return NextResponse.json({ ...scope.toObject(), id: scope._id.toString() }, { status: 201 });

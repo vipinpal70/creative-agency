@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus, Trash2, ArrowLeft, ArrowRight, UserCheck, ShieldAlert, Award, Globe, PlusCircle } from "lucide-react";
+import instagram from "@/app/assets/instagram.png";
+import facebook from "@/app/assets/facebook.png";
+import whatsapp from "@/app/assets/whatsapp.png";
+import linkedin from "@/app/assets/linkedin.png";
+import twitter from "@/app/assets/twitter.png";
+import youtube from "@/app/assets/youtube.png";
 
 const steps = ["Client Info", "Service Modules", "Scope of Work", "Assign Team", "Review"];
 
@@ -86,6 +92,29 @@ export default function OnboardingPage() {
     },
   });
 
+  const [scopeItems, setScopeItems] = useState<any[]>([]);
+
+  const updateScopeItem = (id: string, patch: any) => {
+    setScopeItems((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  };
+
+  const deleteScopeItem = (id: string) => {
+    setScopeItems((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const togglePlatform = (itemId: string, platform: string) => {
+    setScopeItems((prev) =>
+      prev.map((s) => {
+        if (s.id !== itemId) return s;
+        const platforms = s.platforms || [];
+        const nextPlatforms = platforms.includes(platform)
+          ? platforms.filter((p: string) => p !== platform)
+          : [...platforms, platform];
+        return { ...s, platforms: nextPlatforms };
+      })
+    );
+  };
+
   // SEO New Keyword State
   const [newKeyword, setNewKeyword] = useState("");
 
@@ -158,59 +187,75 @@ export default function OnboardingPage() {
     );
   };
 
+  const handleNextStep = () => {
+    if (step === 1) {
+      // Seed default items for active modules if empty
+      const nextItems = [...scopeItems];
+
+      if (selectedModules.socialMedia) {
+        const hasSocial = nextItems.some((s) => s.module === "social");
+        if (!hasSocial) {
+          nextItems.push(
+            { id: "social-reelstory", module: "social", label: "reel/story", unit: "qty", committed: 8, platforms: ["instagram"] },
+            { id: "social-imagecarousel", module: "social", label: "image/carousel", unit: "qty", committed: 6, platforms: ["instagram", "facebook"] },
+            { id: "social-post", module: "social", label: "post", unit: "qty", committed: 4, platforms: ["instagram", "facebook"] }
+          );
+        }
+      }
+      if (selectedModules.paidMedia) {
+        const hasPaid = nextItems.some((s) => s.module === "paid");
+        if (!hasPaid) {
+          nextItems.push(
+            { id: "paid-meta", module: "paid", label: "Meta Ad Creatives", unit: "qty", committed: 4 },
+            { id: "paid-google", module: "paid", label: "Google Ads Copy", unit: "qty", committed: 2 }
+          );
+        }
+      }
+      if (selectedModules.emailWhatsapp) {
+        const hasEmail = nextItems.some((s) => s.module === "email");
+        if (!hasEmail) {
+          nextItems.push(
+            { id: "email-promo", module: "email", label: "Promotional Campaigns", unit: "qty", committed: 4 },
+            { id: "email-trans", module: "email", label: "Transactional Flows", unit: "qty", committed: 1 }
+          );
+        }
+      }
+      if (selectedModules.seo) {
+        const hasSeo = nextItems.some((s) => s.module === "seo");
+        if (!hasSeo) {
+          nextItems.push(
+            { id: "seo-blogs", module: "seo", label: "SEO Blog Posts", unit: "qty", committed: 4 },
+            { id: "seo-audits", module: "seo", moduleItems: [], label: "Technical SEO Audits", unit: "qty", committed: 1 }
+          );
+        }
+      }
+      if (selectedModules.influencer) {
+        const hasInfluencer = nextItems.some((s) => s.module === "influencer");
+        if (!hasInfluencer) {
+          nextItems.push(
+            { id: "influencer-campaigns", module: "influencer", label: "Influencer Campaigns", unit: "qty", committed: 2 }
+          );
+        }
+      }
+
+      setScopeItems(nextItems);
+    }
+    setStep(step + 1);
+  };
+
   const handleOnboardSubmit = async () => {
     try {
-      // Build clean scope payload based only on toggled modules
-      const scopePayload: any = {};
-      if (selectedModules.socialMedia) {
-        const smPayload: any = {};
+      const activeModuleKeys = Object.keys(selectedModules)
+        .filter((k) => selectedModules[k])
+        .map((k) =>
+          k === "socialMedia" ? "social" :
+            k === "paidMedia" ? "paid" :
+              k === "emailWhatsapp" ? "email" :
+                k === "seo" ? "seo" :
+                  k === "influencer" ? "influencer" : k
+        );
 
-        // Instagram
-        if (socialMode === "breakdown") {
-          smPayload.instagram = scope.socialMedia.instagram;
-        } else {
-          smPayload.instagram = { reels: 0, posts: 0, stories: 0, custom: 0 };
-          smPayload.instagram[socialCounts.instagram.category] = socialCounts.instagram.count;
-        }
-
-        // Facebook
-        if (socialMode === "breakdown") {
-          smPayload.facebook = scope.socialMedia.facebook;
-        } else {
-          smPayload.facebook = { staticCount: 0, reels: 0, posts: 0, stories: 0, custom: 0 };
-          smPayload.facebook[socialCounts.facebook.category] = socialCounts.facebook.count;
-        }
-
-        // YouTube
-        if (socialMode === "breakdown") {
-          smPayload.youtube = scope.socialMedia.youtube;
-        } else {
-          smPayload.youtube = { staticCount: 0, reels: 0, posts: 0, stories: 0, custom: 0 };
-          smPayload.youtube[socialCounts.youtube.category] = socialCounts.youtube.count;
-        }
-
-        // LinkedIn
-        if (socialMode === "breakdown") {
-          smPayload.linkedin = scope.socialMedia.linkedin;
-        } else {
-          smPayload.linkedin = { posts: 0, custom: 0 };
-          smPayload.linkedin[socialCounts.linkedin.category] = socialCounts.linkedin.count;
-        }
-
-        // X
-        if (socialMode === "breakdown") {
-          smPayload.x = scope.socialMedia.x;
-        } else {
-          smPayload.x = { posts: 0, custom: 0 };
-          smPayload.x[socialCounts.x.category] = socialCounts.x.count;
-        }
-
-        scopePayload.socialMedia = smPayload;
-      }
-      if (selectedModules.paidMedia) scopePayload.paidMedia = scope.paidMedia;
-      if (selectedModules.emailWhatsapp) scopePayload.emailWhatsapp = scope.emailWhatsapp;
-      if (selectedModules.seo) scopePayload.seo = scope.seo;
-      if (selectedModules.influencer) scopePayload.influencer = scope.influencer;
+      const filteredItems = scopeItems.filter((item) => activeModuleKeys.includes(item.module));
 
       const payload = {
         name,
@@ -225,7 +270,7 @@ export default function OnboardingPage() {
         competitors,
         socialMediaPresence,
         assignedTeam,
-        scope: scopePayload,
+        scope: { items: filteredItems },
       };
 
       const res = await fetch("/api/clients", {
@@ -570,858 +615,195 @@ export default function OnboardingPage() {
               Provide committed deliverables quantity per month. Deliverables placeholders will be automatically generated for scheduling.
             </p>
 
-            {/* Social Media Scope Section */}
-            {selectedModules.socialMedia && (
-              <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-4">
-                <div className="flex items-center justify-between border-b border-gray-50 pb-2">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-emerald-600" />
-                    <h3 className="text-xs font-bold text-gray-800">Social Media Channels</h3>
-                  </div>
-                  <div className="flex border border-gray-200 rounded overflow-hidden text-[9px] font-bold">
+            {Object.keys(selectedModules).filter((k) => selectedModules[k]).map((modKey) => {
+              const dbModule =
+                modKey === "socialMedia" ? "social" :
+                  modKey === "paidMedia" ? "paid" :
+                    modKey === "emailWhatsapp" ? "email" :
+                      modKey === "seo" ? "seo" :
+                        modKey === "influencer" ? "influencer" : modKey;
+
+              const meta = [
+                { key: "social", label: "Social Media Marketing", color: "emerald" },
+                { key: "paid", label: "Paid Performance Ads", color: "blue" },
+                { key: "email", label: "Email / WhatsApp Marketing", color: "purple" },
+                { key: "seo", label: "Search Engine Optimization (SEO)", color: "indigo" },
+                { key: "influencer", label: "Influencer Marketing", color: "amber" },
+              ].find((m) => m.key === dbModule) || { key: dbModule, label: modKey, color: "gray" };
+
+              const items = scopeItems.filter((s) => s.module === dbModule);
+
+              return (
+                <div key={dbModule} className="bg-white border border-gray-100 rounded-xl p-5 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full bg-${meta.color}-500`} />
+                      <h3 className="text-xs font-bold text-gray-800">{meta.label}</h3>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setSocialMode("breakdown")}
-                      className={`px-2 py-0.5 transition-colors cursor-pointer ${socialMode === "breakdown" ? "bg-emerald-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+                      onClick={() => {
+                        setScopeItems((prev) => [
+                          ...prev,
+                          {
+                            id: `${dbModule}-${crypto.randomUUID().slice(0, 6)}`,
+                            module: dbModule,
+                            label: dbModule === "social" ? "reel/story" : "",
+                            unit: "qty",
+                            committed: 1,
+                            platforms: dbModule === "social" ? ["instagram"] : [],
+                          },
+                        ]);
+                      }}
+                      className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                     >
-                      Break-down
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSocialMode("count")}
-                      className={`px-2 py-0.5 transition-colors cursor-pointer ${socialMode === "count" ? "bg-emerald-600 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
-                    >
-                      Count
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {/* Instagram */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-gray-700">Instagram</p>
-                    </div>
-
-                    {socialMode === "breakdown" ? (
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Reels</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.instagram.reels}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                instagram: { ...scope.socialMedia.instagram, reels: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Posts</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.instagram.posts}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                instagram: { ...scope.socialMedia.instagram, posts: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Stories</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.instagram.stories}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                instagram: { ...scope.socialMedia.instagram, stories: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Total Count</label>
-                          <input
-                            type="number" min="0" value={socialCounts.instagram.count}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              instagram: { ...socialCounts.instagram, count: parseInt(e.target.value) || 0 }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Category</label>
-                          <select
-                            value={socialCounts.instagram.category}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              instagram: { ...socialCounts.instagram, category: e.target.value }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          >
-                            <option value="custom">Flexible (We Decide)</option>
-                            <option value="reels">Reels</option>
-                            <option value="posts">Posts</option>
-                            <option value="stories">Stories</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Facebook */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-gray-700">Facebook</p>
-                    </div>
-
-                    {socialMode === "breakdown" ? (
-                      <div className="grid grid-cols-4 gap-1">
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Static</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.facebook.staticCount}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                facebook: { ...scope.socialMedia.facebook, staticCount: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-0.5 border text-[10px] rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Reels</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.facebook.reels}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                facebook: { ...scope.socialMedia.facebook, reels: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-0.5 border text-[10px] rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Posts</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.facebook.posts}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                facebook: { ...scope.socialMedia.facebook, posts: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-0.5 border text-[10px] rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Stories</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.facebook.stories}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                facebook: { ...scope.socialMedia.facebook, stories: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-0.5 border text-[10px] rounded bg-white text-gray-800"
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Total Count</label>
-                          <input
-                            type="number" min="0" value={socialCounts.facebook.count}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              facebook: { ...socialCounts.facebook, count: parseInt(e.target.value) || 0 }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Category</label>
-                          <select
-                            value={socialCounts.facebook.category}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              facebook: { ...socialCounts.facebook, category: e.target.value }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          >
-                            <option value="custom">Flexible (We Decide)</option>
-                            <option value="staticCount">Static</option>
-                            <option value="reels">Reels</option>
-                            <option value="posts">Posts</option>
-                            <option value="stories">Stories</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* YouTube */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-gray-700">YouTube</p>
-                    </div>
-
-                    {socialMode === "breakdown" ? (
-                      <div className="grid grid-cols-4 gap-1">
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Static</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.youtube.staticCount}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                youtube: { ...scope.socialMedia.youtube, staticCount: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-0.5 border text-[10px] rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Reels</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.youtube.reels}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                youtube: { ...scope.socialMedia.youtube, reels: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-0.5 border text-[10px] rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Posts</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.youtube.posts}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                youtube: { ...scope.socialMedia.youtube, posts: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-0.5 border text-[10px] rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Stories</label>
-                          <input
-                            type="number" min="0" value={scope.socialMedia.youtube.stories}
-                            onChange={(e) => setScope({
-                              ...scope,
-                              socialMedia: {
-                                ...scope.socialMedia,
-                                youtube: { ...scope.socialMedia.youtube, stories: parseInt(e.target.value) || 0 }
-                              }
-                            })}
-                            className="w-full p-0.5 border text-[10px] rounded bg-white text-gray-800"
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Total Count</label>
-                          <input
-                            type="number" min="0" value={socialCounts.youtube.count}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              youtube: { ...socialCounts.youtube, count: parseInt(e.target.value) || 0 }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Category</label>
-                          <select
-                            value={socialCounts.youtube.category}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              youtube: { ...socialCounts.youtube, category: e.target.value }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          >
-                            <option value="custom">Flexible (We Decide)</option>
-                            <option value="staticCount">Static (Posts)</option>
-                            <option value="reels">Shorts</option>
-                            <option value="posts">Videos</option>
-                            <option value="stories">Stories</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* LinkedIn */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-gray-700">LinkedIn</p>
-                    </div>
-
-                    {socialMode === "breakdown" ? (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Posts per month</label>
-                        <input
-                          type="number" min="0" value={scope.socialMedia.linkedin.posts}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            socialMedia: {
-                              ...scope.socialMedia,
-                              linkedin: { posts: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                        />
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Total Count</label>
-                          <input
-                            type="number" min="0" value={socialCounts.linkedin.count}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              linkedin: { ...socialCounts.linkedin, count: parseInt(e.target.value) || 0 }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Category</label>
-                          <select
-                            value={socialCounts.linkedin.category}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              linkedin: { ...socialCounts.linkedin, category: e.target.value }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          >
-                            <option value="custom">Flexible (We Decide)</option>
-                            <option value="posts">Posts</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* X (Twitter) */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-gray-700">X (Twitter)</p>
-                    </div>
-
-                    {socialMode === "breakdown" ? (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Posts per month</label>
-                        <input
-                          type="number" min="0" value={scope.socialMedia.x.posts}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            socialMedia: {
-                              ...scope.socialMedia,
-                              x: { posts: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                        />
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Total Count</label>
-                          <input
-                            type="number" min="0" value={socialCounts.x.count}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              x: { ...socialCounts.x, count: parseInt(e.target.value) || 0 }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          />
-                        </div>
-                        <div className="space-y-0.5">
-                          <label className="text-[9px] font-bold text-gray-400 uppercase">Category</label>
-                          <select
-                            value={socialCounts.x.category}
-                            onChange={(e) => setSocialCounts({
-                              ...socialCounts,
-                              x: { ...socialCounts.x, category: e.target.value }
-                            })}
-                            className="w-full p-1 border text-xs rounded bg-white text-gray-800"
-                          >
-                            <option value="custom">Flexible (We Decide)</option>
-                            <option value="posts">Posts</option>
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Paid Media Scope Section */}
-            {selectedModules.paidMedia && (
-              <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-4">
-                <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
-                  <Award className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-xs font-bold text-gray-800">Paid Media Campaigns</h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Meta Ads */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-2">
-                    <p className="text-xs font-bold text-gray-700">Meta Ads</p>
-                    <div className="space-y-1.5">
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Monthly Budget ($)</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.metaAds.adSpend}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              metaAds: { ...scope.paidMedia.metaAds, adSpend: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Creatives Target</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.metaAds.creatives}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              metaAds: { ...scope.paidMedia.metaAds, creatives: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Agency Comm (%)</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.metaAds.commission}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              metaAds: { ...scope.paidMedia.metaAds, commission: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Google Ads */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-2">
-                    <p className="text-xs font-bold text-gray-700">Google Ads</p>
-                    <div className="space-y-1.5">
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Monthly Budget ($)</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.googleAds.adSpend}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              googleAds: { ...scope.paidMedia.googleAds, adSpend: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Creatives Target</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.googleAds.creatives}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              googleAds: { ...scope.paidMedia.googleAds, creatives: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Agency Comm (%)</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.googleAds.commission}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              googleAds: { ...scope.paidMedia.googleAds, commission: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* LinkedIn Ads */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-2">
-                    <p className="text-xs font-bold text-gray-700">LinkedIn Ads</p>
-                    <div className="space-y-1.5">
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Monthly Budget ($)</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.linkedinAds.adSpend}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              linkedinAds: { ...scope.paidMedia.linkedinAds, adSpend: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Creatives Target</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.linkedinAds.creatives}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              linkedinAds: { ...scope.paidMedia.linkedinAds, creatives: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Agency Comm (%)</label>
-                        <input
-                          type="number" min="0" value={scope.paidMedia.linkedinAds.commission}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            paidMedia: {
-                              ...scope.paidMedia,
-                              linkedinAds: { ...scope.paidMedia.linkedinAds, commission: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Email / WhatsApp Marketing */}
-            {selectedModules.emailWhatsapp && (
-              <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-4">
-                <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
-                  <PlusCircle className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-xs font-bold text-gray-800">Email & WhatsApp Marketing</h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Transactional */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-gray-700">Transactional Email Setup</p>
-                      <input
-                        type="checkbox"
-                        checked={scope.emailWhatsapp.transactional.enabled}
-                        onChange={(e) => setScope({
-                          ...scope,
-                          emailWhatsapp: {
-                            ...scope.emailWhatsapp,
-                            transactional: { ...scope.emailWhatsapp.transactional, enabled: e.target.checked }
-                          }
-                        })}
-                        className="w-4 h-4 accent-emerald-600"
-                      />
-                    </div>
-                    {scope.emailWhatsapp.transactional.enabled && (
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Number of Trigger Flows</label>
-                        <input
-                          type="number" min="0" value={scope.emailWhatsapp.transactional.triggers}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            emailWhatsapp: {
-                              ...scope.emailWhatsapp,
-                              transactional: { ...scope.emailWhatsapp.transactional, triggers: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Promotional */}
-                  <div className="bg-gray-50/50 p-3 border border-gray-100 rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-bold text-gray-700">Promotional Campaigns</p>
-                      <input
-                        type="checkbox"
-                        checked={scope.emailWhatsapp.promotional.enabled}
-                        onChange={(e) => setScope({
-                          ...scope,
-                          emailWhatsapp: {
-                            ...scope.emailWhatsapp,
-                            promotional: { ...scope.emailWhatsapp.promotional, enabled: e.target.checked }
-                          }
-                        })}
-                        className="w-4 h-4 accent-emerald-600"
-                      />
-                    </div>
-                    {scope.emailWhatsapp.promotional.enabled && (
-                      <div>
-                        <label className="text-[9px] font-bold text-gray-400 uppercase block">Total Email Blasts / Mo</label>
-                        <input
-                          type="number" min="0" value={scope.emailWhatsapp.promotional.emails}
-                          onChange={(e) => setScope({
-                            ...scope,
-                            emailWhatsapp: {
-                              ...scope.emailWhatsapp,
-                              promotional: { ...scope.emailWhatsapp.promotional, emails: parseInt(e.target.value) || 0 }
-                            }
-                          })}
-                          className="w-full p-1 border text-xs rounded bg-white"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* SEO Section */}
-            {selectedModules.seo && (
-              <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-4">
-                <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
-                  <Globe className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-xs font-bold text-gray-800">Search Engine Optimization (SEO)</h3>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-[11px] font-bold text-gray-500 uppercase">Target Keyword List</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text" placeholder="e.g. accounting software for startups"
-                      value={newKeyword} onChange={(e) => setNewKeyword(e.target.value)}
-                      className="flex-1 p-2 border text-xs rounded-lg bg-white"
-                    />
-                    <button
-                      type="button" onClick={addKeyword}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg"
-                    >
-                      Add Keyword
+                      <Plus className="w-3.5 h-3.5" /> Add Item
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {scope.seo.keywords.map((k) => (
-                      <span key={k} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                        {k}
-                        <button type="button" onClick={() => removeKeyword(k)} className="text-gray-400 hover:text-red-500">×</button>
-                      </span>
+
+                  {items.length === 0 && (
+                    <p className="text-xs text-gray-400 italic">No scope items added yet.</p>
+                  )}
+
+                  <div className="space-y-4">
+                    {items.map((s) => (
+                      <div key={s.id} className="grid grid-cols-12 gap-3 items-end border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                        {dbModule === "social" ? (
+                          <>
+                            {/* Deliverable Dropdown */}
+                            <div className="col-span-12 sm:col-span-3 space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Deliverable</label>
+                              <select
+                                value={s.label}
+                                onChange={(e) => updateScopeItem(s.id, { label: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg bg-white"
+                              >
+                                <option value="">Select...</option>
+                                <option value="reel/story">Reel/Story</option>
+                                <option value="image/carousel">Image/Carousel</option>
+                                <option value="post">Post</option>
+                                <option value="static">Static</option>
+                                <option value="custom">Custom</option>
+                              </select>
+                            </div>
+
+                            {/* Unit Input */}
+                            <div className="col-span-4 sm:col-span-2 space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Unit</label>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={s.unit || ""}
+                                onChange={(e) => updateScopeItem(s.id, { unit: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
+                              />
+                            </div>
+
+                            {/* Committed count */}
+                            {/* <div className="col-span-4 sm:col-span-2 space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Committed / mo</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={s.committed}
+                                onChange={(e) => updateScopeItem(s.id, { committed: parseInt(e.target.value) || 0 })}
+                                className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
+                              />
+                            </div> */}
+
+                            {/* Platforms */}
+                            <div className="col-span-12 sm:col-span-4 space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Platforms</label>
+                              <div className="flex gap-1.5 flex-wrap">
+                                {[
+                                  { key: "instagram", icon: instagram, label: "Instagram" },
+                                  { key: "facebook", icon: facebook, label: "Facebook" },
+                                  { key: "linkedin", icon: linkedin, label: "LinkedIn" },
+                                  { key: "youtube", icon: youtube, label: "YouTube" },
+                                  { key: "x", icon: twitter, label: "X" },
+                                ].map((p) => {
+                                  const selected = (s.platforms || []).includes(p.key);
+                                  return (
+                                    <button
+                                      key={p.key}
+                                      type="button"
+                                      onClick={() => togglePlatform(s.id, p.key)}
+                                      title={p.label}
+                                      className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center ${selected
+                                        ? "bg-emerald-50 border-emerald-300 scale-105"
+                                        : "bg-gray-50/50 border-gray-200 hover:bg-gray-100 opacity-60 hover:opacity-100"
+                                        }`}
+                                    >
+                                      <img
+                                        src={p.icon.src}
+                                        alt={p.label}
+                                        className={`w-5 h-5 object-contain transition-transform ${selected ? "scale-110" : ""}`}
+                                      />
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            {/* Deliverable Input */}
+                            <div className="col-span-12 sm:col-span-6 space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Deliverable</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Meta Ad Creatives, Blogs per month, etc."
+                                value={s.label}
+                                onChange={(e) => updateScopeItem(s.id, { label: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
+                              />
+                            </div>
+
+                            {/* Unit Input */}
+                            <div className="col-span-6 sm:col-span-2 space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Unit</label>
+                              <input
+                                type="text"
+                                placeholder="qty"
+                                value={s.unit || ""}
+                                onChange={(e) => updateScopeItem(s.id, { unit: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
+                              />
+                            </div>
+
+                            {/* Committed count */}
+                            <div className="col-span-6 sm:col-span-3 space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Committed / mo</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={s.committed}
+                                onChange={(e) => updateScopeItem(s.id, { committed: parseInt(e.target.value) || 0 })}
+                                className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Delete button */}
+                        <div className="col-span-12 sm:col-span-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => deleteScopeItem(s.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-50 rounded-lg transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-gray-50 pt-4">
-                  {/* Google Analytics */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block">Google Analytics Access</label>
-                    <select
-                      value={scope.seo.gaAccess.type}
-                      onChange={(e) => setScope({
-                        ...scope,
-                        seo: { ...scope.seo, gaAccess: { ...scope.seo.gaAccess, type: e.target.value as any } }
-                      })}
-                      className="w-full p-2 border text-xs rounded-lg bg-white"
-                    >
-                      <option value="none">No Access</option>
-                      <option value="email">Added on Email</option>
-                      <option value="login">Credentials Provided</option>
-                    </select>
-                    {scope.seo.gaAccess.type !== "none" && (
-                      <input
-                        type="text" placeholder="Access email or notes"
-                        value={scope.seo.gaAccess.details}
-                        onChange={(e) => setScope({
-                          ...scope,
-                          seo: { ...scope.seo, gaAccess: { ...scope.seo.gaAccess, details: e.target.value } }
-                        })}
-                        className="w-full p-1.5 border text-xs rounded bg-white mt-1"
-                      />
-                    )}
-                  </div>
-
-                  {/* Google Tag Manager */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block">Google Tag Manager</label>
-                    <select
-                      value={scope.seo.gtmAccess.type}
-                      onChange={(e) => setScope({
-                        ...scope,
-                        seo: { ...scope.seo, gtmAccess: { ...scope.seo.gtmAccess, type: e.target.value as any } }
-                      })}
-                      className="w-full p-2 border text-xs rounded-lg bg-white"
-                    >
-                      <option value="none">No Access</option>
-                      <option value="email">Added on Email</option>
-                      <option value="login">Credentials Provided</option>
-                    </select>
-                    {scope.seo.gtmAccess.type !== "none" && (
-                      <input
-                        type="text" placeholder="Access email or notes"
-                        value={scope.seo.gtmAccess.details}
-                        onChange={(e) => setScope({
-                          ...scope,
-                          seo: { ...scope.seo, gtmAccess: { ...scope.seo.gtmAccess, details: e.target.value } }
-                        })}
-                        className="w-full p-1.5 border text-xs rounded bg-white mt-1"
-                      />
-                    )}
-                  </div>
-
-                  {/* Google Search Console */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block">Google Search Console</label>
-                    <select
-                      value={scope.seo.gscAccess.type}
-                      onChange={(e) => setScope({
-                        ...scope,
-                        seo: { ...scope.seo, gscAccess: { ...scope.seo.gscAccess, type: e.target.value as any } }
-                      })}
-                      className="w-full p-2 border text-xs rounded-lg bg-white"
-                    >
-                      <option value="none">No Access</option>
-                      <option value="email">Added on Email</option>
-                      <option value="login">Credentials Provided</option>
-                    </select>
-                    {scope.seo.gscAccess.type !== "none" && (
-                      <input
-                        type="text" placeholder="Access email or notes"
-                        value={scope.seo.gscAccess.details}
-                        onChange={(e) => setScope({
-                          ...scope,
-                          seo: { ...scope.seo, gscAccess: { ...scope.seo.gscAccess, details: e.target.value } }
-                        })}
-                        className="w-full p-1.5 border text-xs rounded bg-white mt-1"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-50 pt-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block">Audit Google Sheet Link</label>
-                    <input
-                      type="url" placeholder="https://docs.google.com/spreadsheets/..."
-                      value={scope.seo.auditSheetLink}
-                      onChange={(e) => setScope({
-                        ...scope,
-                        seo: { ...scope.seo, auditSheetLink: e.target.value }
-                      })}
-                      className="w-full p-2 border text-xs rounded-lg bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block">Creative Content Shared Doc</label>
-                    <input
-                      type="url" placeholder="https://docs.google.com/document/..."
-                      value={scope.seo.docLink}
-                      onChange={(e) => setScope({
-                        ...scope,
-                        seo: { ...scope.seo, docLink: e.target.value }
-                      })}
-                      className="w-full p-2 border text-xs rounded-lg bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Influencer Marketing Section */}
-            {selectedModules.influencer && (
-              <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-4">
-                <div className="flex items-center gap-2 border-b border-gray-50 pb-2">
-                  <Award className="w-4 h-4 text-emerald-600" />
-                  <h3 className="text-xs font-bold text-gray-800">Influencer Marketing campaigns</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block">Influencers count / Month</label>
-                    <input
-                      type="number" min="0" value={scope.influencer.influencersCount}
-                      onChange={(e) => setScope({
-                        ...scope,
-                        influencer: { ...scope.influencer, influencersCount: parseInt(e.target.value) || 0 }
-                      })}
-                      className="w-full p-2 border text-xs rounded-lg bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block">Influencer Budget ($)</label>
-                    <input
-                      type="number" min="0" value={scope.influencer.budget}
-                      onChange={(e) => setScope({
-                        ...scope,
-                        influencer: { ...scope.influencer, budget: parseInt(e.target.value) || 0 }
-                      })}
-                      className="w-full p-2 border text-xs rounded-lg bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-500 uppercase block">Agency Commission ($)</label>
-                    <input
-                      type="number" min="0" value={scope.influencer.commission}
-                      onChange={(e) => setScope({
-                        ...scope,
-                        influencer: { ...scope.influencer, commission: parseInt(e.target.value) || 0 }
-                      })}
-                      className="w-full p-2 border text-xs rounded-lg bg-white"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+              );
+            })}
           </div>
         )}
-
         {/* STEP 3: ASSIGN TEAM */}
         {step === 3 && (
           <div className="space-y-4 animate-fade-in">
@@ -1507,78 +889,49 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            {selectedModules.socialMedia && (
-              <div className="space-y-3 animate-fade-in">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Configured Social Scope Summary</p>
-                <div className="border border-gray-150 rounded-xl p-4 space-y-2 bg-gray-50/30 text-xs">
-                  {/* Instagram */}
-                  <div>
-                    <span className="font-bold text-gray-700">Instagram: </span>
-                    {socialMode === "breakdown" ? (
-                      <span className="text-gray-600">
-                        Breakdown ({scope.socialMedia.instagram.reels} Reels, {scope.socialMedia.instagram.posts} Posts, {scope.socialMedia.instagram.stories} Stories)
-                      </span>
-                    ) : (
-                      <span className="text-gray-600">
-                        Total Count ({socialCounts.instagram.count} Deliverables - <span className="capitalize">{socialCounts.instagram.category === "custom" ? "Flexible (We Decide)" : socialCounts.instagram.category}</span>)
-                      </span>
-                    )}
-                  </div>
-                  {/* Facebook */}
-                  <div>
-                    <span className="font-bold text-gray-700">Facebook: </span>
-                    {socialMode === "breakdown" ? (
-                      <span className="text-gray-600">
-                        Breakdown ({scope.socialMedia.facebook.staticCount} Static, {scope.socialMedia.facebook.reels} Reels, {scope.socialMedia.facebook.posts} Posts, {scope.socialMedia.facebook.stories} Stories)
-                      </span>
-                    ) : (
-                      <span className="text-gray-600">
-                        Total Count ({socialCounts.facebook.count} Deliverables - <span className="capitalize">{socialCounts.facebook.category === "custom" ? "Flexible (We Decide)" : socialCounts.facebook.category === "staticCount" ? "Static" : socialCounts.facebook.category}</span>)
-                      </span>
-                    )}
-                  </div>
-                  {/* YouTube */}
-                  <div>
-                    <span className="font-bold text-gray-700">YouTube: </span>
-                    {socialMode === "breakdown" ? (
-                      <span className="text-gray-600">
-                        Breakdown ({scope.socialMedia.youtube.staticCount} Static, {scope.socialMedia.youtube.reels} Reels, {scope.socialMedia.youtube.posts} Posts, {scope.socialMedia.youtube.stories} Stories)
-                      </span>
-                    ) : (
-                      <span className="text-gray-600">
-                        Total Count ({socialCounts.youtube.count} Deliverables - <span className="capitalize">{socialCounts.youtube.category === "custom" ? "Flexible (We Decide)" : socialCounts.youtube.category === "staticCount" ? "Static" : socialCounts.youtube.category === "reels" ? "Shorts" : socialCounts.youtube.category === "posts" ? "Videos" : socialCounts.youtube.category}</span>)
-                      </span>
-                    )}
-                  </div>
-                  {/* LinkedIn */}
-                  <div>
-                    <span className="font-bold text-gray-700">LinkedIn: </span>
-                    {socialMode === "breakdown" ? (
-                      <span className="text-gray-600">
-                        Breakdown ({scope.socialMedia.linkedin.posts} Posts)
-                      </span>
-                    ) : (
-                      <span className="text-gray-600">
-                        Total Count ({socialCounts.linkedin.count} Deliverables - <span className="capitalize">{socialCounts.linkedin.category === "custom" ? "Flexible (We Decide)" : "Posts"}</span>)
-                      </span>
-                    )}
-                  </div>
-                  {/* X */}
-                  <div>
-                    <span className="font-bold text-gray-700">X (Twitter): </span>
-                    {socialMode === "breakdown" ? (
-                      <span className="text-gray-600">
-                        Breakdown ({scope.socialMedia.x.posts} Posts)
-                      </span>
-                    ) : (
-                      <span className="text-gray-600">
-                        Total Count ({socialCounts.x.count} Deliverables - <span className="capitalize">{socialCounts.x.category === "custom" ? "Flexible (We Decide)" : "Posts"}</span>)
-                      </span>
+            {Object.keys(selectedModules).filter((k) => selectedModules[k]).map((modKey) => {
+              const dbModule =
+                modKey === "socialMedia" ? "social" :
+                  modKey === "paidMedia" ? "paid" :
+                    modKey === "emailWhatsapp" ? "email" :
+                      modKey === "seo" ? "seo" :
+                        modKey === "influencer" ? "influencer" : modKey;
+
+              const moduleItems = scopeItems.filter((s) => s.module === dbModule);
+              const meta = [
+                { key: "social", label: "Social Media Marketing" },
+                { key: "paid", label: "Paid Performance Ads" },
+                { key: "email", label: "Email / WhatsApp Marketing" },
+                { key: "seo", label: "Search Engine Optimization (SEO)" },
+                { key: "influencer", label: "Influencer Marketing" },
+              ].find((x) => x.key === dbModule);
+
+              return (
+                <div key={modKey} className="space-y-3 animate-fade-in">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{meta?.label || modKey} Scope Summary</p>
+                  <div className="border border-gray-150 rounded-xl p-4 space-y-2 bg-gray-50/30 text-xs">
+                    {moduleItems.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0 last:pb-0">
+                        <div>
+                          <span className="font-bold text-gray-700">{item.label || "Unnamed Deliverable"}</span>
+                          {item.module === "social" && item.platforms && item.platforms.length > 0 && (
+                            <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-bold uppercase border border-emerald-100">
+                              {item.platforms.join(", ")}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-gray-600 font-medium">
+                          {item.committed} {item.unit || "qty"} / mo
+                        </span>
+                      </div>
+                    ))}
+                    {moduleItems.length === 0 && (
+                      <p className="text-gray-400 italic">No scope items added for this module.</p>
                     )}
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
 
             <div className="space-y-3">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Assigned internal team</p>
@@ -1611,7 +964,7 @@ export default function OnboardingPage() {
             <button
               type="button"
               disabled={!canGoNext()}
-              onClick={() => setStep(step + 1)}
+              onClick={handleNextStep}
               className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 text-xs font-semibold rounded-lg transition-all flex items-center gap-1"
             >
               Next <ArrowRight className="w-3.5 h-3.5" />

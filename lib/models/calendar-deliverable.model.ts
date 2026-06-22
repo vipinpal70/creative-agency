@@ -4,7 +4,7 @@ export interface ICalendarDeliverable extends Document {
   clientId: mongoose.Types.ObjectId; // Ref Client
   title: string;
   platform: "instagram" | "facebook" | "youtube" | "linkedin" | "x" | "meta-ads" | "google-ads" | "linkedin-ads" | "seo" | "email-whatsapp" | "influencer" | "custom";
-  type: "reel" | "post" | "story" | "static" | "ad" | "seo-task" | "email-blast" | "influencer-campaign" | "custom";
+  type: "reel" | "post" | "story" | "static" | "ad" | "seo-task" | "email-blast" | "influencer-campaign" | "custom" | "reel/story" | "image/carousel";
   status: "pending" | "delivered";
   scheduledDate: Date;
   completedDate?: Date;
@@ -48,6 +48,8 @@ const calendarDeliverableSchema = new Schema<ICalendarDeliverable>(
         "email-blast",
         "influencer-campaign",
         "custom",
+        "reel/story",
+        "image/carousel",
       ],
       required: true,
     },

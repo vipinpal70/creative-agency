@@ -26,6 +26,37 @@
   --color-purple-500: #22C55E;
   --color-purple-600: #16A34A;
   --color-purple-700: #15803D;
+
+  /* Force shadcn primitives to map to Green System */
+  --color-primary: #16A34A;
+  --color-primary-foreground: #FFFFFF;
+  --color-background: #FFFFFF;
+  --color-foreground: #111827;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #111827;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #111827;
+  --color-muted: #F3F4F6;
+  --color-muted-foreground: #4B5563;
+  --color-accent: #F0FDF4; /* Very light green for hover state */
+  --color-accent-foreground: #16A34A;
+  --color-border: #E5E7EB;
+  --color-input: #E5E7EB;
+  --color-ring: #16A34A;
+}
+
+:root {
+  /* Green/Teal system module colors */
+  --mod-social: 142 76% 36%;  /* Emerald/Green */
+  --mod-paid: 160 84% 39%;    /* Teal */
+  --mod-seo: 120 70% 36%;     /* Lime/Green */
+  --mod-email: 142 70% 29%;   /* Forest Green */
+  --mod-website: 174 72% 41%; /* Sage/Teal */
+  --mod-orm: 340 82% 52%;
+  --mod-influencer: 47 95% 53%;
+  --mod-video: 0 84% 60%;
+  --mod-design: 142 76% 36%;
+  --mod-custom: 220 9% 46%;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */

@@ -7,8 +7,14 @@ import {
   ExternalLink, Eye, EyeOff, Copy, PlusCircle, FolderOpen,
   MessageSquare, ClipboardList, FileDown, Globe, Award, UserCheck,
   Save, ChevronDown, ChevronUp, Calendar as CalendarIcon,
-  ShieldAlert, KeyRound,
+  ShieldAlert, KeyRound, Check, AlertCircle, X,
 } from "lucide-react";
+
+import instagram from "@/app/assets/instagram.png";
+import facebook from "@/app/assets/facebook.png";
+import linkedin from "@/app/assets/linkedin.png";
+import twitter from "@/app/assets/twitter.png";
+import youtube from "@/app/assets/youtube.png";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,7 +23,15 @@ interface SocialPresence { platform: string; link: string }
 type CredentialCategory = "social" | "website" | "email_tools" | "ads" | "analytics" | "custom";
 interface CredentialField { key: string; label: string; type: "text" | "password" | "url" | "email" | "textarea" }
 interface Credential { id: string; category: CredentialCategory; label: string; values: Record<string, string> }
-interface DocumentItem { id: string; name: string; fileUrl: string; uploadedAt: string }
+interface DocumentItem {
+  id: string;
+  name: string;
+  fileUrl: string;
+  filePath: string;
+  fileSize: number;
+  uploadedAt: string;
+  uploadedBy: string;
+}
 interface MeetingLog { id: string; title: string; notes: string; date: string; loggedBy: string }
 interface AssignedTeamUser { _id: string; firstName: string; lastName: string; name: string; email: string; roles: string[]; avatarColor: string }
 
@@ -40,6 +54,8 @@ interface SowScope {
   };
   seo?: {
     keywords?: string[];
+    totalKeywords?: number;
+    onPage?: boolean;
     gaAccess?: { type: "login" | "email" | "none"; details?: string };
     gtmAccess?: { type: "login" | "email" | "none"; details?: string };
     gscAccess?: { type: "login" | "email" | "none"; details?: string };
@@ -78,6 +94,7 @@ interface ScopeRecord {
   id: string; period?: string; label?: string; isActive?: boolean;
   createdAt: string; socialMedia?: any; paidMedia?: any;
   emailWhatsapp?: any; seo?: any; influencer?: any;
+  items?: any[];
 }
 
 // ─── Module metadata ──────────────────────────────────────────────────────────
@@ -207,86 +224,138 @@ function CredentialRow({ entry, onRemove }: { entry: Credential; onRemove: () =>
   );
 }
 
-// ─── Default new-scope form ───────────────────────────────────────────────────
-
-const DEFAULT_SCOPE_FORM = {
-  period: "", label: "",
-  socialMedia: {
-    instagram: { reels: 0, posts: 0, stories: 0, custom: 0 },
-    facebook: { staticCount: 0, reels: 0, posts: 0, stories: 0 },
-    youtube: { staticCount: 0, reels: 0, posts: 0, stories: 0 },
-    linkedin: { posts: 0 }, x: { posts: 0 },
-  },
-  paidMedia: {
-    metaAds: { adSpend: 0, creatives: 0, commission: 0 },
-    googleAds: { adSpend: 0, creatives: 0, commission: 0 },
-    linkedinAds: { adSpend: 0, creatives: 0, commission: 0 },
-  },
-  emailWhatsapp: {
-    transactional: { enabled: false, triggers: 0 },
-    promotional: { enabled: false, emails: 0 },
-  },
-  seo: {
-    keywords: [] as string[],
-    gaAccess: { type: "none" as "login" | "email" | "none", details: "" },
-    gtmAccess: { type: "none" as "login" | "email" | "none", details: "" },
-    gscAccess: { type: "none" as "login" | "email" | "none", details: "" },
-    auditSheetLink: "", docLink: "",
-  },
-  influencer: { influencersCount: 0, commission: 0, budget: 0 },
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const pct = (d: number, c: number) => (c === 0 ? 0 : Math.min(100, Math.round((d / c) * 100)));
 
-function deriveScopeItems(scope: SowScope | undefined, monthDels: Deliverable[]) {
-  const D = (platform: string, type: string) =>
-    monthDels.filter((d) => d.platform === platform && d.type === type && d.status === "delivered").length;
+const getActiveModulesList = (sow: any) => {
+  if (!sow || !Array.isArray(sow.items)) return [];
+  const moduleNamesMap: Record<string, string> = {
+    social: "Social Media",
+    paid: "Paid Media",
+    email: "Email & WhatsApp",
+    seo: "SEO",
+    influencer: "Influencer",
+  };
+  const uniqueModules = Array.from(new Set(sow.items.map((item: any) => item.module)));
+  return uniqueModules.map((m: any) => moduleNamesMap[m] || m);
+};
 
-  const items: { id: string; module: string; label: string; committed: number; delivered: number }[] = [];
-
-  if (scope?.socialMedia) {
-    const sm = scope.socialMedia;
-    const add = (id: string, lbl: string, c: number, plat: string, tp: string) => {
-      if (c > 0) items.push({ id, module: "social", label: lbl, committed: c, delivered: D(plat, tp) });
+const getModuleBadgeColors = (modName: string) => {
+  const name = modName.toLowerCase();
+  if (name.includes("social")) {
+    return {
+      badge: "bg-emerald-50 text-emerald-700 border-emerald-100",
+      text: "text-emerald-600",
+      border: "border-emerald-100",
+      dot: "bg-emerald-500"
     };
-    add("ig-reel", "Instagram Reels", sm.instagram?.reels || 0, "instagram", "reel");
-    add("ig-post", "Instagram Posts", sm.instagram?.posts || 0, "instagram", "post");
-    add("ig-story", "Instagram Stories", sm.instagram?.stories || 0, "instagram", "story");
-    add("ig-custom", "Instagram Flexible", sm.instagram?.custom || 0, "instagram", "custom");
-    add("fb-static", "Facebook Static", sm.facebook?.staticCount || 0, "facebook", "static");
-    add("fb-reel", "Facebook Reels", sm.facebook?.reels || 0, "facebook", "reel");
-    add("fb-post", "Facebook Posts", sm.facebook?.posts || 0, "facebook", "post");
-    add("fb-story", "Facebook Stories", sm.facebook?.stories || 0, "facebook", "story");
-    add("yt-short", "YouTube Shorts", sm.youtube?.reels || 0, "youtube", "reel");
-    add("yt-video", "YouTube Videos", sm.youtube?.posts || 0, "youtube", "post");
-    add("li-post", "LinkedIn Posts", sm.linkedin?.posts || 0, "linkedin", "post");
-    add("x-post", "X Posts", sm.x?.posts || 0, "x", "post");
   }
-
-  if (scope?.paidMedia) {
-    const pm = scope.paidMedia;
-    if ((pm.metaAds?.creatives || 0) > 0) items.push({ id: "meta-ad", module: "paid-ads", label: "Meta Ad Creatives", committed: pm.metaAds!.creatives, delivered: D("meta-ads", "ad") });
-    if ((pm.googleAds?.creatives || 0) > 0) items.push({ id: "gads-ad", module: "paid-ads", label: "Google Ad Creatives", committed: pm.googleAds!.creatives, delivered: D("google-ads", "ad") });
-    if ((pm.linkedinAds?.creatives || 0) > 0) items.push({ id: "li-ad", module: "paid-ads", label: "LinkedIn Ad Creatives", committed: pm.linkedinAds!.creatives, delivered: D("linkedin-ads", "ad") });
+  if (name.includes("paid")) {
+    return {
+      badge: "bg-indigo-50 text-indigo-700 border-indigo-100",
+      text: "text-indigo-600",
+      border: "border-indigo-100",
+      dot: "bg-indigo-500"
+    };
   }
-
-  if (scope?.emailWhatsapp) {
-    const ew = scope.emailWhatsapp;
-    if (ew.transactional?.enabled && (ew.transactional.triggers || 0) > 0)
-      items.push({ id: "ew-trans", module: "email", label: "Transactional Flows", committed: ew.transactional.triggers, delivered: D("email-whatsapp", "seo-task") });
-    if (ew.promotional?.enabled && (ew.promotional.emails || 0) > 0)
-      items.push({ id: "ew-promo", module: "email", label: "Promotional Campaigns", committed: ew.promotional.emails, delivered: D("email-whatsapp", "email-blast") });
+  if (name.includes("email") || name.includes("whatsapp")) {
+    return {
+      badge: "bg-amber-50 text-amber-700 border-amber-100",
+      text: "text-amber-600",
+      border: "border-amber-100",
+      dot: "bg-amber-500"
+    };
   }
+  if (name.includes("seo")) {
+    return {
+      badge: "bg-sky-50 text-sky-700 border-sky-100",
+      text: "text-sky-600",
+      border: "border-sky-100",
+      dot: "bg-sky-500"
+    };
+  }
+  if (name.includes("influencer")) {
+    return {
+      badge: "bg-pink-50 text-pink-700 border-pink-100",
+      text: "text-pink-600",
+      border: "border-pink-100",
+      dot: "bg-pink-500"
+    };
+  }
+  return {
+    badge: "bg-gray-50 text-gray-700 border-gray-100",
+    text: "text-gray-600",
+    border: "border-gray-150",
+    dot: "bg-gray-500"
+  };
+};
 
-  if (scope?.seo?.keywords && scope.seo.keywords.length > 0)
-    items.push({ id: "seo-kw", module: "seo", label: "Target Keywords", committed: scope.seo.keywords.length, delivered: D("seo", "seo-task") });
 
-  if (scope?.influencer && (scope.influencer.influencersCount ?? 0) > 0)
-    items.push({ id: "inf", module: "influencer", label: "Influencer Campaigns", committed: scope.influencer.influencersCount!, delivered: D("influencer", "influencer-campaign") });
 
-  return items;
+function deriveScopeItems(scope: any | undefined, monthDels: Deliverable[]) {
+  if (!scope || !Array.isArray(scope.items)) return [];
+
+  const getSocialType = (lbl: string) => {
+    const l = lbl.toLowerCase();
+    if (l === "reel/story" || l.includes("reel/story") || l === "reel" || l === "reels" || l === "story" || l === "stories") return "reel/story";
+    if (l === "image/carousel" || l.includes("image/carousel") || l.includes("carousel")) return "image/carousel";
+    if (l === "post" || l === "posts") return "post";
+    if (l === "static") return "static";
+    return "custom";
+  };
+
+  const getPaidPlatform = (lbl: string) => {
+    const l = lbl.toLowerCase();
+    if (l.includes("google")) return "google-ads";
+    if (l.includes("linkedin") || l.includes("li ")) return "linkedin-ads";
+    return "meta-ads";
+  };
+
+  const getEmailType = (lbl: string) => {
+    const l = lbl.toLowerCase();
+    if (l.includes("trigger") || l.includes("flow") || l.includes("automation")) return "seo-task";
+    return "email-blast";
+  };
+
+  return scope.items.map((item: any) => {
+    let delivered = 0;
+    if (item.module === "social") {
+      delivered = monthDels.filter(
+        (d) => {
+          const reqType = getSocialType(item.label);
+          const delivType = d.type;
+          const isMatch = (reqType === delivType) ||
+            (reqType === "reel/story" && (delivType === "reel" || delivType === "story" || delivType === "reel/story")) ||
+            (reqType === "image/carousel" && (delivType === "image/carousel" || delivType === "carousel"));
+          return (item.platforms || []).includes(d.platform) && isMatch && d.status === "delivered";
+        }
+      ).length;
+    } else if (item.module === "paid" || item.module === "paid-ads") {
+      delivered = monthDels.filter(
+        (d) => d.platform === getPaidPlatform(item.label) && d.type === "ad" && d.status === "delivered"
+      ).length;
+    } else if (item.module === "email" || item.module === "emailWhatsapp") {
+      delivered = monthDels.filter(
+        (d) => d.platform === "email-whatsapp" && d.type === getEmailType(item.label) && d.status === "delivered"
+      ).length;
+    } else if (item.module === "seo") {
+      delivered = monthDels.filter((d) => d.platform === "seo" && d.type === "seo-task" && d.status === "delivered").length;
+    } else if (item.module === "influencer") {
+      delivered = monthDels.filter((d) => d.platform === "influencer" && d.type === "influencer-campaign" && d.status === "delivered").length;
+    } else {
+      delivered = monthDels.filter((d) => d.platform === "custom" && d.type === "custom" && d.status === "delivered").length;
+    }
+
+    return {
+      id: item.id || item._id || Math.random().toString(),
+      module: item.module,
+      label: item.label,
+      committed: item.committed,
+      delivered,
+    };
+  });
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -320,13 +389,20 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   // Doc / meeting state
   const [showAddDoc, setShowAddDoc] = useState(false);
-  const [newDoc, setNewDoc] = useState({ name: "", fileUrl: "" });
+  const [uploadingFile, setUploadingFile] = useState<{
+    name: string;
+    size: number;
+    progress: number;
+    status: "idle" | "uploading" | "success" | "error";
+    errorMsg?: string;
+  } | null>(null);
   const [showAddMeeting, setShowAddMeeting] = useState(false);
   const [newMeeting, setNewMeeting] = useState({ title: "", notes: "", date: "" });
 
   // Task request state
   const [showAddTaskReq, setShowAddTaskReq] = useState(false);
   const [newTaskReq, setNewTaskReq] = useState({ title: "", description: "", dueDate: "" });
+  const [showAddTeamModal, setShowAddTeamModal] = useState(false);
 
   // Profile tab competitor / social state
   const [newComp, setNewComp] = useState({ name: "", websiteLink: "", socialMediaLink: "" });
@@ -335,10 +411,95 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   // Scope of Work tab state
   const [expandedScopeId, setExpandedScopeId] = useState<string | null>(null);
   const [showNewScopeModal, setShowNewScopeModal] = useState(false);
-  const [newScopeForm, setNewScopeForm] = useState(DEFAULT_SCOPE_FORM);
-  const [newScopeKeyInput, setNewScopeKeyInput] = useState("");
+  const [newScopePeriod, setNewScopePeriod] = useState("");
+  const [newScopeLabel, setNewScopeLabel] = useState("");
+  const [newScopeModules, setNewScopeModules] = useState<Record<string, boolean>>({
+    social: false,
+    paid: false,
+    email: false,
+    seo: false,
+    influencer: false,
+  });
+  const [newScopeItems, setNewScopeItems] = useState<any[]>([]);
   const [newScopeStep, setNewScopeStep] = useState(0);
   const [newScopeSubmitting, setNewScopeSubmitting] = useState(false);
+
+  const updateNewScopeItem = (id: string, updates: any) => {
+    setNewScopeItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+  };
+
+  const deleteNewScopeItem = (id: string) => {
+    setNewScopeItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const toggleNewScopePlatform = (itemId: string, platform: string) => {
+    setNewScopeItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        const platforms = item.platforms || [];
+        const nextPlats = platforms.includes(platform)
+          ? platforms.filter((p: string) => p !== platform)
+          : [...platforms, platform];
+        return { ...item, platforms: nextPlats };
+      })
+    );
+  };
+
+  const handleNewScopeNext = () => {
+    if (newScopeStep === 0) {
+      if (!newScopePeriod.trim()) return;
+
+      // Seed default items for active modules if empty
+      const nextItems = [...newScopeItems];
+      if (newScopeModules.social) {
+        const hasSocial = nextItems.some((s) => s.module === "social");
+        if (!hasSocial) {
+          nextItems.push(
+            { id: "social-reelstory", module: "social", label: "reel/story", unit: "qty", committed: 8, platforms: ["instagram"] },
+            { id: "social-imagecarousel", module: "social", label: "image/carousel", unit: "qty", committed: 6, platforms: ["instagram", "facebook"] },
+            { id: "social-post", module: "social", label: "post", unit: "qty", committed: 4, platforms: ["instagram", "facebook"] }
+          );
+        }
+      }
+      if (newScopeModules.paid) {
+        const hasPaid = nextItems.some((s) => s.module === "paid");
+        if (!hasPaid) {
+          nextItems.push(
+            { id: "paid-meta", module: "paid", label: "Meta Ad Creatives", unit: "qty", committed: 4 },
+            { id: "paid-google", module: "paid", label: "Google Ads Copy", unit: "qty", committed: 2 }
+          );
+        }
+      }
+      if (newScopeModules.email) {
+        const hasEmail = nextItems.some((s) => s.module === "email");
+        if (!hasEmail) {
+          nextItems.push(
+            { id: "email-promo", module: "email", label: "Promotional Campaigns", unit: "qty", committed: 4 },
+            { id: "email-trans", module: "email", label: "Transactional Flows", unit: "qty", committed: 1 }
+          );
+        }
+      }
+      if (newScopeModules.seo) {
+        const hasSeo = nextItems.some((s) => s.module === "seo");
+        if (!hasSeo) {
+          nextItems.push(
+            { id: "seo-blogs", module: "seo", label: "SEO Blog Posts", unit: "qty", committed: 4 },
+            { id: "seo-audits", module: "seo", label: "Technical SEO Audits", unit: "qty", committed: 1 }
+          );
+        }
+      }
+      if (newScopeModules.influencer) {
+        const hasInfluencer = nextItems.some((s) => s.module === "influencer");
+        if (!hasInfluencer) {
+          nextItems.push(
+            { id: "influencer-campaigns", module: "influencer", label: "Influencer Campaigns", unit: "qty", committed: 2 }
+          );
+        }
+      }
+      setNewScopeItems(nextItems);
+    }
+    setNewScopeStep(newScopeStep + 1);
+  };
 
   // ── Effects ────────────────────────────────────────────────────────────────
 
@@ -431,11 +592,78 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     patchClient({ socialMediaPresence: client.socialMediaPresence.filter((_, i) => i !== idx) });
   };
 
-  const handleAddDocSubmit = () => {
-    if (!client || !newDoc.name.trim() || !newDoc.fileUrl.trim()) return;
-    patchClient({ documents: [...(client.documents || []), { id: crypto.randomUUID(), name: newDoc.name.trim(), fileUrl: newDoc.fileUrl.trim(), uploadedAt: new Date().toISOString() }] });
-    setShowAddDoc(false); setNewDoc({ name: "", fileUrl: "" });
+  const handleUploadFile = (file: File) => {
+    if (!client) return;
+
+    // Check extension
+    const allowedExtensions = ["pdf", "doc", "docx", "xls", "xlsx", "jpeg", "jpg", "png"];
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    if (!allowedExtensions.includes(ext)) {
+      setUploadingFile({
+        name: file.name,
+        size: file.size,
+        progress: 0,
+        status: "error",
+        errorMsg: `File type .${ext} not allowed. Allowed types: ${allowedExtensions.join(", ")}`,
+      });
+      setTimeout(() => {
+        setUploadingFile(null);
+      }, 5000);
+      return;
+    }
+
+    setUploadingFile({
+      name: file.name,
+      size: file.size,
+      progress: 0,
+      status: "uploading",
+    });
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/documents/upload?clientId=${clientId}`);
+
+    // Track upload progress
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setUploadingFile((prev) => (prev ? { ...prev, progress: percent } : null));
+      }
+    };
+
+    // Load completion
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        setUploadingFile((prev) => (prev ? { ...prev, progress: 100, status: "success" } : null));
+        fetchClientData();
+        setTimeout(() => {
+          setUploadingFile(null);
+        }, 3000);
+      } else {
+        let errMsg = "Upload failed";
+        try {
+          const res = JSON.parse(xhr.responseText);
+          errMsg = res.error || errMsg;
+        } catch (_) { }
+        setUploadingFile((prev) => (prev ? { ...prev, status: "error", errorMsg: errMsg } : null));
+        setTimeout(() => {
+          setUploadingFile(null);
+        }, 5000);
+      }
+    };
+
+    // Error handling
+    xhr.onerror = () => {
+      setUploadingFile((prev) => (prev ? { ...prev, status: "error", errorMsg: "Network connection error" } : null));
+      setTimeout(() => {
+        setUploadingFile(null);
+      }, 5000);
+    };
+
+    const formData = new FormData();
+    formData.append("file", file);
+    xhr.send(formData);
   };
+
   const handleRemoveDoc = (id: string) => {
     if (!client) return;
     patchClient({ documents: client.documents.filter((d) => d.id !== id) });
@@ -486,14 +714,28 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const handleCreateNewScope = async () => {
     setNewScopeSubmitting(true);
     try {
+      const payload = {
+        period: newScopePeriod,
+        label: newScopeLabel,
+        items: newScopeItems.map((item) => ({
+          module: item.module,
+          label: item.label,
+          unit: item.unit || "qty",
+          committed: item.committed,
+          platforms: item.platforms || [],
+        })),
+      };
       const res = await fetch(`/api/clients/${clientId}/scope`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newScopeForm),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         fetchAllScopes(); fetchClientData();
         setShowNewScopeModal(false);
-        setNewScopeForm(DEFAULT_SCOPE_FORM);
+        setNewScopePeriod("");
+        setNewScopeLabel("");
+        setNewScopeModules({ social: false, paid: false, email: false, seo: false, influencer: false });
+        setNewScopeItems([]);
         setNewScopeStep(0);
       }
     } catch (err) { console.error(err); }
@@ -507,10 +749,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     return dt.getFullYear() === currentYear && dt.getMonth() === currentMonth;
   });
   const scopeItems = deriveScopeItems(client?.scope, thisMonthDels);
-  const activeModuleKeys = Array.from(new Set(scopeItems.map((s) => s.module)));
+  const activeModuleKeys = Array.from(new Set(scopeItems.map((s: any) => s.module)));
 
-  const totalCommitted = scopeItems.reduce((a, s) => a + s.committed, 0);
-  const totalDelivered = scopeItems.reduce((a, s) => a + s.delivered, 0);
+  const totalCommitted = scopeItems.reduce((a: number, s: any) => a + s.committed, 0);
+  const totalDelivered = scopeItems.reduce((a: number, s: any) => a + s.delivered, 0);
   const overallPct = pct(totalDelivered, totalCommitted);
 
   // ── Loading guard ──────────────────────────────────────────────────────────
@@ -534,23 +776,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   const monthName = new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" });
 
-  const nf = (v: number) => v; // number field helper
-  const setSM = (path: string[], val: number) =>
-    setNewScopeForm((prev) => {
-      const next = JSON.parse(JSON.stringify(prev));
-      let obj: any = next.socialMedia;
-      for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]];
-      obj[path[path.length - 1]] = val;
-      return next;
-    });
-  const setPM = (path: string[], val: number) =>
-    setNewScopeForm((prev) => {
-      const next = JSON.parse(JSON.stringify(prev));
-      let obj: any = next.paidMedia;
-      for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]];
-      obj[path[path.length - 1]] = val;
-      return next;
-    });
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -705,9 +930,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {activeModuleKeys.length === 0 && <p className="text-xs text-gray-400 italic col-span-2 py-4 text-center">No scope configured yet.</p>}
                 {SCOPE_MODULES.filter((m) => activeModuleKeys.includes(m.key)).map((meta) => {
-                  const items = scopeItems.filter((s) => s.module === meta.key);
-                  const c = items.reduce((a, s) => a + s.committed, 0);
-                  const d = items.reduce((a, s) => a + s.delivered, 0);
+                  const items = scopeItems.filter((s: any) => s.module === meta.key);
+                  const c = items.reduce((a: number, s: any) => a + s.committed, 0);
+                  const d = items.reduce((a: number, s: any) => a + s.delivered, 0);
                   const p = pct(d, c);
                   return (
                     <div key={meta.key} className="p-3 border border-gray-100 rounded-lg space-y-1.5 bg-gray-50/30">
@@ -792,9 +1017,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
               {SCOPE_MODULES.filter((m) => activeModuleKeys.includes(m.key)).map((meta) => {
-                const items = scopeItems.filter((s) => s.module === meta.key);
-                const c = items.reduce((a, s) => a + s.committed, 0);
-                const d = items.reduce((a, s) => a + s.delivered, 0);
+                const items = scopeItems.filter((s: any) => s.module === meta.key);
+                const c = items.reduce((a: number, s: any) => a + s.committed, 0);
+                const d = items.reduce((a: number, s: any) => a + s.delivered, 0);
                 const p = pct(d, c);
                 return (
                   <div key={meta.key} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm space-y-3">
@@ -818,7 +1043,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                     {/* Per-item sub-rows */}
                     <div className="space-y-1.5 pt-1">
-                      {items.map((item) => {
+                      {items.map((item: any) => {
                         const sp = pct(item.delivered, item.committed);
                         return (
                           <div key={item.id} className="text-xs">
@@ -867,11 +1092,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <div className="space-y-3">
             {allScopes.map((sow) => {
               const isExpanded = expandedScopeId === sow.id;
-              const sm = sow.socialMedia || {};
-              const pm = sow.paidMedia || {};
-              const ew = sow.emailWhatsapp || {};
-              const seo = sow.seo || {};
-              const inf = sow.influencer || {};
 
               return (
                 <div key={sow.id} className={`border rounded-xl overflow-hidden shadow-sm ${sow.isActive ? "border-emerald-200 bg-emerald-50/10" : "border-gray-100 bg-white"}`}>
@@ -887,6 +1107,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             : <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Historical</span>}
                         </div>
                         <p className="text-[10px] text-gray-400 mt-0.5">Created {new Date(sow.createdAt).toLocaleDateString()}</p>
+                        {(() => {
+                          const activeMods = getActiveModulesList(sow);
+                          if (activeMods.length > 0) {
+                            return (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {activeMods.map((mod) => (
+                                  <span key={mod} className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getModuleBadgeColors(mod).badge}`}>
+                                    {mod}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
                     {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />}
@@ -894,74 +1129,59 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
                   {/* Expanded details */}
                   {isExpanded && (
-                    <div className="border-t border-gray-100 p-5 space-y-5 bg-white">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {/* Social Media */}
-                        {sm.instagram || sm.facebook || sm.youtube || sm.linkedin || sm.x ? (
-                          <div className="space-y-2">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-emerald-600" /> Social Media / Mo</h4>
-                            <div className="border border-gray-100 rounded-lg p-3 divide-y divide-gray-50 bg-gray-50/20 text-xs">
-                              {sm.instagram?.reels > 0 && <div className="flex justify-between py-1"><span>Instagram Reels</span><span className="font-semibold">{sm.instagram.reels}</span></div>}
-                              {sm.instagram?.posts > 0 && <div className="flex justify-between py-1"><span>Instagram Posts</span><span className="font-semibold">{sm.instagram.posts}</span></div>}
-                              {sm.instagram?.stories > 0 && <div className="flex justify-between py-1"><span>Instagram Stories</span><span className="font-semibold">{sm.instagram.stories}</span></div>}
-                              {sm.facebook?.reels > 0 && <div className="flex justify-between py-1"><span>Facebook Reels</span><span className="font-semibold">{sm.facebook.reels}</span></div>}
-                              {sm.facebook?.posts > 0 && <div className="flex justify-between py-1"><span>Facebook Posts</span><span className="font-semibold">{sm.facebook.posts}</span></div>}
-                              {sm.youtube?.reels > 0 && <div className="flex justify-between py-1"><span>YouTube Shorts</span><span className="font-semibold">{sm.youtube.reels}</span></div>}
-                              {sm.youtube?.posts > 0 && <div className="flex justify-between py-1"><span>YouTube Videos</span><span className="font-semibold">{sm.youtube.posts}</span></div>}
-                              {sm.linkedin?.posts > 0 && <div className="flex justify-between py-1"><span>LinkedIn Posts</span><span className="font-semibold">{sm.linkedin.posts}</span></div>}
-                              {sm.x?.posts > 0 && <div className="flex justify-between py-1"><span>X Posts</span><span className="font-semibold">{sm.x.posts}</span></div>}
-                            </div>
-                          </div>
-                        ) : null}
+                    <div className="border-t border-gray-100 p-5 bg-white">
+                      {(() => {
+                        if (!sow.items || sow.items.length === 0) {
+                          return <p className="text-xs text-gray-400 italic">No scope items configured.</p>;
+                        }
 
-                        {/* Paid Media */}
-                        {(pm.metaAds?.creatives > 0 || pm.googleAds?.creatives > 0 || pm.linkedinAds?.creatives > 0) ? (
-                          <div className="space-y-2">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Award className="w-3.5 h-3.5 text-indigo-600" /> Paid Advertising</h4>
-                            <div className="border border-gray-100 rounded-lg p-3 divide-y divide-gray-50 bg-gray-50/20 text-xs">
-                              {pm.metaAds?.creatives > 0 && <div className="flex justify-between py-1"><span>Meta Ads — Creatives</span><span className="font-semibold">{pm.metaAds.creatives} · ${pm.metaAds.adSpend}/mo</span></div>}
-                              {pm.googleAds?.creatives > 0 && <div className="flex justify-between py-1"><span>Google Ads — Creatives</span><span className="font-semibold">{pm.googleAds.creatives} · ${pm.googleAds.adSpend}/mo</span></div>}
-                              {pm.linkedinAds?.creatives > 0 && <div className="flex justify-between py-1"><span>LinkedIn Ads — Creatives</span><span className="font-semibold">{pm.linkedinAds.creatives} · ${pm.linkedinAds.adSpend}/mo</span></div>}
-                            </div>
-                          </div>
-                        ) : null}
+                        // Group items by module
+                        const modulesMap: Record<string, { label: string; icon: any; color: string }> = {
+                          social: { label: "Social Media", icon: Globe, color: "text-emerald-600" },
+                          paid: { label: "Paid Advertising", icon: Award, color: "text-indigo-600" },
+                          email: { label: "Email & WhatsApp", icon: MessageSquare, color: "text-amber-600" },
+                          seo: { label: "SEO", icon: Globe, color: "text-sky-600" },
+                          influencer: { label: "Influencer Marketing", icon: Users, color: "text-pink-600" },
+                        };
 
-                        {/* Email / WhatsApp */}
-                        {(ew.transactional?.enabled || ew.promotional?.enabled) ? (
-                          <div className="space-y-2">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5 text-amber-600" /> Email & WhatsApp</h4>
-                            <div className="border border-gray-100 rounded-lg p-3 divide-y divide-gray-50 bg-gray-50/20 text-xs">
-                              {ew.transactional?.enabled && <div className="flex justify-between py-1"><span>Transactional Flows</span><span className="font-semibold">{ew.transactional.triggers} triggers</span></div>}
-                              {ew.promotional?.enabled && <div className="flex justify-between py-1"><span>Promotional Campaigns</span><span className="font-semibold">{ew.promotional.emails}/mo</span></div>}
-                            </div>
-                          </div>
-                        ) : null}
+                        const grouped: Record<string, any[]> = {};
+                        sow.items.forEach((item: any) => {
+                          const m = item.module === "paid-ads" ? "paid" : item.module === "emailWhatsapp" ? "email" : item.module;
+                          if (!grouped[m]) grouped[m] = [];
+                          grouped[m].push(item);
+                        });
 
-                        {/* SEO */}
-                        {seo.keywords?.length > 0 ? (
-                          <div className="space-y-2">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-sky-600" /> SEO</h4>
-                            <div className="border border-gray-100 rounded-lg p-3 bg-gray-50/20 text-xs space-y-1.5">
-                              <p className="font-semibold text-gray-700">Keywords ({seo.keywords.length})</p>
-                              <div className="flex flex-wrap gap-1">{seo.keywords.map((k: string) => <span key={k} className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">{k}</span>)}</div>
-                              {seo.auditSheetLink && <p className="pt-1"><a href={seo.auditSheetLink} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline text-[10px]">Audit sheet ↗</a></p>}
-                              {seo.docLink && <p><a href={seo.docLink} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline text-[10px]">Content doc ↗</a></p>}
-                            </div>
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            {Object.entries(grouped).map(([modKey, items]) => {
+                              const meta = modulesMap[modKey] || { label: modKey, icon: ClipboardList, color: "text-gray-600" };
+                              const Icon = meta.icon;
+                              return (
+                                <div key={modKey} className="space-y-2">
+                                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Icon className={`w-3.5 h-3.5 ${meta.color}`} /> {meta.label} / Mo
+                                  </h4>
+                                  <div className="border border-gray-100 rounded-lg p-3 divide-y divide-gray-50 bg-gray-50/20 text-xs">
+                                    {items.map((item) => (
+                                      <div key={item.id || item._id} className="flex justify-between items-center py-1">
+                                        <div>
+                                          <span>{item.label}</span>
+                                          {modKey === "social" && item.platforms && item.platforms.length > 0 && (
+                                            <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-bold uppercase border border-emerald-100">
+                                              {item.platforms.join(", ")}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="font-semibold">{item.committed} {item.unit || "qty"}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        ) : null}
-
-                        {/* Influencer */}
-                        {(inf.influencersCount ?? 0) > 0 ? (
-                          <div className="space-y-2">
-                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-pink-600" /> Influencer</h4>
-                            <div className="border border-gray-100 rounded-lg p-3 bg-gray-50/20 text-xs grid grid-cols-3 gap-3">
-                              <div><p className="text-gray-400 text-[9px] uppercase font-bold">Count/Mo</p><p className="font-semibold mt-0.5">{inf.influencersCount}</p></div>
-                              <div><p className="text-gray-400 text-[9px] uppercase font-bold">Budget</p><p className="font-semibold mt-0.5">${inf.budget}</p></div>
-                              <div><p className="text-gray-400 text-[9px] uppercase font-bold">Commission</p><p className="font-semibold mt-0.5">${inf.commission}</p></div>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -971,13 +1191,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
+
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* ACCESS CONTROL — matches CredentialVault reference                 */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === "access" && (
         <div className="space-y-4">
           {/* SEO Tool Access (pinned above vault) */}
-          {client.scope?.seo && (
+          {client.scope?.seo && (client.scope.seo.gaAccess?.type && client.scope.seo.gaAccess.type !== "none" || client.scope.seo.gtmAccess?.type && client.scope.seo.gtmAccess.type !== "none" || client.scope.seo.gscAccess?.type && client.scope.seo.gscAccess.type !== "none") && (
             <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/30 space-y-3">
               <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Globe className="w-3.5 h-3.5 text-emerald-600" /> SEO Tool Access
@@ -1136,26 +1357,60 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === "team" && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-6 space-y-5">
-          <h2 className="text-sm font-bold text-gray-900 border-b pb-2 uppercase tracking-wider">Assign Internal Team Members</h2>
+          <div className="flex justify-between items-center border-b pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Project Team</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Team members assigned to this client</p>
+            </div>
+            <button
+              onClick={() => setShowAddTeamModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Team Member
+            </button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            {teamList.map((member) => {
-              const assigned = client.assignedTeam.some((u) => u._id === member._id);
+            {client.assignedTeam.map((member) => {
+              const fullName = member.name || `${member.firstName || ""} ${member.lastName || ""}`.trim() || "Team Member";
+              const initials = fullName.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "TM";
               return (
-                <div key={member._id} className={`flex items-center justify-between p-4 border rounded-xl transition-all ${assigned ? "border-emerald-600 bg-emerald-50/10" : "border-gray-100 hover:border-gray-200"}`}>
+                <div
+                  key={member._id}
+                  className="flex items-center justify-between p-4 border border-gray-100 bg-white rounded-xl transition-all shadow-sm"
+                >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center">{member.name.split(" ").map((n: string) => n[0]).join("")}</div>
+                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center">
+                      {initials}
+                    </div>
                     <div>
-                      <h4 className="text-xs font-bold text-gray-900">{member.name}</h4>
+                      <h4 className="text-xs font-bold text-gray-900">{fullName}</h4>
                       <p className="text-[10px] text-gray-500">{member.email}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">{member.roles?.map((r: string) => <span key={r} className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 capitalize">{r}</span>)}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {member.roles?.map((r: string) => (
+                          <span
+                            key={r}
+                            className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 capitalize"
+                          >
+                            {r.replace("_", " ")}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <button onClick={() => handleAssignTeamToggle(member._id)} className={`px-3 py-1 rounded-lg text-[10px] font-semibold transition-all ${assigned ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
-                    {assigned ? "Deallocate" : "Allocate"}
+                  <button
+                    onClick={() => handleAssignTeamToggle(member._id)}
+                    className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all bg-red-50 text-red-600 hover:bg-red-100"
+                  >
+                    Remove
                   </button>
                 </div>
               );
             })}
+            {client.assignedTeam.length === 0 && (
+              <p className="text-xs text-gray-500 italic p-4 col-span-2 text-center">
+                No team members assigned to this client yet.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1165,34 +1420,133 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === "documents" && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-6 space-y-5">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Documents</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{client.documents?.length || 0}</p>
+              </div>
+              <FolderOpen className="w-8 h-8 text-emerald-600" />
+            </div>
+            <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-4 flex flex-col justify-center">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Allowed Formats</p>
+              <p className="text-xs font-medium text-gray-700 mt-1.5">PDF, DOC, DOCX, XLS, XLSX, JPEG, JPG, PNG</p>
+            </div>
+          </div>
+
           <div className="flex justify-between items-center border-b pb-2">
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Client Documents & Assets</h2>
-            <button onClick={() => setShowAddDoc(true)} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm"><Plus className="w-3.5 h-3.5" /> Add Document</button>
+            <button onClick={() => setShowAddDoc(true)} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm"><Plus className="w-3.5 h-3.5" /> Upload File</button>
           </div>
+
           {client.documents?.length === 0 ? (
             <div className="text-center py-12 border border-dashed rounded-xl"><FolderOpen className="w-8 h-8 text-gray-300 mx-auto" /><p className="text-xs text-gray-500 mt-2 font-medium">No files uploaded yet.</p></div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {client.documents?.map((doc) => (
-                <div key={doc.id} className="border border-gray-100 hover:border-gray-200 rounded-xl p-4 bg-gray-50/20 shadow-sm flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0"><FileText className="w-6 h-6 text-emerald-600 shrink-0" /><div className="min-w-0"><p className="text-xs font-bold text-gray-800 truncate">{doc.name}</p><p className="text-[9px] text-gray-400 mt-0.5">{new Date(doc.uploadedAt).toLocaleDateString()}</p></div></div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="p-1 hover:text-emerald-700 text-gray-400 rounded"><FileDown className="w-4 h-4" /></a>
-                    <button onClick={() => handleRemoveDoc(doc.id)} className="p-1 hover:text-red-500 text-gray-400 rounded"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto border border-gray-100 rounded-xl">
+              <table className="min-w-full divide-y divide-gray-100 text-xs">
+                <thead className="bg-gray-50/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">File Name</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">File Path</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">File Size</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">Uploaded At</th>
+                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">Uploaded By</th>
+                    <th className="px-4 py-3 text-right font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {client.documents.map((doc) => {
+                    const formatSize = (bytes: number) => {
+                      if (!bytes) return "0 Bytes";
+                      const k = 1024;
+                      const sizes = ["Bytes", "KB", "MB", "GB"];
+                      const i = Math.floor(Math.log(bytes) / Math.log(k));
+                      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+                    };
+                    const getIcon = (filename: string) => {
+                      const ext = filename.split(".").pop()?.toLowerCase() || "";
+                      if (ext === "pdf") return <FileText className="w-4 h-4 text-red-500" />;
+                      if (["png", "jpg", "jpeg"].includes(ext)) return <FileText className="w-4 h-4 text-blue-500" />;
+                      if (["xls", "xlsx"].includes(ext)) return <FileText className="w-4 h-4 text-emerald-600" />;
+                      if (["doc", "docx"].includes(ext)) return <FileText className="w-4 h-4 text-indigo-500" />;
+                      return <FileText className="w-4 h-4 text-gray-500" />;
+                    };
+                    return (
+                      <tr key={doc.id} className="hover:bg-gray-50/40 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
+                          <div className="flex items-center gap-2">
+                            {getIcon(doc.name)}
+                            <span className="truncate max-w-[180px]" title={doc.name}>{doc.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-mono text-[10px] text-gray-500">
+                          {doc.filePath || "N/A"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                          {doc.fileSize ? formatSize(doc.fileSize) : "N/A"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-400">
+                          {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : "N/A"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                            {doc.uploadedBy || "Unknown"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <a
+                              href={doc.fileUrl}
+                              className="p-1.5 hover:text-emerald-700 text-gray-400 rounded-lg hover:bg-emerald-50 transition-colors"
+                              title="Download File"
+                            >
+                              <FileDown className="w-4 h-4" />
+                            </a>
+                            <button
+                              onClick={() => handleRemoveDoc(doc.id)}
+                              className="p-1.5 hover:text-red-600 text-gray-400 rounded-lg hover:bg-red-50 transition-colors"
+                              title="Delete File"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
           {showAddDoc && (
-            <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-              <div className="bg-white border border-gray-100 shadow-xl rounded-2xl max-w-sm w-full p-5 space-y-4">
-                <h3 className="text-sm font-bold text-gray-900 border-b pb-2">Add Document</h3>
-                <div className="space-y-3 text-xs">
-                  <div className="space-y-1"><label className="font-bold text-gray-500 uppercase">Document Name *</label><input type="text" placeholder="e.g. Brand Color Guidelines" value={newDoc.name} onChange={(e) => setNewDoc({ ...newDoc, name: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
-                  <div className="space-y-1"><label className="font-bold text-gray-500 uppercase">File Link / URL *</label><input type="url" placeholder="https://drive.google.com/..." value={newDoc.fileUrl} onChange={(e) => setNewDoc({ ...newDoc, fileUrl: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+              <div className="bg-white border border-gray-100 shadow-2xl rounded-2xl max-w-sm w-full p-6 space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 border-b pb-2">Upload Document</h3>
+                <div className="space-y-4 text-xs">
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center bg-gray-50/50 hover:bg-gray-50 transition-all relative">
+                    <input
+                      type="file"
+                      id="file-upload"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleUploadFile(file);
+                          setShowAddDoc(false);
+                        }
+                      }}
+                    />
+                    <FolderOpen className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="font-semibold text-gray-700 text-center">Click to upload or drag & drop</p>
+                    <p className="text-[10px] text-gray-400 text-center mt-1">Allowed formats: PDF, DOC, DOCX, XLS, XLSX, JPEG, JPG, PNG</p>
+                  </div>
                 </div>
-                <div className="flex justify-end gap-2 pt-2"><button onClick={() => setShowAddDoc(false)} className="px-3 py-1.5 border rounded-lg text-xs">Cancel</button><button onClick={handleAddDocSubmit} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Add Document</button></div>
+                <div className="flex justify-end pt-2">
+                  <button onClick={() => setShowAddDoc(false)} className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-50 text-gray-600">
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1296,244 +1650,447 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             <div className="flex items-center justify-between p-5 border-b">
               <div>
                 <h2 className="text-sm font-bold text-gray-900">New Scope of Work</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Step {newScopeStep + 1} of 5</p>
+                <p className="text-xs text-gray-500 mt-0.5">Step {newScopeStep + 1} of 3</p>
               </div>
               {/* Step indicators */}
               <div className="flex items-center gap-1.5">
-                {["Info", "Social", "Paid Ads", "Email / SEO", "Influencer"].map((s, i) => (
+                {["Configuration", "Deliverables", "Review"].map((s, i) => (
                   <div key={s} className={`h-1.5 rounded-full transition-all ${i === newScopeStep ? "w-6 bg-emerald-600" : i < newScopeStep ? "w-4 bg-emerald-300" : "w-4 bg-gray-200"}`} title={s} />
                 ))}
               </div>
             </div>
 
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
-              {/* Step 0 — Period / Label */}
+              {/* Step 0 — Period / Label / Modules */}
               {newScopeStep === 0 && (
-                <div className="space-y-4">
-                  <p className="text-xs text-gray-500">Name this scope period so you can distinguish it from past records.</p>
+                <div className="space-y-5">
+                  <p className="text-xs text-gray-500">Define the scope period details and select active modules.</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-gray-500 uppercase">Period *</label>
-                      <input type="text" placeholder="e.g. July 2026 / Q3 2026" value={newScopeForm.period}
-                        onChange={(e) => setNewScopeForm({ ...newScopeForm, period: e.target.value })}
+                      <input type="text" placeholder="e.g. July 2026 / Q3 2026" value={newScopePeriod}
+                        onChange={(e) => setNewScopePeriod(e.target.value)}
                         className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-gray-500 uppercase">Label (optional)</label>
-                      <input type="text" placeholder="e.g. Revised contract, Growth phase" value={newScopeForm.label}
-                        onChange={(e) => setNewScopeForm({ ...newScopeForm, label: e.target.value })}
+                      <input type="text" placeholder="e.g. Revised contract, Growth phase" value={newScopeLabel}
+                        onChange={(e) => setNewScopeLabel(e.target.value)}
                         className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Step 1 — Social Media */}
-              {newScopeStep === 1 && (
-                <div className="space-y-4">
-                  <p className="text-xs text-gray-500">Set monthly deliverable quantities per social channel.</p>
-                  {[
-                    { label: "Instagram", key: "instagram", fields: [{ f: "reels", lbl: "Reels" }, { f: "posts", lbl: "Posts" }, { f: "stories", lbl: "Stories" }] },
-                    { label: "Facebook", key: "facebook", fields: [{ f: "staticCount", lbl: "Static" }, { f: "reels", lbl: "Reels" }, { f: "posts", lbl: "Posts" }, { f: "stories", lbl: "Stories" }] },
-                    { label: "YouTube", key: "youtube", fields: [{ f: "reels", lbl: "Shorts" }, { f: "posts", lbl: "Videos" }] },
-                    { label: "LinkedIn", key: "linkedin", fields: [{ f: "posts", lbl: "Posts" }] },
-                    { label: "X (Twitter)", key: "x", fields: [{ f: "posts", lbl: "Posts" }] },
-                  ].map(({ label, key, fields }) => (
-                    <div key={key} className="border border-gray-100 rounded-xl p-4 space-y-2">
-                      <p className="text-xs font-bold text-gray-700">{label}</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {fields.map(({ f, lbl }) => (
-                          <div key={f} className="space-y-1">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase">{lbl}</label>
-                            <input type="number" min={0} value={(newScopeForm.socialMedia as any)[key][f] || 0}
-                              onChange={(e) => setSM([key, f], parseInt(e.target.value) || 0)}
-                              className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
-                          </div>
-                        ))}
-                      </div>
+                  <div className="space-y-2 pt-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase block">Active Retainer Modules</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[
+                        { key: "social", label: "Social Media Marketing", desc: "Instagram, FB, LinkedIn, YT, X" },
+                        { key: "paid", label: "Paid Performance Ads", desc: "Meta, Google, LinkedIn Ads" },
+                        { key: "email", label: "Email / WhatsApp Marketing", desc: "Newsletters & flows" },
+                        { key: "seo", label: "Search Engine Optimization (SEO)", desc: "Blog posts & audits" },
+                        { key: "influencer", label: "Influencer Marketing", desc: "Campaigns & budgets" },
+                      ].map((m) => {
+                        const active = newScopeModules[m.key] || false;
+                        return (
+                          <button
+                            key={m.key}
+                            type="button"
+                            onClick={() => setNewScopeModules(prev => ({ ...prev, [m.key]: !prev[m.key] }))}
+                            className={`flex items-start text-left p-3 rounded-xl border transition-all gap-3 ${active
+                              ? "border-emerald-600 bg-emerald-50/20"
+                              : "border-gray-100 hover:border-gray-200 bg-white"
+                              }`}
+                          >
+                            <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${active ? "bg-emerald-600 border-emerald-600 text-white" : "border-gray-300 bg-white"
+                              }`}>
+                              {active && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-gray-900">{m.label}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{m.desc}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
-                  ))}
+                  </div>
                 </div>
               )}
 
-              {/* Step 2 — Paid Ads */}
+              {/* Step 1 — Scope Deliverables Builder */}
+              {newScopeStep === 1 && (
+                <div className="space-y-6">
+                  {Object.keys(newScopeModules).filter((k) => newScopeModules[k]).map((modKey) => {
+                    const meta = [
+                      { key: "social", label: "Social Media Marketing", color: "emerald" },
+                      { key: "paid", label: "Paid Performance Ads", color: "blue" },
+                      { key: "email", label: "Email / WhatsApp Marketing", color: "purple" },
+                      { key: "seo", label: "Search Engine Optimization (SEO)", color: "indigo" },
+                      { key: "influencer", label: "Influencer Marketing", color: "amber" },
+                    ].find((m) => m.key === modKey) || { key: modKey, label: modKey, color: "gray" };
+
+                    const items = newScopeItems.filter((s) => s.module === modKey);
+
+                    return (
+                      <div key={modKey} className="border border-gray-100 rounded-xl p-4 space-y-4 bg-white shadow-sm">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`h-2.5 w-2.5 rounded-full bg-${meta.color}-500`} />
+                            <h3 className="text-xs font-bold text-gray-800">{meta.label}</h3>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewScopeItems((prev) => [
+                                ...prev,
+                                {
+                                  id: `${modKey}-${crypto.randomUUID().slice(0, 6)}`,
+                                  module: modKey,
+                                  label: modKey === "social" ? "reel/story" : "",
+                                  unit: "qty",
+                                  committed: 1,
+                                  platforms: modKey === "social" ? ["instagram"] : [],
+                                },
+                              ]);
+                            }}
+                            className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add Item
+                          </button>
+                        </div>
+
+                        {items.length === 0 && (
+                          <p className="text-xs text-gray-400 italic">No scope items added yet.</p>
+                        )}
+
+                        <div className="space-y-4">
+                          {items.map((s) => (
+                            <div key={s.id} className="grid grid-cols-12 gap-3 items-end border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                              {modKey === "social" ? (
+                                <>
+                                  <div className="col-span-12 sm:col-span-3 space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Deliverable</label>
+                                    <select
+                                      value={s.label}
+                                      onChange={(e) => updateNewScopeItem(s.id, { label: e.target.value })}
+                                      className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg bg-white"
+                                    >
+                                      <option value="">Select...</option>
+                                      <option value="reel/story">Reel/Story</option>
+                                      <option value="image/carousel">Image/Carousel</option>
+                                      <option value="post">Post</option>
+                                      <option value="static">Static</option>
+                                      <option value="custom">Custom</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="col-span-4 sm:col-span-2 space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Unit</label>
+                                    <input
+                                      type="text"
+                                      placeholder="qty"
+                                      value={s.unit || ""}
+                                      onChange={(e) => updateNewScopeItem(s.id, { unit: e.target.value })}
+                                      className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
+                                    />
+                                  </div>
+
+                                  <div className="col-span-4 sm:col-span-2 space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Committed</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={s.committed}
+                                      onChange={(e) => updateNewScopeItem(s.id, { committed: parseInt(e.target.value) || 0 })}
+                                      className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
+                                    />
+                                  </div>
+
+                                  <div className="col-span-12 sm:col-span-4 space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Platforms</label>
+                                    <div className="flex gap-1.5 flex-wrap">
+                                      {[
+                                        { key: "instagram", icon: instagram, label: "Instagram" },
+                                        { key: "facebook", icon: facebook, label: "Facebook" },
+                                        { key: "linkedin", icon: linkedin, label: "LinkedIn" },
+                                        { key: "youtube", icon: youtube, label: "YouTube" },
+                                        { key: "x", icon: twitter, label: "X" },
+                                      ].map((p) => {
+                                        const selected = (s.platforms || []).includes(p.key);
+                                        return (
+                                          <button
+                                            key={p.key}
+                                            type="button"
+                                            onClick={() => toggleNewScopePlatform(s.id, p.key)}
+                                            title={p.label}
+                                            className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-center ${selected
+                                              ? "bg-emerald-50 border-emerald-300 scale-105"
+                                              : "bg-gray-50/50 border-gray-200 hover:bg-gray-100 opacity-60 hover:opacity-100"
+                                              }`}
+                                          >
+                                            <img
+                                              src={p.icon.src}
+                                              alt={p.label}
+                                              className={`w-5 h-5 object-contain transition-transform ${selected ? "scale-110" : ""}`}
+                                            />
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="col-span-12 sm:col-span-6 space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Deliverable</label>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. Meta Ad Creatives, Blogs, etc."
+                                      value={s.label}
+                                      onChange={(e) => updateNewScopeItem(s.id, { label: e.target.value })}
+                                      className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
+                                    />
+                                  </div>
+
+                                  <div className="col-span-6 sm:col-span-2 space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Unit</label>
+                                    <input
+                                      type="text"
+                                      placeholder="qty"
+                                      value={s.unit || ""}
+                                      onChange={(e) => updateNewScopeItem(s.id, { unit: e.target.value })}
+                                      className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
+                                    />
+                                  </div>
+
+                                  <div className="col-span-6 sm:col-span-3 space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Committed</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={s.committed}
+                                      onChange={(e) => updateNewScopeItem(s.id, { committed: parseInt(e.target.value) || 0 })}
+                                      className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
+                                    />
+                                  </div>
+                                </>
+                              )}
+
+                              <div className="col-span-12 sm:col-span-1 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => deleteNewScopeItem(s.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-50 rounded-lg transition-all cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Step 2 — Review & Summary */}
               {newScopeStep === 2 && (
                 <div className="space-y-4">
-                  <p className="text-xs text-gray-500">Set ad spend and creative counts per advertising platform.</p>
-                  {[
-                    { label: "Meta Ads", key: "metaAds" },
-                    { label: "Google Ads", key: "googleAds" },
-                    { label: "LinkedIn Ads", key: "linkedinAds" },
-                  ].map(({ label, key }) => (
-                    <div key={key} className="border border-gray-100 rounded-xl p-4 space-y-2">
-                      <p className="text-xs font-bold text-gray-700">{label}</p>
-                      <div className="grid grid-cols-3 gap-3">
-                        {[{ f: "adSpend", lbl: "Ad Spend ($)" }, { f: "creatives", lbl: "Creatives" }, { f: "commission", lbl: "Commission ($)" }].map(({ f, lbl }) => (
-                          <div key={f} className="space-y-1">
-                            <label className="text-[10px] font-semibold text-gray-400 uppercase">{lbl}</label>
-                            <input type="number" min={0} value={(newScopeForm.paidMedia as any)[key][f] || 0}
-                              onChange={(e) => setPM([key, f], parseInt(e.target.value) || 0)}
-                              className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
+                  <div className="bg-gray-50 border border-gray-150 rounded-xl p-5 space-y-3">
+                    <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Review Contract Period</h3>
+                    <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
+                      <div>
+                        <p className="text-[10px] text-gray-400 uppercase font-bold">Scope Period</p>
+                        <p className="font-bold text-gray-900 mt-0.5">{newScopePeriod}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-400 uppercase font-bold">Label</p>
+                        <p className="font-bold text-gray-900 mt-0.5">{newScopeLabel || "—"}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Configured Deliverables</h3>
+                    {(() => {
+                      const modulesMap: Record<string, string> = {
+                        social: "Social Media Marketing",
+                        paid: "Paid Performance Ads",
+                        email: "Email / WhatsApp Marketing",
+                        seo: "Search Engine Optimization (SEO)",
+                        influencer: "Influencer Marketing",
+                      };
+
+                      return Object.keys(newScopeModules).filter((k) => newScopeModules[k]).map((modKey) => {
+                        const items = newScopeItems.filter((s) => s.module === modKey);
+                        return (
+                          <div key={modKey} className="border border-gray-100 rounded-xl p-4 space-y-2 bg-white">
+                            <p className="text-xs font-bold text-gray-800">{modulesMap[modKey] || modKey}</p>
+                            <div className="divide-y divide-gray-50 text-xs text-gray-600">
+                              {items.map((item) => (
+                                <div key={item.id} className="flex justify-between py-1.5">
+                                  <div>
+                                    <span className="font-medium">{item.label}</span>
+                                    {modKey === "social" && item.platforms && item.platforms.length > 0 && (
+                                      <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-bold uppercase border border-emerald-100">
+                                        {item.platforms.join(", ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="font-bold text-gray-900">{item.committed} {item.unit || "qty"}</span>
+                                </div>
+                              ))}
+                              {items.length === 0 && <p className="text-xs text-gray-400 italic">No deliverables configured.</p>}
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Step 3 — Email & SEO */}
-              {newScopeStep === 3 && (
-                <div className="space-y-5">
-                  {/* Email / WhatsApp */}
-                  <div className="border border-gray-100 rounded-xl p-4 space-y-3">
-                    <p className="text-xs font-bold text-gray-700">Email & WhatsApp</p>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="trans-en" checked={newScopeForm.emailWhatsapp.transactional.enabled}
-                          onChange={(e) => setNewScopeForm((prev) => ({ ...prev, emailWhatsapp: { ...prev.emailWhatsapp, transactional: { ...prev.emailWhatsapp.transactional, enabled: e.target.checked } } }))}
-                          className="accent-emerald-600" />
-                        <label htmlFor="trans-en" className="text-xs font-semibold text-gray-700">Transactional flows</label>
-                        {newScopeForm.emailWhatsapp.transactional.enabled && (
-                          <input type="number" min={0} placeholder="# triggers" value={newScopeForm.emailWhatsapp.transactional.triggers}
-                            onChange={(e) => setNewScopeForm((prev) => ({ ...prev, emailWhatsapp: { ...prev.emailWhatsapp, transactional: { ...prev.emailWhatsapp.transactional, triggers: parseInt(e.target.value) || 0 } } }))}
-                            className="w-24 px-2 py-1 border border-gray-200 rounded text-xs outline-none focus:border-emerald-500" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="promo-en" checked={newScopeForm.emailWhatsapp.promotional.enabled}
-                          onChange={(e) => setNewScopeForm((prev) => ({ ...prev, emailWhatsapp: { ...prev.emailWhatsapp, promotional: { ...prev.emailWhatsapp.promotional, enabled: e.target.checked } } }))}
-                          className="accent-emerald-600" />
-                        <label htmlFor="promo-en" className="text-xs font-semibold text-gray-700">Promotional campaigns</label>
-                        {newScopeForm.emailWhatsapp.promotional.enabled && (
-                          <input type="number" min={0} placeholder="emails/mo" value={newScopeForm.emailWhatsapp.promotional.emails}
-                            onChange={(e) => setNewScopeForm((prev) => ({ ...prev, emailWhatsapp: { ...prev.emailWhatsapp, promotional: { ...prev.emailWhatsapp.promotional, emails: parseInt(e.target.value) || 0 } } }))}
-                            className="w-24 px-2 py-1 border border-gray-200 rounded text-xs outline-none focus:border-emerald-500" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* SEO */}
-                  <div className="border border-gray-100 rounded-xl p-4 space-y-3">
-                    <p className="text-xs font-bold text-gray-700">SEO Configuration</p>
-                    {/* Keywords */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase">Target Keywords</label>
-                      <div className="flex gap-1.5">
-                        <input type="text" placeholder="Add keyword..." value={newScopeKeyInput}
-                          onChange={(e) => setNewScopeKeyInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && newScopeKeyInput.trim()) {
-                              setNewScopeForm((prev) => ({ ...prev, seo: { ...prev.seo, keywords: [...prev.seo.keywords, newScopeKeyInput.trim()] } }));
-                              setNewScopeKeyInput("");
-                            }
-                          }}
-                          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
-                        <button onClick={() => {
-                          if (!newScopeKeyInput.trim()) return;
-                          setNewScopeForm((prev) => ({ ...prev, seo: { ...prev.seo, keywords: [...prev.seo.keywords, newScopeKeyInput.trim()] } }));
-                          setNewScopeKeyInput("");
-                        }} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold">Add</button>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                        {newScopeForm.seo.keywords.map((k) => (
-                          <span key={k} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-100">
-                            {k}
-                            <button onClick={() => setNewScopeForm((prev) => ({ ...prev, seo: { ...prev.seo, keywords: prev.seo.keywords.filter((x) => x !== k) } }))} className="text-sky-500 hover:text-red-500 ml-0.5">×</button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* GA / GTM / GSC */}
-                    {[
-                      { key: "gaAccess", label: "Google Analytics" },
-                      { key: "gtmAccess", label: "Google Tag Manager" },
-                      { key: "gscAccess", label: "Google Search Console" },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">{label}</label>
-                        <div className="flex gap-2">
-                          <select value={(newScopeForm.seo as any)[key].type}
-                            onChange={(e) => setNewScopeForm((prev) => ({ ...prev, seo: { ...prev.seo, [key]: { ...(prev.seo as any)[key], type: e.target.value } } }))}
-                            className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white outline-none focus:border-emerald-500">
-                            <option value="none">No Access</option><option value="email">Email Access</option><option value="login">Login Provided</option>
-                          </select>
-                          {(newScopeForm.seo as any)[key].type !== "none" && (
-                            <input type="text" placeholder={(newScopeForm.seo as any)[key].type === "email" ? "Enter email address" : "Enter username/URL"}
-                              value={(newScopeForm.seo as any)[key].details || ""}
-                              onChange={(e) => setNewScopeForm((prev) => ({ ...prev, seo: { ...prev.seo, [key]: { ...(prev.seo as any)[key], details: e.target.value } } }))}
-                              className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-
-                    <div className="grid grid-cols-2 gap-3 pt-1">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Audit Sheet Link</label>
-                        <input type="url" placeholder="https://docs.google.com/..." value={newScopeForm.seo.auditSheetLink}
-                          onChange={(e) => setNewScopeForm((prev) => ({ ...prev, seo: { ...prev.seo, auditSheetLink: e.target.value } }))}
-                          className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase">Content Doc Link</label>
-                        <input type="url" placeholder="https://docs.google.com/..." value={newScopeForm.seo.docLink}
-                          onChange={(e) => setNewScopeForm((prev) => ({ ...prev, seo: { ...prev.seo, docLink: e.target.value } }))}
-                          className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4 — Influencer */}
-              {newScopeStep === 4 && (
-                <div className="space-y-4">
-                  <p className="text-xs text-gray-500">Configure influencer marketing scope for this period.</p>
-                  <div className="border border-gray-100 rounded-xl p-4 space-y-3">
-                    <p className="text-xs font-bold text-gray-700">Influencer Marketing</p>
-                    <div className="grid grid-cols-3 gap-3">
-                      {[{ f: "influencersCount", lbl: "Influencers / Mo" }, { f: "budget", lbl: "Budget ($)" }, { f: "commission", lbl: "Commission ($)" }].map(({ f, lbl }) => (
-                        <div key={f} className="space-y-1">
-                          <label className="text-[10px] font-bold text-gray-400 uppercase">{lbl}</label>
-                          <input type="number" min={0} value={(newScopeForm.influencer as any)[f] || 0}
-                            onChange={(e) => setNewScopeForm((prev) => ({ ...prev, influencer: { ...prev.influencer, [f]: parseInt(e.target.value) || 0 } }))}
-                            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Review summary */}
-                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs space-y-1 text-gray-600">
-                    <p className="font-bold text-gray-800 mb-2">Summary</p>
-                    {newScopeForm.period && <p>Period: <span className="font-semibold text-gray-900">{newScopeForm.period}</span></p>}
-                    {newScopeForm.seo.keywords.length > 0 && <p>SEO Keywords: <span className="font-semibold text-gray-900">{newScopeForm.seo.keywords.length}</span></p>}
-                    {newScopeForm.paidMedia.metaAds.creatives > 0 && <p>Meta Creatives: <span className="font-semibold text-gray-900">{newScopeForm.paidMedia.metaAds.creatives}</span></p>}
-                    {newScopeForm.influencer.influencersCount > 0 && <p>Influencers/Mo: <span className="font-semibold text-gray-900">{newScopeForm.influencer.influencersCount}</span></p>}
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               )}
             </div>
 
             {/* Modal footer */}
-            <div className="flex justify-between items-center p-5 border-t">
-              <button onClick={() => { if (newScopeStep === 0) { setShowNewScopeModal(false); setNewScopeForm(DEFAULT_SCOPE_FORM); } else setNewScopeStep((s) => s - 1); }} className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-50">
+            <div className="flex justify-between items-center p-5 border-t bg-gray-50/50 rounded-b-2xl">
+              <button
+                onClick={() => {
+                  if (newScopeStep === 0) {
+                    setShowNewScopeModal(false);
+                    setNewScopePeriod("");
+                    setNewScopeLabel("");
+                    setNewScopeModules({ social: false, paid: false, email: false, seo: false, influencer: false });
+                    setNewScopeItems([]);
+                  } else {
+                    setNewScopeStep((s) => s - 1);
+                  }
+                }}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 bg-white"
+              >
                 {newScopeStep === 0 ? "Cancel" : "Back"}
               </button>
-              {newScopeStep < 4 ? (
-                <button onClick={() => { if (newScopeStep === 0 && !newScopeForm.period.trim()) return; setNewScopeStep((s) => s + 1); }} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700">
+              {newScopeStep < 2 ? (
+                <button
+                  onClick={handleNewScopeNext}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold"
+                >
                   Next →
                 </button>
               ) : (
-                <button onClick={handleCreateNewScope} disabled={newScopeSubmitting} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 disabled:opacity-70">
-                  {newScopeSubmitting ? "Saving..." : "Create Scope of Work"}
+                <button
+                  onClick={handleCreateNewScope}
+                  disabled={newScopeSubmitting}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
+                >
+                  {newScopeSubmitting ? "Creating..." : "Create Scope of Work"}
                 </button>
               )}
             </div>
           </div>
+        </div>
+      )}
+
+
+      {showAddTeamModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white border border-gray-100 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-scale-up">
+            <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Add Team Member</h3>
+              <button onClick={() => setShowAddTeamModal(false)} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
+            </div>
+            <div className="p-4 max-h-[300px] overflow-y-auto space-y-2">
+              {(() => {
+                const unassigned = teamList.filter(
+                  (member) => !client.assignedTeam.some((u) => u._id === member._id)
+                );
+                if (unassigned.length === 0) {
+                  return <p className="text-xs text-gray-500 italic text-center py-6">All available team members are already assigned.</p>;
+                }
+                return unassigned.map((member) => {
+                  const initials = member.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "TM";
+                  return (
+                    <div key={member._id} className="flex items-center justify-between p-3 border border-gray-50 rounded-lg hover:bg-gray-50 bg-white shadow-sm">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center justify-center">
+                          {initials}
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-900">{member.name}</p>
+                          <p className="text-[9px] text-gray-500">{member.email}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          await handleAssignTeamToggle(member._id);
+                          setShowAddTeamModal(false);
+                        }}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shadow-sm"
+                      >
+                        Assign
+                      </button>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            <div className="p-3 border-t border-gray-50 flex justify-end bg-gray-50/50">
+              <button onClick={() => setShowAddTeamModal(false)} className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs hover:bg-gray-100 text-gray-600 font-medium">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Upload Progress Toast */}
+      {uploadingFile && (
+        <div className="fixed top-5 right-5 z-50 w-80 bg-white/95 border border-gray-200/80 shadow-2xl rounded-2xl p-4 backdrop-blur-md transition-all duration-300 flex items-start gap-3">
+          <div className="mt-0.5 shrink-0">
+            {uploadingFile.status === "uploading" && (
+              <div className="relative flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-200 border-t-emerald-600"></div>
+                <span className="absolute text-[8px] font-bold text-emerald-700">{uploadingFile.progress}%</span>
+              </div>
+            )}
+            {uploadingFile.status === "success" && (
+              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 border border-emerald-200 scale-110 transition-transform duration-300">
+                <Check className="w-4 h-4 stroke-[3]" />
+              </div>
+            )}
+            {uploadingFile.status === "error" && (
+              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 border border-red-200 scale-110 transition-transform duration-300">
+                <AlertCircle className="w-4 h-4 stroke-[3]" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-gray-900 truncate">
+              {uploadingFile.status === "uploading" && "Uploading File..."}
+              {uploadingFile.status === "success" && "Upload Complete!"}
+              {uploadingFile.status === "error" && "Upload Failed"}
+            </p>
+            <p className="text-[10px] text-gray-500 truncate mt-0.5">{uploadingFile.name}</p>
+            {uploadingFile.status === "uploading" && (
+              <div className="w-full bg-gray-100 rounded-full h-1 mt-2 overflow-hidden">
+                <div
+                  className="bg-emerald-600 h-1 rounded-full transition-all duration-150 ease-out"
+                  style={{ width: `${uploadingFile.progress}%` }}
+                ></div>
+              </div>
+            )}
+            {uploadingFile.status === "error" && (
+              <p className="text-[10px] text-red-600 mt-1 font-medium leading-tight">
+                {uploadingFile.errorMsg || "An error occurred."}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => setUploadingFile(null)}
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100/50 rounded-lg p-0.5 shrink-0 self-start transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
     </div>

@@ -118,125 +118,156 @@ export async function POST(req: NextRequest) {
     });
 
     // 2. Create the Scope of Work document
+    const sowItems = Array.isArray(scope) ? scope : (scope?.items || []);
     const sow = await ScopeOfWork.create({
       clientId: client._id,
-      socialMedia: scope?.socialMedia || {},
-      paidMedia: scope?.paidMedia || {},
-      emailWhatsapp: scope?.emailWhatsapp || {
-        transactional: { enabled: false, triggers: 0 },
-        promotional: { enabled: false, emails: 0 },
-      },
-      seo: scope?.seo || { keywords: [], gaAccess: { type: "none" }, gtmAccess: { type: "none" }, gscAccess: { type: "none" } },
-      influencer: scope?.influencer || { influencersCount: 0, commission: 0, budget: 0 },
+      items: sowItems,
+      isActive: true,
     });
 
     // 3. Seed initial deliverables for the current calendar month
     const now = new Date();
     const deliverablesToCreate: any[] = [];
 
-    // Social Media
-    const sm = sow.socialMedia;
-    if (sm) {
-      // Instagram
-      for (let i = 0; i < (sm.instagram?.reels || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Instagram Reel #${i + 1}`, platform: "instagram", type: "reel", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.instagram?.posts || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Instagram Post #${i + 1}`, platform: "instagram", type: "post", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.instagram?.stories || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Instagram Story #${i + 1}`, platform: "instagram", type: "story", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.instagram?.custom || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Instagram Deliverable #${i + 1}`, platform: "instagram", type: "custom", status: "pending", scheduledDate: now });
-      }
+    for (const item of sowItems) {
+      const count = item.committed || 0;
+      if (count <= 0) continue;
 
-      // Facebook
-      for (let i = 0; i < (sm.facebook?.staticCount || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Facebook Static #${i + 1}`, platform: "facebook", type: "static", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.facebook?.reels || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Facebook Reel #${i + 1}`, platform: "facebook", type: "reel", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.facebook?.posts || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Facebook Post #${i + 1}`, platform: "facebook", type: "post", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.facebook?.stories || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Facebook Story #${i + 1}`, platform: "facebook", type: "story", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.facebook?.custom || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Facebook Deliverable #${i + 1}`, platform: "facebook", type: "custom", status: "pending", scheduledDate: now });
-      }
+      if (item.module === "social") {
+        const platforms = item.platforms || [];
+        let delType: "reel" | "post" | "story" | "static" | "custom" | "reel/story" | "image/carousel" = "post";
+        const labelLower = item.label.toLowerCase();
+        if (labelLower === "reel/story" || labelLower.includes("reel/story")) {
+          delType = "reel/story";
+        } else if (labelLower === "image/carousel" || labelLower.includes("image/carousel") || labelLower.includes("carousel")) {
+          delType = "image/carousel";
+        } else if (labelLower === "post") {
+          delType = "post";
+        } else if (labelLower === "static") {
+          delType = "static";
+        } else if (labelLower === "custom") {
+          delType = "custom";
+        } else {
+          if (labelLower.includes("reel") || labelLower.includes("story") || labelLower.includes("stories")) {
+            delType = "reel/story";
+          } else if (labelLower.includes("post")) {
+            delType = "post";
+          } else if (labelLower.includes("static")) {
+            delType = "static";
+          } else {
+            delType = "custom";
+          }
+        }
 
-      // YouTube
-      for (let i = 0; i < (sm.youtube?.staticCount || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `YouTube Post #${i + 1}`, platform: "youtube", type: "static", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.youtube?.reels || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `YouTube Short #${i + 1}`, platform: "youtube", type: "reel", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.youtube?.posts || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `YouTube Video #${i + 1}`, platform: "youtube", type: "post", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.youtube?.stories || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `YouTube Story #${i + 1}`, platform: "youtube", type: "story", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.youtube?.custom || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `YouTube Deliverable #${i + 1}`, platform: "youtube", type: "custom", status: "pending", scheduledDate: now });
-      }
+        // Loop platforms
+        for (const plat of platforms) {
+          const platLower = plat.toLowerCase().trim();
+          if (!platLower) continue;
+          
+          const cleanPlat = ["instagram", "facebook", "youtube", "linkedin", "x"].includes(platLower)
+            ? (platLower as "instagram" | "facebook" | "youtube" | "linkedin" | "x")
+            : "instagram";
 
-      // LinkedIn
-      for (let i = 0; i < (sm.linkedin?.posts || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `LinkedIn Post #${i + 1}`, platform: "linkedin", type: "post", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.linkedin?.custom || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `LinkedIn Deliverable #${i + 1}`, platform: "linkedin", type: "custom", status: "pending", scheduledDate: now });
-      }
+          const platformLabelMap: Record<string, string> = {
+            instagram: "Instagram",
+            facebook: "Facebook",
+            youtube: "YouTube",
+            linkedin: "LinkedIn",
+            x: "X",
+          };
+          const readablePlat = platformLabelMap[cleanPlat] || cleanPlat;
 
-      // X
-      for (let i = 0; i < (sm.x?.posts || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `X Post #${i + 1}`, platform: "x", type: "post", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (sm.x?.custom || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `X Deliverable #${i + 1}`, platform: "x", type: "custom", status: "pending", scheduledDate: now });
-      }
-    }
+          for (let i = 0; i < count; i++) {
+            deliverablesToCreate.push({
+              clientId: client._id,
+              title: `${readablePlat} ${item.label} #${i + 1}`,
+              platform: cleanPlat,
+              type: delType,
+              status: "pending",
+              scheduledDate: now,
+            });
+          }
+        }
+      } else if (item.module === "paid" || item.module === "paid-ads") {
+        let cleanPlat: "meta-ads" | "google-ads" | "linkedin-ads" = "meta-ads";
+        const labelLower = item.label.toLowerCase();
+        if (labelLower.includes("google")) {
+          cleanPlat = "google-ads";
+        } else if (labelLower.includes("linkedin") || labelLower.includes("li ")) {
+          cleanPlat = "linkedin-ads";
+        }
 
-    // Paid Media
-    const pm = sow.paidMedia;
-    if (pm) {
-      for (let i = 0; i < (pm.metaAds?.creatives || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Meta Ad Creative #${i + 1}`, platform: "meta-ads", type: "ad", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (pm.googleAds?.creatives || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Google Ad Creative #${i + 1}`, platform: "google-ads", type: "ad", status: "pending", scheduledDate: now });
-      }
-      for (let i = 0; i < (pm.linkedinAds?.creatives || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `LinkedIn Ad Creative #${i + 1}`, platform: "linkedin-ads", type: "ad", status: "pending", scheduledDate: now });
-      }
-    }
+        const platformLabelMap: Record<string, string> = {
+          "meta-ads": "Meta Ad",
+          "google-ads": "Google Ad",
+          "linkedin-ads": "LinkedIn Ad",
+        };
+        const readablePlat = platformLabelMap[cleanPlat] || "Meta Ad";
 
-    // Email / Whatsapp
-    const ew = sow.emailWhatsapp;
-    if (ew) {
-      if (ew.transactional?.enabled && ew.transactional.triggers > 0) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Transactional Triggers Setup (${ew.transactional.triggers} flows)`, platform: "email-whatsapp", type: "seo-task", status: "pending", scheduledDate: now });
+        for (let i = 0; i < count; i++) {
+          deliverablesToCreate.push({
+            clientId: client._id,
+            title: `${readablePlat} Creative #${i + 1}`,
+            platform: cleanPlat,
+            type: "ad",
+            status: "pending",
+            scheduledDate: now,
+          });
+        }
+      } else if (item.module === "email" || item.module === "emailWhatsapp") {
+        const labelLower = item.label.toLowerCase();
+        const isTrigger = labelLower.includes("trigger") || labelLower.includes("flow") || labelLower.includes("automation");
+        if (isTrigger) {
+          deliverablesToCreate.push({
+            clientId: client._id,
+            title: `Transactional Triggers Setup (${item.label})`,
+            platform: "email-whatsapp",
+            type: "seo-task",
+            status: "pending",
+            scheduledDate: now,
+          });
+        } else {
+          for (let i = 0; i < count; i++) {
+            deliverablesToCreate.push({
+              clientId: client._id,
+              title: `${item.label} #${i + 1}`,
+              platform: "email-whatsapp",
+              type: "email-blast",
+              status: "pending",
+              scheduledDate: now,
+            });
+          }
+        }
+      } else if (item.module === "seo") {
+        deliverablesToCreate.push({
+          clientId: client._id,
+          title: `SEO Setup & Audit: ${item.label} (${count} keywords)`,
+          platform: "seo",
+          type: "seo-task",
+          status: "pending",
+          scheduledDate: now,
+        });
+      } else if (item.module === "influencer") {
+        deliverablesToCreate.push({
+          clientId: client._id,
+          title: `${item.label} (${count} influencers)`,
+          platform: "influencer",
+          type: "influencer-campaign",
+          status: "pending",
+          scheduledDate: now,
+        });
+      } else {
+        for (let i = 0; i < count; i++) {
+          deliverablesToCreate.push({
+            clientId: client._id,
+            title: `${item.label} #${i + 1}`,
+            platform: "custom",
+            type: "custom",
+            status: "pending",
+            scheduledDate: now,
+          });
+        }
       }
-      for (let i = 0; i < (ew.promotional?.emails || 0); i++) {
-        deliverablesToCreate.push({ clientId: client._id, title: `Promotional Blast #${i + 1}`, platform: "email-whatsapp", type: "email-blast", status: "pending", scheduledDate: now });
-      }
-    }
-
-    // SEO
-    const seo = sow.seo;
-    if (seo && seo.keywords?.length > 0) {
-      deliverablesToCreate.push({ clientId: client._id, title: `SEO Keywords Audit & Setup (${seo.keywords.length} keywords)`, platform: "seo", type: "seo-task", status: "pending", scheduledDate: now });
-    }
-
-    // Influencer
-    const inf = sow.influencer;
-    if (inf && inf.influencersCount > 0) {
-      deliverablesToCreate.push({ clientId: client._id, title: `Influencer Coordination (${inf.influencersCount} influencers)`, platform: "influencer", type: "influencer-campaign", status: "pending", scheduledDate: now });
     }
 
     // Bulk insert deliverables

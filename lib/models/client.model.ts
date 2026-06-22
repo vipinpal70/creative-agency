@@ -22,7 +22,10 @@ export interface IDocument {
   id: string;
   name: string;
   fileUrl: string;
+  filePath: string;
+  fileSize: number;
   uploadedAt: Date;
+  uploadedBy: string;
 }
 
 export interface IMeetingLog {
@@ -90,7 +93,10 @@ const documentSchema = new Schema<IDocument>(
     id: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     fileUrl: { type: String, required: true, trim: true },
+    filePath: { type: String, required: true, trim: true },
+    fileSize: { type: Number, required: true },
     uploadedAt: { type: Date, default: Date.now },
+    uploadedBy: { type: String, required: true, trim: true },
   },
   { _id: false }
 );
