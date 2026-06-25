@@ -1,27 +1,60 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Send, Trash2, Calendar, Hash, Monitor, Image } from "lucide-react";
-import type { ContentBucket, CopyEntry } from "./types";
+import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock } from "lucide-react";
+import type { WriterDeliverable } from "./types";
 
-interface Props {
-  copies: CopyEntry[];
-  buckets: ContentBucket[];
-  onRemove: (id: string) => void;
-  onSubmitSingle: (id: string) => void;
-  onSubmitAll: () => void;
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(dateStr).toLocaleDateString();
 }
 
-export function CopyList({ copies, buckets, onRemove, onSubmitSingle, onSubmitAll }: Props) {
-  const getBucketName = (id: string) => buckets.find((b) => b.id === id)?.name || "Unknown";
-  const draftCopies = copies.filter((c) => c.status === "Draft");
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Draft",
+  in_progress: "In Progress",
+  internal_review: "Internal Review",
+  client_review: "Client Review",
+  approved: "Approved",
+  delivered: "Delivered",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  pending: "bg-muted text-muted-foreground",
+  in_progress: "bg-blue-100 text-blue-700",
+  internal_review: "bg-amber-100 text-amber-700",
+  client_review: "bg-purple-100 text-purple-700",
+  approved: "bg-green-100 text-green-700",
+  delivered: "bg-emerald-100 text-emerald-700",
+};
+
+interface Props {
+  copies: WriterDeliverable[];
+  onRemove: (delId: string) => Promise<void>;
+  onSubmitSingle: (delId: string, draftId: string) => Promise<void>;
+  onSubmitAll: () => Promise<void>;
+  onOpenEdit: (copy: WriterDeliverable) => void;
+  submitting: string | null;
+}
+
+export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, submitting }: Props) {
+  const draftCopies = copies.filter(
+    (c) => c.status === "pending" && c.latestDraft?.status === "draft"
+  );
 
   if (copies.length === 0) {
     return (
       <Card>
         <CardContent className="p-8 text-center">
           <Calendar className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">No copies added yet. Use the form above to add your first copy.</p>
+          <p className="text-sm text-muted-foreground">No copies added yet. Use the button above to add your first copy.</p>
         </CardContent>
       </Card>
     );
@@ -43,53 +76,107 @@ export function CopyList({ copies, buckets, onRemove, onSubmitSingle, onSubmitAl
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {copies.map((copy) => (
-          <div key={copy.id} className="p-4 rounded-lg border border-border bg-accent/10 space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground line-clamp-2">{copy.creativeCopy}</p>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{copy.caption}</p>
+        {copies.map((copy) => {
+          const draft = copy.latestDraft;
+          const isDraft = copy.status === "pending" && draft?.status === "draft";
+          const label = STATUS_LABEL[copy.status] || copy.status;
+          const colorClass = STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground";
+          const isCarousel = copy.type.toLowerCase() === "carousel";
+
+          const previewText = isCarousel && draft?.frames?.length
+            ? `[Carousel · ${draft.frames.length} frames] ${draft.frames[0]?.copy || ""}`.trim()
+            : draft?.creativeCopy || copy.title || "—";
+
+          return (
+            <div key={copy.id} className="p-4 rounded-lg border border-border bg-accent/10 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground line-clamp-2">{previewText}</p>
+                  {draft?.caption && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{draft.caption}</p>
+                  )}
+                </div>
+                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${colorClass}`}>
+                  {label}
+                </span>
               </div>
-              <StatusBadge status={copy.status} />
-            </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {copy.publishDate}{copy.publishTime ? ` at ${copy.publishTime}` : ""}
-              </span>
-              <span className="flex items-center gap-1">
-                <Monitor className="h-3 w-3" />
-                {copy.platform}
-              </span>
-              <span className="flex items-center gap-1">
-                <Image className="h-3 w-3" />
-                {copy.mediaType}
-              </span>
-              <span className="flex items-center gap-1">
-                <Hash className="h-3 w-3" />
-                {getBucketName(copy.contentBucketId)}
-              </span>
-            </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                {(draft?.publishDate || copy.scheduledDate) && (
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {draft?.publishDate
+                      ? new Date(draft.publishDate).toLocaleDateString()
+                      : new Date(copy.scheduledDate).toLocaleDateString()}
+                    {draft?.publishTime ? ` at ${draft.publishTime}` : ""}
+                  </span>
+                )}
+                {copy.platforms && copy.platforms.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    {copy.platforms.join(", ")}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <Image className="h-3 w-3" />
+                  {copy.type}
+                </span>
+                {copy.buckets.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Hash className="h-3 w-3" />
+                    {copy.buckets[0]}
+                  </span>
+                )}
+                {draft?.version && (
+                  <span className="text-muted-foreground/60">v{draft.version}</span>
+                )}
+              </div>
 
-            {copy.hashtags && (
-              <p className="text-xs text-primary/70">{copy.hashtags}</p>
-            )}
-
-            <div className="flex items-center gap-2 pt-1">
-              {copy.status === "Draft" && (
-                <Button variant="outline" size="sm" onClick={() => onSubmitSingle(copy.id)}>
-                  <Send className="h-3 w-3 mr-1" /> Submit for Review
-                </Button>
+              {draft?.hashtags && draft.hashtags.length > 0 && (
+                <p className="text-xs text-primary/70">{draft.hashtags.join(" ")}</p>
               )}
-              {copy.status === "Draft" && (
-                <Button variant="ghost" size="sm" onClick={() => onRemove(copy.id)}>
-                  <Trash2 className="h-3 w-3 mr-1 text-destructive" /> Remove
-                </Button>
+
+              {draft?.lastChangedBy && (
+                <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
+                  <Clock className="h-3 w-3" />
+                  <span>
+                    Last edited by <span className="font-medium text-muted-foreground">{draft.lastChangedBy.name}</span>
+                    {" · "}{timeAgo(draft.lastChangedBy.changedAt)}
+                  </span>
+                </div>
               )}
+
+              <div className="flex items-center gap-2 pt-1">
+                {isDraft && draft && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={submitting === copy.id}
+                    onClick={() => onSubmitSingle(copy.id, draft.id)}
+                  >
+                    {submitting === copy.id
+                      ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      : <Send className="h-3 w-3 mr-1" />}
+                    Submit for Review
+                  </Button>
+                )}
+                {isDraft && draft && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenEdit(copy)}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" /> Edit
+                  </Button>
+                )}
+                {isDraft && (
+                  <Button variant="destructive" size="sm" onClick={() => onRemove(copy.id)}>
+                    <Trash2 className="h-3 w-3 mr-1" /> Remove
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );
