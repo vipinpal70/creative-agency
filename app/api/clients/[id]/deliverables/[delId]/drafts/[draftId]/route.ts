@@ -58,12 +58,17 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const {
       mediaType, creativeCopy, frames, caption, hashtags,
       publishDate, publishTime, notes, status, rejectionNote,
+      imageUrl, videoUrl, thumbnailUrl, audioUrl,
     } = body;
 
     // Snapshot old values for diff before any mutation
     const oldValues: Record<string, unknown> = {
       creativeCopy:  draft.creativeCopy,
       frames:        draft.frames,
+      imageUrl:      draft.imageUrl,
+      videoUrl:      draft.videoUrl,
+      thumbnailUrl:  draft.thumbnailUrl,
+      audioUrl:      draft.audioUrl,
       caption:       draft.caption,
       hashtags:      draft.hashtags,
       publishDate:   draft.publishDate,
@@ -78,6 +83,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (mediaType !== undefined)     draft.mediaType    = mediaType;
     if (creativeCopy !== undefined)  draft.creativeCopy = creativeCopy;
     if (Array.isArray(frames))       draft.frames       = frames;
+    if (imageUrl !== undefined)      draft.imageUrl     = imageUrl;
+    if (videoUrl !== undefined)      draft.videoUrl     = videoUrl;
+    if (thumbnailUrl !== undefined)  draft.thumbnailUrl = thumbnailUrl;
+    if (audioUrl !== undefined)      draft.audioUrl     = audioUrl;
     if (caption !== undefined)       draft.caption      = caption;
     if (notes !== undefined)         draft.notes        = notes;
     if (publishTime !== undefined)   draft.publishTime  = publishTime;
@@ -119,10 +128,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (publishDate !== undefined)   newValues.publishDate  = publishDate ? new Date(publishDate) : null;
     if (publishTime !== undefined)   newValues.publishTime  = publishTime;
     if (notes !== undefined)         newValues.notes        = notes;
-    if (status !== undefined)        newValues.status       = status;
+    if (status !== undefined)            newValues.status       = status;
     if (body.referenceUrl !== undefined) newValues.referenceUrl = body.referenceUrl;
     if (body.videoType !== undefined)    newValues.videoType    = body.videoType;
     if (body.videoNotes !== undefined)   newValues.videoNotes   = body.videoNotes;
+    if (imageUrl !== undefined)          newValues.imageUrl     = imageUrl;
+    if (videoUrl !== undefined)          newValues.videoUrl     = videoUrl;
+    if (thumbnailUrl !== undefined)      newValues.thumbnailUrl = thumbnailUrl;
+    if (audioUrl !== undefined)          newValues.audioUrl     = audioUrl;
 
     const changes = computeChanges(oldValues, newValues);
 

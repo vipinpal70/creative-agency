@@ -3,7 +3,8 @@ import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import Client from "@/lib/models/client.model";
 import ScopeOfWork from "@/lib/models/scope-of-work.model";
-import CalendarDeliverable from "@/lib/models/calendar-deliverable.model";
+import CalendarDeliverable from "@/lib/models/calendar-deliverable.model"; // legacy: used only for onboarding seed
+import Deliverable from "@/lib/models/deliverable.model";
 import { logActivity } from "@/lib/activity";
 
 // GET /api/clients - lists all clients with their overall progress computed for the current month
@@ -22,10 +23,11 @@ export async function GET(req: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    // Fetch deliverables for the current month to calculate progress
-    const deliverables = await CalendarDeliverable.find({
-      scheduledDate: { $gte: startOfMonth, $lte: endOfMonth },
-    }).lean();
+    // Fetch deliverables for the current month from the new Deliverable collection
+    const deliverables = await Deliverable.find(
+      { scheduledDate: { $gte: startOfMonth, $lte: endOfMonth } },
+      { clientId: 1, status: 1 }
+    ).lean();
 
     // Map deliverables progress
     const clientProgress = clients.map((c) => {
@@ -121,6 +123,8 @@ export async function POST(req: NextRequest) {
     const sowItems = Array.isArray(scope) ? scope : (scope?.items || []);
     const sow = await ScopeOfWork.create({
       clientId: client._id,
+      period: "Onboarding",
+      label: brandName.trim() || name.trim(),
       items: sowItems,
       isActive: true,
     });
@@ -130,7 +134,7 @@ export async function POST(req: NextRequest) {
     const deliverablesToCreate: any[] = [];
 
     for (const item of sowItems) {
-      const count = item.committed || 0;
+      const count = parseInt(item.unit) || 0;
       if (count <= 0) continue;
 
       if (item.module === "social") {

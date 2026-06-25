@@ -43,56 +43,55 @@ export interface ScopeItem {
   module: ModuleKey;
   label: string;
   unit?: string;
-  committed: number;
   delivered: number;
 }
 
-export const DEFAULT_SCOPE_TEMPLATES: Record<ModuleKey, { label: string; unit?: string; committed: number }[]> = {
+export const DEFAULT_SCOPE_TEMPLATES: Record<ModuleKey, { label: string; unit?: string }[]> = {
   social: [
-    { label: "Posts per month", committed: 12 },
-    { label: "Reels per month", committed: 4 },
-    { label: "Stories per month", committed: 20 },
-    { label: "Community management", unit: "hrs", committed: 20 },
-    { label: "Monthly reports", committed: 1 },
+    { label: "Posts per month", unit: "12" },
+    { label: "Reels per month", unit: "4" },
+    { label: "Stories per month", unit: "20" },
+    { label: "Community management", unit: "20" },
+    { label: "Monthly reports", unit: "1" },
   ],
   seo: [
-    { label: "Blogs per month", committed: 4 },
-    { label: "Landing pages", committed: 2 },
-    { label: "Backlinks", committed: 10 },
-    { label: "Technical audits", committed: 1 },
+    { label: "Blogs per month", unit: "4" },
+    { label: "Landing pages", unit: "2" },
+    { label: "Backlinks", unit: "10" },
+    { label: "Technical audits", unit: "1" },
   ],
   email: [
-    { label: "Campaigns per month", committed: 4 },
-    { label: "Newsletters", committed: 2 },
-    { label: "Automation flows", committed: 1 },
-    { label: "Drip sequences", committed: 1 },
+    { label: "Campaigns per month", unit: "4" },
+    { label: "Newsletters", unit: "2" },
+    { label: "Automation flows", unit: "1" },
+    { label: "Drip sequences", unit: "1" },
   ],
   paid: [
-    { label: "Campaigns", committed: 3 },
-    { label: "Ad sets", committed: 9 },
-    { label: "Creatives", committed: 18 },
-    { label: "Landing pages", committed: 2 },
+    { label: "Campaigns", unit: "3" },
+    { label: "Ad sets", unit: "9" },
+    { label: "Creatives", unit: "18" },
+    { label: "Landing pages", unit: "2" },
   ],
   website: [
-    { label: "Page updates", committed: 4 },
-    { label: "New pages", committed: 1 },
-    { label: "Performance audits", committed: 1 },
+    { label: "Page updates", unit: "4" },
+    { label: "New pages", unit: "1" },
+    { label: "Performance audits", unit: "1" },
   ],
   orm: [
-    { label: "Reviews monitored", committed: 50 },
-    { label: "Responses drafted", committed: 30 },
+    { label: "Reviews monitored", unit: "50" },
+    { label: "Responses drafted", unit: "30" },
   ],
   influencer: [
-    { label: "Creator partnerships", committed: 3 },
-    { label: "Campaigns", committed: 1 },
+    { label: "Creator partnerships", unit: "3" },
+    { label: "Campaigns", unit: "1" },
   ],
   video: [
-    { label: "Short-form videos", committed: 6 },
-    { label: "Long-form videos", committed: 1 },
+    { label: "Short-form videos", unit: "6" },
+    { label: "Long-form videos", unit: "1" },
   ],
   design: [
-    { label: "Static creatives", committed: 12 },
-    { label: "Brand collaterals", committed: 4 },
+    { label: "Static creatives", unit: "12" },
+    { label: "Brand collaterals", unit: "4" },
   ],
   custom: [],
 };

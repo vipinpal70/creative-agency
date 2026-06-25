@@ -12,6 +12,10 @@ const FIELD_LABELS: Record<string, string> = {
   referenceUrl:  "Reference URL",
   videoType:     "Video Type",
   videoNotes:    "Video Notes",
+  imageUrl:      "Image URL",
+  videoUrl:      "Video URL",
+  thumbnailUrl:  "Thumbnail URL",
+  audioUrl:      "Audio URL",
 };
 
 function serialise(val: unknown): string {

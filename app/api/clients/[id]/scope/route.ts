@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import ScopeOfWork from "@/lib/models/scope-of-work.model";
@@ -37,15 +38,18 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const body = await req.json();
     await connectDB();
 
-    // Archive all existing active scopes
-    await ScopeOfWork.updateMany({ clientId: id, isActive: true }, { isActive: false });
+    const items = (body.items || []).map((item: any) => ({
+      ...item,
+      id: item.id || randomUUID(),
+      delivered: item.delivered ?? 0,
+    }));
 
     const scope = await ScopeOfWork.create({
       clientId: id,
       period: body.period?.trim() || "",
       label: body.label?.trim() || "",
       isActive: true,
-      items: body.items || [],
+      items,
     });
 
     return NextResponse.json({ ...scope.toObject(), id: scope._id.toString() }, { status: 201 });

@@ -62,7 +62,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const nextVersion = latest ? latest.version + 1 : 1;
 
     const { mediaType, creativeCopy, frames, caption, hashtags,
-            publishDate, publishTime, referenceUrl, videoType, videoNotes, notes } = body;
+            publishDate, publishTime, referenceUrl, videoType, videoNotes, notes,
+            imageUrl, videoUrl, thumbnailUrl, audioUrl } = body;
 
     // Resolve author name for history snapshot
     const author = await User.findById(session.userId).select("firstName lastName email").lean();
@@ -81,6 +82,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       mediaType:     mediaType    || "",
       creativeCopy:  creativeCopy || "",
       frames:        Array.isArray(frames) ? frames : [],
+      imageUrl:      imageUrl     || "",
+      videoUrl:      videoUrl     || "",
+      thumbnailUrl:  thumbnailUrl || "",
+      audioUrl:      audioUrl     || "",
       caption:       caption      || "",
       hashtags:      Array.isArray(hashtags) ? hashtags : [],
       publishDate:   publishDate  ? new Date(publishDate) : null,

@@ -10,14 +10,16 @@ const DELIVERY_RATIOS: Record<string, number> = {
 
 const mkScope = (clientId: string) =>
   (["social", "seo", "email", "paid"] as const).flatMap((mod) =>
-    DEFAULT_SCOPE_TEMPLATES[mod].map((tpl, i) => ({
-      id: `${clientId}-${mod}-${i}`,
-      module: mod,
-      label: tpl.label,
-      unit: tpl.unit,
-      committed: tpl.committed,
-      delivered: Math.floor(tpl.committed * (DELIVERY_RATIOS[clientId] ?? 0.6)),
-    })),
+    DEFAULT_SCOPE_TEMPLATES[mod].map((tpl, i) => {
+      const qty = parseInt(tpl.unit || "0") || 0;
+      return {
+        id: `${clientId}-${mod}-${i}`,
+        module: mod,
+        label: tpl.label,
+        unit: tpl.unit,
+        delivered: Math.floor(qty * (DELIVERY_RATIOS[clientId] ?? 0.6)),
+      };
+    }),
   );
 
 export const seedClients: Client[] = [

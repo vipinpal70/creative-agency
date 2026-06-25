@@ -210,7 +210,7 @@ export default function DashboardPage() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-50">
           <div>
-            <h2 className="text-[12px] font-bold text-gray-900">Scope delivery — committed vs delivered</h2>
+            <h2 className="text-[12px] font-bold text-gray-900">Scope delivery — target vs delivered</h2>
           </div>
           <Link href="/dashboard/clients" className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition-colors">
             All clients →
@@ -230,7 +230,7 @@ export default function DashboardPage() {
                   {c.activeModules.map((k) => {
                     const m = MODULES.find((x) => x.key === k)!;
                     const items = c.scope.filter((s) => s.module === k);
-                    const com = items.reduce((a, s) => a + s.committed, 0);
+                    const com = items.reduce((a, s) => a + (parseInt(s.unit || "0") || 0), 0);
                     const del = items.reduce((a, s) => a + s.delivered, 0);
                     const p = com === 0 ? 0 : Math.round((del / com) * 100);
                     const color = MODULE_COLORS[k] ?? "#6366f1";
@@ -246,7 +246,7 @@ export default function DashboardPage() {
                 {c.activeModules.map((k) => {
                   const m = MODULES.find((x) => x.key === k)!;
                   const items = c.scope.filter((s) => s.module === k);
-                  const com = items.reduce((a, s) => a + s.committed, 0);
+                  const com = items.reduce((a, s) => a + (parseInt(s.unit || "0") || 0), 0);
                   const del = items.reduce((a, s) => a + s.delivered, 0);
                   const p = com === 0 ? 0 : Math.round((del / com) * 100);
                   return (

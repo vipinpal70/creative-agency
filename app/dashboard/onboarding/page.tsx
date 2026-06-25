@@ -196,9 +196,10 @@ export default function OnboardingPage() {
         const hasSocial = nextItems.some((s) => s.module === "social");
         if (!hasSocial) {
           nextItems.push(
-            { id: "social-reelstory", module: "social", label: "reel/story", unit: "qty", committed: 8, platforms: ["instagram"] },
-            { id: "social-imagecarousel", module: "social", label: "image/carousel", unit: "qty", committed: 6, platforms: ["instagram", "facebook"] },
-            { id: "social-post", module: "social", label: "post", unit: "qty", committed: 4, platforms: ["instagram", "facebook"] }
+            { id: "social-reel", module: "social", label: "reel", unit: "8", platforms: ["instagram"] },
+            { id: "social-story", module: "social", label: "story", unit: "8", platforms: ["instagram"] },
+            { id: "social-static", module: "social", label: "static/image", unit: "6", platforms: ["instagram", "facebook"] },
+            { id: "social-carousel", module: "social", label: "carousel", unit: "4", platforms: ["instagram", "facebook"] }
           );
         }
       }
@@ -206,8 +207,8 @@ export default function OnboardingPage() {
         const hasPaid = nextItems.some((s) => s.module === "paid");
         if (!hasPaid) {
           nextItems.push(
-            { id: "paid-meta", module: "paid", label: "Meta Ad Creatives", unit: "qty", committed: 4 },
-            { id: "paid-google", module: "paid", label: "Google Ads Copy", unit: "qty", committed: 2 }
+            { id: "paid-meta", module: "paid", label: "Meta Ad Creatives", unit: "4" },
+            { id: "paid-google", module: "paid", label: "Google Ads Copy", unit: "2" }
           );
         }
       }
@@ -215,8 +216,8 @@ export default function OnboardingPage() {
         const hasEmail = nextItems.some((s) => s.module === "email");
         if (!hasEmail) {
           nextItems.push(
-            { id: "email-promo", module: "email", label: "Promotional Campaigns", unit: "qty", committed: 4 },
-            { id: "email-trans", module: "email", label: "Transactional Flows", unit: "qty", committed: 1 }
+            { id: "email-promo", module: "email", label: "Promotional Campaigns", unit: "4" },
+            { id: "email-trans", module: "email", label: "Transactional Flows", unit: "1" }
           );
         }
       }
@@ -224,8 +225,8 @@ export default function OnboardingPage() {
         const hasSeo = nextItems.some((s) => s.module === "seo");
         if (!hasSeo) {
           nextItems.push(
-            { id: "seo-blogs", module: "seo", label: "SEO Blog Posts", unit: "qty", committed: 4 },
-            { id: "seo-audits", module: "seo", moduleItems: [], label: "Technical SEO Audits", unit: "qty", committed: 1 }
+            { id: "seo-blogs", module: "seo", label: "SEO Blog Posts", unit: "4" },
+            { id: "seo-audits", module: "seo", label: "Technical SEO Audits", unit: "1" }
           );
         }
       }
@@ -233,7 +234,7 @@ export default function OnboardingPage() {
         const hasInfluencer = nextItems.some((s) => s.module === "influencer");
         if (!hasInfluencer) {
           nextItems.push(
-            { id: "influencer-campaigns", module: "influencer", label: "Influencer Campaigns", unit: "qty", committed: 2 }
+            { id: "influencer-campaigns", module: "influencer", label: "Influencer Campaigns", unit: "2" }
           );
         }
       }
@@ -612,7 +613,7 @@ export default function OnboardingPage() {
               Baseline Scope of Work Settings
             </h2>
             <p className="text-xs text-gray-500">
-              Provide committed deliverables quantity per month. Deliverables placeholders will be automatically generated for scheduling.
+              Provide deliverables quantity per month. Deliverables placeholders will be automatically generated for scheduling.
             </p>
 
             {Object.keys(selectedModules).filter((k) => selectedModules[k]).map((modKey) => {
@@ -649,8 +650,7 @@ export default function OnboardingPage() {
                             id: `${dbModule}-${crypto.randomUUID().slice(0, 6)}`,
                             module: dbModule,
                             label: dbModule === "social" ? "reel/story" : "",
-                            unit: "qty",
-                            committed: 1,
+                            unit: "1",
                             platforms: dbModule === "social" ? ["instagram"] : [],
                           },
                         ]);
@@ -679,11 +679,12 @@ export default function OnboardingPage() {
                                 className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg bg-white"
                               >
                                 <option value="">Select...</option>
-                                <option value="reel/story">Reel/Story</option>
-                                <option value="image/carousel">Image/Carousel</option>
-                                <option value="post">Post</option>
-                                <option value="static">Static</option>
-                                <option value="custom">Custom</option>
+                                <option value="reel">Reel</option>
+                                <option value="story">Story</option>
+                                <option value="article/copy">Article / Copy</option>
+                                <option value="static/image">Static / Image</option>
+                                <option value="carousel">Carousel</option>
+                                <option value="video long form">Video Long Form</option>
                               </select>
                             </div>
 
@@ -699,18 +700,6 @@ export default function OnboardingPage() {
                                 className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
                               />
                             </div>
-
-                            {/* Committed count */}
-                            {/* <div className="col-span-4 sm:col-span-2 space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase">Committed / mo</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={s.committed}
-                                onChange={(e) => updateScopeItem(s.id, { committed: parseInt(e.target.value) || 0 })}
-                                className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
-                              />
-                            </div> */}
 
                             {/* Platforms */}
                             <div className="col-span-12 sm:col-span-4 space-y-1">
@@ -745,6 +734,7 @@ export default function OnboardingPage() {
                                 })}
                               </div>
                             </div>
+
                           </>
                         ) : (
                           <>
@@ -760,26 +750,15 @@ export default function OnboardingPage() {
                               />
                             </div>
 
-                            {/* Unit Input */}
-                            <div className="col-span-6 sm:col-span-2 space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase">Unit</label>
-                              <input
-                                type="text"
-                                placeholder="qty"
-                                value={s.unit || ""}
-                                onChange={(e) => updateScopeItem(s.id, { unit: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
-                              />
-                            </div>
-
-                            {/* Committed count */}
+                            {/* Unit / Qty */}
                             <div className="col-span-6 sm:col-span-3 space-y-1">
-                              <label className="text-[10px] font-bold text-gray-400 uppercase">Committed / mo</label>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Qty / mo</label>
                               <input
                                 type="number"
                                 min="0"
-                                value={s.committed}
-                                onChange={(e) => updateScopeItem(s.id, { committed: parseInt(e.target.value) || 0 })}
+                                placeholder="0"
+                                value={s.unit || ""}
+                                onChange={(e) => updateScopeItem(s.id, { unit: e.target.value })}
                                 className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
                               />
                             </div>
@@ -921,7 +900,7 @@ export default function OnboardingPage() {
                           )}
                         </div>
                         <span className="text-gray-600 font-medium">
-                          {item.committed} {item.unit || "qty"} / mo
+                          {item.unit || "0"} / mo
                         </span>
                       </div>
                     ))}

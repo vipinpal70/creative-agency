@@ -3,9 +3,8 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 export interface IScopeItem {
   id: string;          // Frontend UUID / ID string
   module: string;      // e.g. "social", "paid", "seo", "email", "website", "influencer", "custom"
-  label: string;       // e.g. "Reels", "Posts per month", "Blogs", "Ad Spend"
-  unit?: string;       // e.g. "qty", "hrs", "usd"
-  committed: number;   // Committed quantity
+  label: string;       // e.g. "reel", "carousel", "video long form", "Blogs", "Ad Spend"
+  unit?: string;       // Quantity per month as a numeric string (e.g. "12", "4")
   delivered: number;   // Default 0
   platforms?: string[]; // E.g. ["instagram", "facebook", "linkedin", "youtube", "x"] (only for social module)
 }
@@ -25,8 +24,7 @@ const scopeItemSchema = new Schema<IScopeItem>(
     id: { type: String, required: true },
     module: { type: String, required: true },
     label: { type: String, required: true },
-    unit: { type: String, default: "qty" },
-    committed: { type: Number, required: true, default: 0 },
+    unit: { type: String, default: "0" },
     delivered: { type: Number, required: true, default: 0 },
     platforms: { type: [String], default: [] },
   },
@@ -44,8 +42,7 @@ const scopeOfWorkSchema = new Schema<IScopeOfWork>(
   { timestamps: true }
 );
 
-// Indexing for quick querying
-scopeOfWorkSchema.index({ clientId: 1, isActive: 1 });
+scopeOfWorkSchema.index({ clientId: 1 });
 
 const ScopeOfWork: Model<IScopeOfWork> =
   mongoose.models.ScopeOfWork || mongoose.model<IScopeOfWork>("ScopeOfWork", scopeOfWorkSchema);

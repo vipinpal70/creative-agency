@@ -20,7 +20,10 @@ export interface IContentDraft extends Document {
   mediaType:      string;
   creativeCopy:   string;          // used for non-carousel posts
   frames:         { frameNo: number; copy: string; imageUrl: string }[]; // carousel frames
-  imageUrl:       string;          // single creative image URL (designer fills post-creation)
+  imageUrl:       string;          // static image / GIF / story image URL
+  videoUrl:       string;          // video / reel file URL
+  thumbnailUrl:   string;          // video thumbnail image URL
+  audioUrl:       string;          // audio / podcast file URL
   caption:        string;
   hashtags:       string[];
   publishDate:    Date | null;
@@ -52,6 +55,9 @@ const contentDraftSchema = new Schema<IContentDraft>(
       default: [],
     },
     imageUrl:      { type: String, default: "" },
+    videoUrl:      { type: String, default: "" },
+    thumbnailUrl:  { type: String, default: "" },
+    audioUrl:      { type: String, default: "" },
     caption:       { type: String, default: "" },
     hashtags:      { type: [String], default: [] },
     publishDate:   { type: Date, default: null },

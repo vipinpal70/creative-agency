@@ -352,7 +352,7 @@ function deriveScopeItems(scope: any | undefined, monthDels: Deliverable[]) {
       id: item.id || item._id || Math.random().toString(),
       module: item.module,
       label: item.label,
-      committed: item.committed,
+      qty: parseInt(item.unit) || 0,
       delivered,
     };
   });
@@ -455,9 +455,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         const hasSocial = nextItems.some((s) => s.module === "social");
         if (!hasSocial) {
           nextItems.push(
-            { id: "social-reelstory", module: "social", label: "reel/story", unit: "qty", committed: 8, platforms: ["instagram"] },
-            { id: "social-imagecarousel", module: "social", label: "image/carousel", unit: "qty", committed: 6, platforms: ["instagram", "facebook"] },
-            { id: "social-post", module: "social", label: "post", unit: "qty", committed: 4, platforms: ["instagram", "facebook"] }
+            { id: "social-reel", module: "social", label: "reel", unit: "8", platforms: ["instagram"] },
+            { id: "social-story", module: "social", label: "story", unit: "8", platforms: ["instagram"] },
+            { id: "social-static", module: "social", label: "static/image", unit: "6", platforms: ["instagram", "facebook"] },
+            { id: "social-carousel", module: "social", label: "carousel", unit: "4", platforms: ["instagram", "facebook"] }
           );
         }
       }
@@ -465,8 +466,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         const hasPaid = nextItems.some((s) => s.module === "paid");
         if (!hasPaid) {
           nextItems.push(
-            { id: "paid-meta", module: "paid", label: "Meta Ad Creatives", unit: "qty", committed: 4 },
-            { id: "paid-google", module: "paid", label: "Google Ads Copy", unit: "qty", committed: 2 }
+            { id: "paid-meta", module: "paid", label: "Meta Ad Creatives", unit: "4" },
+            { id: "paid-google", module: "paid", label: "Google Ads Copy", unit: "2" }
           );
         }
       }
@@ -474,8 +475,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         const hasEmail = nextItems.some((s) => s.module === "email");
         if (!hasEmail) {
           nextItems.push(
-            { id: "email-promo", module: "email", label: "Promotional Campaigns", unit: "qty", committed: 4 },
-            { id: "email-trans", module: "email", label: "Transactional Flows", unit: "qty", committed: 1 }
+            { id: "email-promo", module: "email", label: "Promotional Campaigns", unit: "4" },
+            { id: "email-trans", module: "email", label: "Transactional Flows", unit: "1" }
           );
         }
       }
@@ -483,8 +484,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         const hasSeo = nextItems.some((s) => s.module === "seo");
         if (!hasSeo) {
           nextItems.push(
-            { id: "seo-blogs", module: "seo", label: "SEO Blog Posts", unit: "qty", committed: 4 },
-            { id: "seo-audits", module: "seo", label: "Technical SEO Audits", unit: "qty", committed: 1 }
+            { id: "seo-blogs", module: "seo", label: "SEO Blog Posts", unit: "4" },
+            { id: "seo-audits", module: "seo", label: "Technical SEO Audits", unit: "1" }
           );
         }
       }
@@ -492,7 +493,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         const hasInfluencer = nextItems.some((s) => s.module === "influencer");
         if (!hasInfluencer) {
           nextItems.push(
-            { id: "influencer-campaigns", module: "influencer", label: "Influencer Campaigns", unit: "qty", committed: 2 }
+            { id: "influencer-campaigns", module: "influencer", label: "Influencer Campaigns", unit: "2" }
           );
         }
       }
@@ -720,8 +721,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         items: newScopeItems.map((item) => ({
           module: item.module,
           label: item.label,
-          unit: item.unit || "qty",
-          committed: item.committed,
+          unit: item.unit || "0",
           platforms: item.platforms || [],
         })),
       };
@@ -751,7 +751,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const scopeItems = deriveScopeItems(client?.scope, thisMonthDels);
   const activeModuleKeys = Array.from(new Set(scopeItems.map((s: any) => s.module)));
 
-  const totalCommitted = scopeItems.reduce((a: number, s: any) => a + s.committed, 0);
+  const totalCommitted = scopeItems.reduce((a: number, s: any) => a + s.qty, 0);
   const totalDelivered = scopeItems.reduce((a: number, s: any) => a + s.delivered, 0);
   const overallPct = pct(totalDelivered, totalCommitted);
 
@@ -931,7 +931,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 {activeModuleKeys.length === 0 && <p className="text-xs text-gray-400 italic col-span-2 py-4 text-center">No scope configured yet.</p>}
                 {SCOPE_MODULES.filter((m) => activeModuleKeys.includes(m.key)).map((meta) => {
                   const items = scopeItems.filter((s: any) => s.module === meta.key);
-                  const c = items.reduce((a: number, s: any) => a + s.committed, 0);
+                  const c = items.reduce((a: number, s: any) => a + s.qty, 0);
                   const d = items.reduce((a: number, s: any) => a + s.delivered, 0);
                   const p = pct(d, c);
                   return (
@@ -989,7 +989,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 ›
               </button>
             </div>
-            <p className="text-xs text-gray-500">Committed vs. delivered for this period</p>
+            <p className="text-xs text-gray-500">Scope vs. delivered for this period</p>
           </div>
 
           {/* KPI cards — same layout as ScopeDashboard.tsx */}
@@ -1018,7 +1018,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             <div className="grid md:grid-cols-2 gap-4">
               {SCOPE_MODULES.filter((m) => activeModuleKeys.includes(m.key)).map((meta) => {
                 const items = scopeItems.filter((s: any) => s.module === meta.key);
-                const c = items.reduce((a: number, s: any) => a + s.committed, 0);
+                const c = items.reduce((a: number, s: any) => a + s.qty, 0);
                 const d = items.reduce((a: number, s: any) => a + s.delivered, 0);
                 const p = pct(d, c);
                 return (
@@ -1037,19 +1037,19 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                     {/* Committed / Delivered / Pending */}
                     <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
-                      <span>Committed: <span className="text-gray-900 font-medium">{c}</span></span>
+                      <span>Scope: <span className="text-gray-900 font-medium">{c}</span></span>
                       <span>Delivered: <span className="text-gray-900 font-medium">{d}</span></span>
                       <span>Pending: <span className="text-gray-900 font-medium">{Math.max(0, c - d)}</span></span>
                     </div>
                     {/* Per-item sub-rows */}
                     <div className="space-y-1.5 pt-1">
                       {items.map((item: any) => {
-                        const sp = pct(item.delivered, item.committed);
+                        const sp = pct(item.delivered, item.qty);
                         return (
                           <div key={item.id} className="text-xs">
                             <div className="flex justify-between mb-0.5">
                               <span className="text-gray-700">{item.label}</span>
-                              <span className="text-gray-400">{item.delivered}/{item.committed}</span>
+                              <span className="text-gray-400">{item.delivered}/{item.qty}</span>
                             </div>
                             <div className="w-full bg-gray-100 h-1 rounded-full overflow-hidden">
                               <div className={`h-full rounded-full ${meta.bar} opacity-70`} style={{ width: `${sp}%` }} />
@@ -1172,7 +1172,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                             </span>
                                           )}
                                         </div>
-                                        <span className="font-semibold">{item.committed} {item.unit || "qty"}</span>
+                                        <span className="font-semibold">{item.unit || "0"} / mo</span>
                                       </div>
                                     ))}
                                   </div>
@@ -1746,9 +1746,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                 {
                                   id: `${modKey}-${crypto.randomUUID().slice(0, 6)}`,
                                   module: modKey,
-                                  label: modKey === "social" ? "reel/story" : "",
-                                  unit: "qty",
-                                  committed: 1,
+                                  label: modKey === "social" ? "reel" : "",
+                                  unit: "1",
                                   platforms: modKey === "social" ? ["instagram"] : [],
                                 },
                               ]);
@@ -1776,32 +1775,23 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                       className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg bg-white"
                                     >
                                       <option value="">Select...</option>
-                                      <option value="reel/story">Reel/Story</option>
-                                      <option value="image/carousel">Image/Carousel</option>
-                                      <option value="post">Post</option>
-                                      <option value="static">Static</option>
-                                      <option value="custom">Custom</option>
+                                      <option value="reel">Reel</option>
+                                      <option value="story">Story</option>
+                                      <option value="article/copy">Article / Copy</option>
+                                      <option value="static/image">Static / Image</option>
+                                      <option value="carousel">Carousel</option>
+                                      <option value="video long form">Video Long Form</option>
                                     </select>
                                   </div>
 
                                   <div className="col-span-4 sm:col-span-2 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Unit</label>
-                                    <input
-                                      type="text"
-                                      placeholder="qty"
-                                      value={s.unit || ""}
-                                      onChange={(e) => updateNewScopeItem(s.id, { unit: e.target.value })}
-                                      className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
-                                    />
-                                  </div>
-
-                                  <div className="col-span-4 sm:col-span-2 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Committed</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Qty / mo</label>
                                     <input
                                       type="number"
                                       min="0"
-                                      value={s.committed}
-                                      onChange={(e) => updateNewScopeItem(s.id, { committed: parseInt(e.target.value) || 0 })}
+                                      placeholder="0"
+                                      value={s.unit || ""}
+                                      onChange={(e) => updateNewScopeItem(s.id, { unit: e.target.value })}
                                       className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
                                     />
                                   </div>
@@ -1838,6 +1828,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                       })}
                                     </div>
                                   </div>
+
                                 </>
                               ) : (
                                 <>
@@ -1852,24 +1843,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                     />
                                   </div>
 
-                                  <div className="col-span-6 sm:col-span-2 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Unit</label>
-                                    <input
-                                      type="text"
-                                      placeholder="qty"
-                                      value={s.unit || ""}
-                                      onChange={(e) => updateNewScopeItem(s.id, { unit: e.target.value })}
-                                      className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
-                                    />
-                                  </div>
-
                                   <div className="col-span-6 sm:col-span-3 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Committed</label>
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Qty / mo</label>
                                     <input
                                       type="number"
                                       min="0"
-                                      value={s.committed}
-                                      onChange={(e) => updateNewScopeItem(s.id, { committed: parseInt(e.target.value) || 0 })}
+                                      placeholder="0"
+                                      value={s.unit || ""}
+                                      onChange={(e) => updateNewScopeItem(s.id, { unit: e.target.value })}
                                       className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
                                     />
                                   </div>
@@ -1929,16 +1910,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             <p className="text-xs font-bold text-gray-800">{modulesMap[modKey] || modKey}</p>
                             <div className="divide-y divide-gray-50 text-xs text-gray-600">
                               {items.map((item) => (
-                                <div key={item.id} className="flex justify-between py-1.5">
-                                  <div>
-                                    <span className="font-medium">{item.label}</span>
-                                    {modKey === "social" && item.platforms && item.platforms.length > 0 && (
-                                      <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-bold uppercase border border-emerald-100">
-                                        {item.platforms.join(", ")}
-                                      </span>
-                                    )}
+                                <div key={item.id} className="py-1.5 space-y-0.5">
+                                  <div className="flex justify-between">
+                                    <div>
+                                      <span className="font-medium">{item.label}</span>
+                                      {modKey === "social" && item.platforms && item.platforms.length > 0 && (
+                                        <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-bold uppercase border border-emerald-100">
+                                          {item.platforms.join(", ")}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-bold text-gray-900">{item.unit || "0"} / mo</span>
                                   </div>
-                                  <span className="font-bold text-gray-900">{item.committed} {item.unit || "qty"}</span>
                                 </div>
                               ))}
                               {items.length === 0 && <p className="text-xs text-gray-400 italic">No deliverables configured.</p>}
