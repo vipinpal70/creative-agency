@@ -31,6 +31,8 @@ export interface IContentDraft extends Document {
   referenceUrl:   string;
   videoType:      string;
   videoNotes:     string;
+  articleMode:    string;   // "with-creative" | "without-creative" | "" — only for article/copy media type
+  articleCopy:    string;   // written article/copy text — only for article/copy media type
   notes:          string;
 
   status:         DraftStatus;
@@ -65,6 +67,8 @@ const contentDraftSchema = new Schema<IContentDraft>(
     referenceUrl:  { type: String, default: "" },
     videoType:     { type: String, default: "" },
     videoNotes:    { type: String, default: "" },
+    articleMode:   { type: String, default: "" },
+    articleCopy:   { type: String, default: "" },
     notes:         { type: String, default: "" },
 
     status:        {

@@ -62,7 +62,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const nextVersion = latest ? latest.version + 1 : 1;
 
     const { mediaType, creativeCopy, frames, caption, hashtags,
-            publishDate, publishTime, referenceUrl, videoType, videoNotes, notes,
+            publishDate, publishTime, referenceUrl, videoType, videoNotes,
+            articleMode, articleCopy, notes,
             imageUrl, videoUrl, thumbnailUrl, audioUrl } = body;
 
     // Resolve author name for history snapshot
@@ -93,6 +94,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       referenceUrl:  referenceUrl || "",
       videoType:     videoType    || "",
       videoNotes:    videoNotes   || "",
+      articleMode:   articleMode  || "",
+      articleCopy:   articleCopy  || "",
       notes:         notes        || "",
       status:        "draft",
       lastChangedBy: { userId: session.userId, name: authorName, email: session.email, changedAt: now },

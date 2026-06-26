@@ -55,11 +55,11 @@ export default function ClientsPage() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Client Directory</h1>
+          <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Client Directory</h1>
           <p className="text-sm text-gray-500 mt-1">
             Manage your active brand retainers, scopes of work, and team allocations.
           </p>
@@ -78,8 +78,8 @@ export default function ClientsPage() {
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Clients</p>
-            <p className="text-xl font-bold text-gray-900 mt-0.5">{clients.length}</p>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Total Clients</p>
+            <p className="text-xl font-semibold text-gray-900 mt-0.5">{clients.length}</p>
           </div>
         </div>
         <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex items-center gap-3">
@@ -87,8 +87,8 @@ export default function ClientsPage() {
             <CheckCircle className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active Retainers</p>
-            <p className="text-xl font-bold text-gray-900 mt-0.5">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Active Retainers</p>
+            <p className="text-xl font-semibold text-gray-900 mt-0.5">
               {clients.filter((c) => c.status === "active").length}
             </p>
           </div>
@@ -98,8 +98,8 @@ export default function ClientsPage() {
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Running Month Deliverables</p>
-            <p className="text-xl font-bold text-gray-900 mt-0.5">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Running Month Deliverables</p>
+            <p className="text-xl font-semibold text-gray-900 mt-0.5">
               {clients.reduce((sum, c) => sum + c.delivered, 0)} / {clients.reduce((sum, c) => sum + c.committed, 0)}
             </p>
           </div>
@@ -145,13 +145,13 @@ export default function ClientsPage() {
               <div className="bg-white border border-gray-100 hover:border-emerald-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-start gap-4 min-w-0 flex-1">
                   {/* Brand Avatar */}
-                  <div className="w-11 h-11 bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 group-hover:text-emerald-800 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-sm border border-emerald-100/50 transition-all">
+                  <div className="w-11 h-11 bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 group-hover:text-emerald-800 rounded-xl flex items-center justify-center font-semibold text-sm shrink-0 shadow-sm border border-emerald-100/50 transition-all">
                     {client.brandName.slice(0, 2).toUpperCase()}
                   </div>
                   {/* Info */}
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-sm text-gray-900 truncate group-hover:text-emerald-700 transition-colors">
+                      <h3 className="font-semibold text-sm text-gray-900 truncate group-hover:text-emerald-700 transition-colors">
                         {client.name}
                       </h3>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-100/50">

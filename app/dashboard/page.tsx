@@ -3,9 +3,9 @@ import Link from "next/link";
 import { seedClients, seedCalendarItems } from "@/lib/seed";
 import { MODULES } from "@/lib/types";
 import type { ContentStatus } from "@/lib/types";
+import {Users, CheckCircle, Calendar, FileText, PieChart, Clock, User} from "lucide-react";
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
+// helpers
 const TODAY = new Date("2026-06-15");
 
 function upcoming7() {
@@ -28,7 +28,7 @@ function overdueItems() {
   );
 }
 
-// ── design tokens ─────────────────────────────────────────────────────────────
+// design tokens 
 
 const MODULE_COLORS: Record<string, string> = {
   social: "#6366f1",
@@ -50,12 +50,12 @@ const STATUS_STYLES: Record<ContentStatus, { bg: string; text: string; dot: stri
   Published: { bg: "bg-violet-50", text: "text-violet-600", dot: "bg-violet-500" },
 };
 
-// ── sub-components ────────────────────────────────────────────────────────────
+// sub-components 
 
 function ContentBadge({ status }: { status: ContentStatus }) {
   const s = STATUS_STYLES[status];
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${s.bg} ${s.text}`}>
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wide ${s.bg} ${s.text}`}>
       <span className={`w-1 h-1 rounded-full ${s.dot}`} />
       {status}
     </span>
@@ -63,14 +63,14 @@ function ContentBadge({ status }: { status: ContentStatus }) {
 }
 
 function KpiCard({ label, value, change, icon, accent }: {
-  label: string; value: string; change: string; icon: string; accent: string;
+  label: string; value: string; change: string; icon: React.ReactNode; accent: string;
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
-          <p className="text-2xl font-extrabold mt-1 text-gray-900 tracking-tight">{value}</p>
+          <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-widest">{label}</p>
+          <p className="text-2xl font-semibold mt-1 text-gray-900 tracking-tight">{value}</p>
           <p className="text-[10px] text-gray-400 mt-0.5">{change}</p>
         </div>
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-sm ${accent}`}>
@@ -92,7 +92,7 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
   );
 }
 
-// ── bar chart (pure CSS, no recharts) ─────────────────────────────────────────
+// bar chart (pure CSS, no recharts) 
 
 const PRODUCTIVITY = [
   { name: "Sarah", tasks: 28 },
@@ -112,7 +112,7 @@ function ProductivityChart() {
         const hue = 234 + i * 10;
         return (
           <div key={p.name} className="flex flex-col items-center gap-1 flex-1">
-            <span className="text-[9px] font-bold text-gray-400">{p.tasks}</span>
+            <span className="text-[9px] font-semibold text-gray-400">{p.tasks}</span>
             <div
               className="w-full rounded-t-md hover:opacity-75 transition-opacity cursor-default"
               style={{ height: `${pct}%`, background: `hsl(${hue}, 78%, 62%)` }}
@@ -171,7 +171,7 @@ function DonutChart() {
               <span className="w-2 h-2 rounded-sm" style={{ background: d.color }} />
               <span className="text-[10px] text-gray-500">{d.label}</span>
             </div>
-            <span className="text-[10px] font-bold text-gray-700">{d.value}%</span>
+            <span className="text-[10px] font-semibold text-gray-700">{d.value}%</span>
           </div>
         ))}
       </div>
@@ -186,10 +186,10 @@ export default function DashboardPage() {
   const overdueList = overdueItems();
 
   const kpis = [
-    { label: "Active Clients", value: String(seedClients.length), change: "+1 this month", icon: "👥", accent: "bg-indigo-50 text-indigo-600" },
-    { label: "Open Tasks", value: "67", change: "12 due today", icon: "✅", accent: "bg-blue-50 text-blue-600" },
-    { label: "Pending Approvals", value: "18", change: "5 overdue", icon: "⏳", accent: "bg-amber-50 text-amber-600" },
-    { label: "Delayed Projects", value: "4", change: "-2 from last week", icon: "⚠️", accent: "bg-rose-50 text-rose-600" },
+    { label: "Active Clients", value: String(seedClients.length), change: "+1 this month", icon: <Users className="w-5 h-5" />, accent: "bg-indigo-50 text-indigo-600" },
+    { label: "Open Tasks", value: "67", change: "12 due today", icon: <CheckCircle className="w-5 h-5" />, accent: "bg-blue-50 text-blue-600" },
+    { label: "Pending Approvals", value: "18", change: "5 overdue", icon: <Clock className="w-5 h-5" />, accent: "bg-amber-50 text-amber-600" },
+    { label: "Delayed Projects", value: "4", change: "-2 from last week", icon: <FileText className="w-5 h-5" />, accent: "bg-rose-50 text-rose-600" },
   ];
 
   return (
@@ -197,7 +197,7 @@ export default function DashboardPage() {
 
       {/* Page header */}
       <div>
-        <h1 className="text-xl font-extrabold tracking-tight text-gray-900">Dashboard</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-gray-900">Dashboard</h1>
         <p className="text-[11px] text-gray-400 mt-0.5">Welcome back, here&apos;s what&apos;s happening today.</p>
       </div>
 
@@ -210,7 +210,7 @@ export default function DashboardPage() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-50">
           <div>
-            <h2 className="text-[12px] font-bold text-gray-900">Scope delivery — target vs delivered</h2>
+            <h2 className="text-[12px] font-semibold text-gray-900">Scope delivery — target vs delivered</h2>
           </div>
           <Link href="/dashboard/clients" className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition-colors">
             All clients →
@@ -221,7 +221,7 @@ export default function DashboardPage() {
             <div key={c.id} className="px-5 py-3.5 hover:bg-gray-50/40 transition-colors">
               <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[10px] font-semibold shadow-sm">
                     {c.name.charAt(0)}
                   </div>
                   <span className="text-[12px] font-semibold text-gray-900">{c.name}</span>
@@ -268,12 +268,12 @@ export default function DashboardPage() {
       {/* ── Charts row ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-[12px] font-bold text-gray-900">Productivity per Team Member</h2>
+          <h2 className="text-[12px] font-semibold text-gray-900">Productivity per Team Member</h2>
           <p className="text-[10px] text-gray-400 mt-0.5 mb-1">Tasks completed this month</p>
           <ProductivityChart />
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-[12px] font-bold text-gray-900">Approval Rate</h2>
+          <h2 className="text-[12px] font-semibold text-gray-900">Approval Rate</h2>
           <p className="text-[10px] text-gray-400 mt-0.5 mb-3">Across all client content</p>
           <DonutChart />
         </div>
@@ -286,7 +286,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-50">
             <div>
-              <h2 className="text-[12px] font-bold text-gray-900">Upcoming deliverables</h2>
+              <h2 className="text-[12px] font-semibold text-gray-900">Upcoming deliverables</h2>
               <p className="text-[9px] text-gray-400 mt-0.5">Next 7 days</p>
             </div>
             <Link href="/dashboard/calendar" className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
@@ -316,7 +316,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-            <h2 className="text-[12px] font-bold text-rose-500">Overdue</h2>
+            <h2 className="text-[12px] font-semibold text-rose-500">Overdue</h2>
           </div>
           <div className="divide-y divide-gray-50">
             {overdueList.length === 0 && (
@@ -344,7 +344,7 @@ export default function DashboardPage() {
         <div className="absolute -bottom-5 -left-5 w-24 h-24 rounded-full bg-white/5 pointer-events-none" />
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-bold tracking-tight">Everything under control?</h3>
+            <h3 className="text-sm font-semibold tracking-tight">Everything under control?</h3>
             <p className="text-[11px] text-indigo-100 mt-0.5">
               {overdueList.length > 0
                 ? `${overdueList.length} overdue item${overdueList.length > 1 ? "s" : ""} need attention.`
@@ -352,7 +352,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 shrink-0">
-            <Link href="/dashboard/tasks" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-bold text-indigo-600 bg-white hover:bg-indigo-50 shadow hover:-translate-y-0.5 transition-all duration-200">
+            <Link href="/dashboard/tasks" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-semibold text-indigo-600 bg-white hover:bg-indigo-50 shadow hover:-translate-y-0.5 transition-all duration-200">
               View Tasks
             </Link>
             <Link href="/dashboard/calendar" className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-semibold text-white bg-white/10 border border-white/25 hover:bg-white/20 transition-all duration-200">

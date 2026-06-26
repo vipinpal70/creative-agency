@@ -17,7 +17,7 @@ export default function TeamPage() {
     <div className="max-w-7xl space-y-5">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-extrabold tracking-tight text-gray-900">Team Management</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-gray-900">Team Management</h1>
         <p className="text-[11px] text-gray-400 mt-0.5">
           Onboard members, manage roles, credentials, and access.
         </p>
@@ -29,7 +29,7 @@ export default function TeamPage() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-5 py-2 rounded-md text-[11px] font-bold transition-all ${
+            className={`px-5 py-2 rounded-md text-[11px] font-semibold transition-all ${
               tab === t.id
                 ? "bg-white text-indigo-600 shadow-sm"
                 : "text-gray-500 hover:text-gray-800"

@@ -98,6 +98,8 @@ export async function GET(req: NextRequest) {
               referenceUrl:  draft.referenceUrl ?? "",
               videoType:     draft.videoType ?? "",
               videoNotes:    draft.videoNotes ?? "",
+              articleMode:   draft.articleMode ?? "",
+              articleCopy:   draft.articleCopy ?? "",
               notes:         draft.notes ?? "",
               status:        draft.status ?? "draft",
               rejectionNote: draft.rejectionNote ?? "",

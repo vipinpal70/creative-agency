@@ -4,8 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-// ── SVG icon set (inline, no lucide dep needed) ───────────────────────────────
-
 const Icon = {
   Dashboard: () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -167,12 +165,12 @@ export function AppSidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-3 py-4 border-b border-gray-100 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-500/30 shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-indigo-500/30 shrink-0">
           CA
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <p className="text-[13px] font-bold text-gray-900 leading-tight">CreativeOS</p>
+            <p className="text-[13px] font-semibold text-gray-900 leading-tight">CreativeOS</p>
             <p className="text-[10px] text-gray-400 leading-tight">Agency Platform</p>
           </div>
         )}
@@ -231,7 +229,7 @@ export function AppSidebar() {
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="flex items-center justify-center gap-2 mx-2 mb-3 px-2 py-1.5 rounded-lg text-[11px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all duration-150 shrink-0 border border-gray-100"
+        className="flex items-center justify-center gap-2 mx-2 mb-3 px-2 py-1.5 rounded-lg text-[11px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all duration-150 shrink-0 border border-gray-300"
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         <span className={`transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`}>

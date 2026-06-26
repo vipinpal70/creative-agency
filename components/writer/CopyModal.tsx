@@ -144,6 +144,8 @@ export interface CopyModalInitialData {
   referenceUrl?: string;
   videoType?: string;
   videoNotes?: string;
+  articleMode?: string;
+  articleCopy?: string;
 }
 
 interface Props {
@@ -196,6 +198,11 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
 
   const [mediaType,      setMediaType]      = useState(initialData?.mediaType ?? "");
   const [creativeCopy,   setCreativeCopy]   = useState(initialData?.creativeCopy ?? "");
+  const [articleMode,    setArticleMode]    = useState(
+    initialData?.articleMode ||
+    (initialData?.mediaType?.toLowerCase() === "article/copy" ? "without-creative" : "")
+  );
+  const [articleCopy,    setArticleCopy]    = useState(initialData?.articleCopy ?? "");
   const [caption,        setCaption]        = useState(initialData?.caption ?? "");
   const [hashtags,       setHashtags]       = useState(initialData?.hashtags ?? "");
   const [publishDate,    setPublishDate]    = useState(initialData?.publishDate ?? "");
@@ -239,6 +246,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
   // ── Derived ────────────────────────────────────────────────────────────────
   const isCarousel       = mediaType.toLowerCase() === "carousel";
   const isVideoLongForm  = mediaType.toLowerCase() === "video long form";
+  const isArticleCopy    = mediaType.toLowerCase() === "article/copy";
 
   const updateFrame = (frameNo: number, patch: Partial<CarouselFrame>) => {
     setFrames((prev) => {
@@ -264,11 +272,14 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
 
   const handleMediaTypeChange = (val: string) => {
     setMediaType(val);
-    // Only reset platforms and carousel state in create mode
+    // Only reset platforms and type-specific state in create mode
     if (mode === "create") {
       setSelPlatforms([]);
       setVideoType("");
       setVideoNotes("");
+      setArticleCopy("");
+      // Default article/copy to "without-creative" so the copy field shows immediately
+      setArticleMode(val.toLowerCase() === "article/copy" ? "without-creative" : "");
       setFrames(Array.from({ length: 3 }, (_, i) => ({ frameNo: i + 1, copy: "", imageUrl: "" })));
       setFrameCount(3);
       setCurrentFrame(1);
@@ -285,9 +296,20 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
     ? Array.from({ length: frameCount }, (_, i) => getFrame(i + 1)).every((f) => f.copy.trim())
     : true;
 
+  const articleCopyValid = isArticleCopy
+    ? articleCopy.trim().length > 0 &&
+      (articleMode === "without-creative" || creativeCopy.trim().length > 0)
+    : true;
+
+  const copyFieldValid = isCarousel
+    ? carouselFramesFilled
+    : isArticleCopy
+    ? articleCopyValid
+    : creativeCopy.trim().length > 0;
+
   const isValid =
     mediaType.trim() &&
-    (isCarousel ? carouselFramesFilled : creativeCopy.trim()) &&
+    copyFieldValid &&
     caption.trim() &&
     publishDate &&
     selPlatforms.length > 0;
@@ -302,7 +324,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
 
       await onSave({
         mediaType,
-        creativeCopy:  isCarousel ? "" : creativeCopy,
+        creativeCopy:  isCarousel ? "" : (isArticleCopy && articleMode === "without-creative") ? "" : creativeCopy,
         frames:        resolvedFrames,
         caption,
         hashtags,
@@ -313,6 +335,8 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
         referenceUrl:  referenceUrl.trim() || undefined,
         videoType:     isVideoLongForm ? videoType  : undefined,
         videoNotes:    isVideoLongForm ? videoNotes : undefined,
+        articleMode:   isArticleCopy ? articleMode : undefined,
+        articleCopy:   isArticleCopy ? articleCopy : undefined,
       });
     } finally {
       setSaving(false);
@@ -413,7 +437,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
             </div>
           )}
 
-          {/* 2 — Creative Copy or Carousel Frames */}
+          {/* 2 — Creative Copy, Article/Copy, or Carousel Frames */}
           {isCarousel ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -503,6 +527,61 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
                   {Array.from({ length: frameCount }, (_, i) => getFrame(i + 1).copy.trim()).filter(Boolean).length}
                   /{frameCount} frames filled
                 </p>
+              </div>
+            </div>
+          ) : isArticleCopy ? (
+            <div className="space-y-4">
+              {/* Radio toggle — always visible for article/copy */}
+              <div className="space-y-2">
+                <label className={LABEL}>Creative</label>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="articleMode"
+                      value="without-creative"
+                      checked={articleMode === "without-creative"}
+                      onChange={() => { setArticleMode("without-creative"); setCreativeCopy(""); }}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm text-foreground">Without Creative</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="articleMode"
+                      value="with-creative"
+                      checked={articleMode === "with-creative"}
+                      onChange={() => setArticleMode("with-creative")}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm text-foreground">With Creative</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Creative Copy — only shown when "With Creative" is selected */}
+              {articleMode === "with-creative" && (
+                <div className="space-y-2">
+                  <label className={LABEL}>Creative Copy *</label>
+                  <Textarea
+                    placeholder="Text displayed on the image / creative…"
+                    className="min-h-[90px]"
+                    value={creativeCopy}
+                    onChange={(e) => setCreativeCopy(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {/* Article Copy — always shown for article/copy media type */}
+              <div className="space-y-2">
+                <label className={LABEL}>Article Copy *</label>
+                <Textarea
+                  placeholder="The body content of the article…"
+                  className="min-h-[100px]"
+                  value={articleCopy}
+                  onChange={(e) => setArticleCopy(e.target.value)}
+                />
               </div>
             </div>
           ) : (

@@ -204,6 +204,11 @@ export default function WriterDashboard() {
           publishDate:  form.publishDate || null,
           publishTime:  form.publishTime || null,
           mediaType:    form.mediaType,
+          referenceUrl: form.referenceUrl,
+          videoType:    form.videoType,
+          videoNotes:   form.videoNotes,
+          articleMode:  form.articleMode,
+          articleCopy:  form.articleCopy,
         }),
       }
     );
@@ -269,6 +274,8 @@ export default function WriterDashboard() {
         referenceUrl:  draft.referenceUrl ?? "",
         videoType:     draft.videoType ?? "",
         videoNotes:    draft.videoNotes ?? "",
+        articleMode:   draft.articleMode ?? "",
+        articleCopy:   draft.articleCopy ?? "",
       },
     });
   };
@@ -294,6 +301,11 @@ export default function WriterDashboard() {
             hashtags:     form.hashtags.split(/[\s,]+/).filter(Boolean),
             publishDate:  form.publishDate || null,
             publishTime:  form.publishTime || null,
+            referenceUrl: form.referenceUrl,
+            videoType:    form.videoType,
+            videoNotes:   form.videoNotes,
+            articleMode:  form.articleMode,
+            articleCopy:  form.articleCopy,
           }),
         }
       );

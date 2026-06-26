@@ -59,6 +59,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       mediaType, creativeCopy, frames, caption, hashtags,
       publishDate, publishTime, notes, status, rejectionNote,
       imageUrl, videoUrl, thumbnailUrl, audioUrl,
+      articleMode, articleCopy,
     } = body;
 
     // Snapshot old values for diff before any mutation
@@ -78,10 +79,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       referenceUrl:  draft.referenceUrl,
       videoType:     draft.videoType,
       videoNotes:    draft.videoNotes,
+      articleMode:   draft.articleMode,
+      articleCopy:   draft.articleCopy,
     };
 
     if (mediaType !== undefined)     draft.mediaType    = mediaType;
     if (creativeCopy !== undefined)  draft.creativeCopy = creativeCopy;
+    if (articleMode !== undefined)   draft.articleMode  = articleMode;
+    if (articleCopy !== undefined)   draft.articleCopy  = articleCopy;
     if (Array.isArray(frames))       draft.frames       = frames;
     if (imageUrl !== undefined)      draft.imageUrl     = imageUrl;
     if (videoUrl !== undefined)      draft.videoUrl     = videoUrl;
@@ -132,6 +137,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (body.referenceUrl !== undefined) newValues.referenceUrl = body.referenceUrl;
     if (body.videoType !== undefined)    newValues.videoType    = body.videoType;
     if (body.videoNotes !== undefined)   newValues.videoNotes   = body.videoNotes;
+    if (articleMode !== undefined)       newValues.articleMode  = articleMode;
+    if (articleCopy !== undefined)       newValues.articleCopy  = articleCopy;
     if (imageUrl !== undefined)          newValues.imageUrl     = imageUrl;
     if (videoUrl !== undefined)          newValues.videoUrl     = videoUrl;
     if (thumbnailUrl !== undefined)      newValues.thumbnailUrl = thumbnailUrl;

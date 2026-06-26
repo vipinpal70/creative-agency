@@ -368,6 +368,12 @@ function SocialMockup({
             alt="Preview"
             className="w-full h-full object-cover"
           />
+        ) : (draft?.articleMode === "with-creative" || (draft?.mediaType || item.type).toLowerCase() === "article/copy") && draft?.creativeCopy ? (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 to-muted p-4">
+            <p className="text-xs text-foreground text-center font-medium leading-relaxed line-clamp-6">
+              {draft.creativeCopy}
+            </p>
+          </div>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground bg-gradient-to-br from-primary/10 to-muted">
             <span className="text-3xl">{mediaCategory === "gif" ? "🎞️" : mediaCategory === "story" ? "📱" : "🖼️"}</span>
@@ -404,10 +410,46 @@ function SocialMockup({
   );
 }
 
+// ── Article Preview ─────────────────────────────────────────────────
+function ArticlePreview({ draft, title }: { draft: CalendarDraft | null; title: string }) {
+  const articleCopy = draft?.articleCopy || "";
+  const withCreative = draft?.articleMode === "with-creative";
+
+  return (
+    <div className="w-full max-w-sm space-y-3">
+      {withCreative && draft?.creativeCopy && (
+        <div className="rounded-xl border border-border bg-gradient-to-br from-primary/10 to-muted p-4 shadow text-center">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Creative</p>
+          <p className="text-sm text-foreground font-medium leading-relaxed">
+            {draft.creativeCopy}
+          </p>
+        </div>
+      )}
+      <div className="rounded-xl border border-border bg-card p-4 shadow">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Article Copy</p>
+        {articleCopy ? (
+          <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed max-h-[260px] overflow-y-auto">
+            {articleCopy}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">No article copy yet…</p>
+        )}
+      </div>
+      {draft?.caption && (
+        <div className="rounded-xl border border-border bg-card p-3 shadow">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Caption</p>
+          <p className="text-xs text-foreground">{draft.caption}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Media Preview (dispatcher) ──────────────────────────────────────
 function MediaPreviewPane({ item }: { item: CalendarCopy }) {
   const draft = item.draft;
   const mediaCategory = getMediaCategory(draft?.mediaType || "", item.type);
+  const isArticleCopy = (draft?.mediaType || item.type).toLowerCase() === "article/copy";
   const isSocial =
     item.module === "social" ||
     item.module === "paid" ||
@@ -424,6 +466,10 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
 
   if (isSocial) {
     return <SocialMockup item={item} mediaCategory={mediaCategory} />;
+  }
+
+  if (isArticleCopy) {
+    return <ArticlePreview draft={draft} title={item.title} />;
   }
 
   if (mediaCategory === "video") {
@@ -615,19 +661,21 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
     if (item?.draft) {
       const d = item.draft;
       setForm({
-        caption:     d.caption,
-        hashtags:    d.hashtags,
+        caption:      d.caption,
+        hashtags:     d.hashtags,
         creativeCopy: d.creativeCopy,
-        frames:      d.frames,
-        publishDate: d.publishDate ? d.publishDate.slice(0, 10) : "",
-        publishTime: d.publishTime ?? "",
-        imageUrl:    d.imageUrl,
-        videoUrl:    d.videoUrl,
+        frames:       d.frames,
+        publishDate:  d.publishDate ? d.publishDate.slice(0, 10) : "",
+        publishTime:  d.publishTime ?? "",
+        imageUrl:     d.imageUrl,
+        videoUrl:     d.videoUrl,
         thumbnailUrl: d.thumbnailUrl,
-        audioUrl:    d.audioUrl,
-        videoType:   d.videoType,
-        videoNotes:  d.videoNotes,
-        notes:       d.notes,
+        audioUrl:     d.audioUrl,
+        videoType:    d.videoType,
+        videoNotes:   d.videoNotes,
+        articleMode:  d.articleMode,
+        articleCopy:  d.articleCopy,
+        notes:        d.notes,
         referenceUrl: d.referenceUrl,
       });
     }
@@ -669,6 +717,8 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
         audioUrl:     form.audioUrl,
         videoType:    form.videoType,
         videoNotes:   form.videoNotes,
+        articleMode:  form.articleMode,
+        articleCopy:  form.articleCopy,
         notes:        form.notes,
         referenceUrl: form.referenceUrl,
       });
@@ -813,95 +863,69 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                   value="details"
                   className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-4"
                 >
-                  {/* Media-type specific URLs */}
-                  {(mediaCategory === "video") && (
+                  {/* Carousel frames — editable */}
+                  {mediaCategory === "carousel" && draft.frames.length > 0 && (
                     <div className="space-y-3 p-3 rounded-lg bg-muted/40 border border-border">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Video Assets
-                      </p>
-                      <div>
-                        <Label className="text-xs">Video URL</Label>
-                        <Input
-                          className="mt-1.5 text-xs"
-                          placeholder="https://..."
-                          value={form.videoUrl ?? ""}
-                          onChange={(e) =>
-                            setForm((f) => ({ ...f, videoUrl: e.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Thumbnail URL</Label>
-                        <Input
-                          className="mt-1.5 text-xs"
-                          placeholder="https://..."
-                          value={form.thumbnailUrl ?? ""}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              thumbnailUrl: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {(mediaCategory === "image" || mediaCategory === "gif" || mediaCategory === "story") && (
-                    <div>
-                      <Label className="text-xs">Image URL</Label>
-                      <Input
-                        className="mt-1.5 text-xs"
-                        placeholder="https://..."
-                        value={form.imageUrl ?? ""}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, imageUrl: e.target.value }))
-                        }
-                      />
-                    </div>
-                  )}
-                  {mediaCategory === "audio" && (
-                    <div>
-                      <Label className="text-xs">Audio URL</Label>
-                      <Input
-                        className="mt-1.5 text-xs"
-                        placeholder="https://..."
-                        value={form.audioUrl ?? ""}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, audioUrl: e.target.value }))
-                        }
-                      />
-                    </div>
-                  )}
-
-                  {/* Carousel frames summary */}
-                  {mediaCategory === "carousel" && draft.frames.length > 0 && (
-                    <div className="p-3 rounded-lg bg-muted/40 border border-border">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                         Carousel Frames ({draft.frames.length})
                       </p>
-                      <div className="space-y-2">
-                        {draft.frames.map((fr, i) => (
-                          <div
-                            key={i}
-                            className="flex gap-2 text-xs"
-                          >
-                            <span className="font-medium text-muted-foreground w-14 flex-shrink-0">
+                      <div className="space-y-3">
+                        {(form.frames ?? draft.frames).map((fr, i) => (
+                          <div key={i} className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">
                               Frame {fr.frameNo}
-                            </span>
-                            <span className="text-foreground line-clamp-2">
-                              {fr.copy || "—"}
-                            </span>
+                            </Label>
+                            <Textarea
+                              className="min-h-[60px] text-sm"
+                              placeholder={`Copy for frame ${fr.frameNo}…`}
+                              value={fr.copy ?? ""}
+                              onChange={(e) =>
+                                setForm((f) => ({
+                                  ...f,
+                                  frames: (f.frames ?? draft.frames).map(
+                                    (frame, idx) =>
+                                      idx === i
+                                        ? { ...frame, copy: e.target.value }
+                                        : frame
+                                  ),
+                                }))
+                              }
+                            />
                           </div>
                         ))}
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-2">
-                        Edit frames from the writer workspace.
-                      </p>
                     </div>
                   )}
 
-                  {/* Creative copy */}
-                  {mediaCategory !== "carousel" && (
+                  {/* Article/Copy fields */}
+                  {(draft.mediaType || item.type).toLowerCase() === "article/copy" ? (
+                    <>
+                      {form.articleMode === "with-creative" && (
+                        <div>
+                          <Label className="text-xs">Creative Copy</Label>
+                          <Textarea
+                            className="mt-1.5 min-h-[80px] text-sm"
+                            placeholder="Text displayed on the image / creative…"
+                            value={form.creativeCopy ?? ""}
+                            onChange={(e) =>
+                              setForm((f) => ({ ...f, creativeCopy: e.target.value }))
+                            }
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-xs">Article Copy</Label>
+                        <Textarea
+                          className="mt-1.5 min-h-[110px] text-sm"
+                          placeholder="The body content of the article…"
+                          value={form.articleCopy ?? ""}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, articleCopy: e.target.value }))
+                          }
+                        />
+                      </div>
+                    </>
+                  ) : mediaCategory !== "carousel" && (
                     <div>
                       <Label className="text-xs">Creative Copy</Label>
                       <Textarea

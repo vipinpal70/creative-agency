@@ -15,6 +15,8 @@ export interface CalendarDraft {
   referenceUrl: string;
   videoType: string;
   videoNotes: string;
+  articleMode: string;
+  articleCopy: string;
   notes: string;
   status: "draft" | "submitted" | "approved" | "rejected";
   rejectionNote: string;

@@ -24,6 +24,8 @@ export interface CopyFormData {
   referenceUrl?: string;
   videoType?: string;
   videoNotes?: string;
+  articleMode?: string;      // "with-creative" | "without-creative" — only for article/copy media type
+  articleCopy?: string;      // written article/copy text — only for article/copy media type
 }
 
 export interface LastChangedBy {
@@ -63,6 +65,8 @@ export interface DraftSnapshot {
   referenceUrl?: string;
   videoType?: string;
   videoNotes?: string;
+  articleMode?: string;
+  articleCopy?: string;
   status: "draft" | "submitted" | "approved" | "rejected";
   lastChangedBy?: LastChangedBy | null;
 }
