@@ -336,7 +336,7 @@ export default function WriterDashboard() {
   return (
     <div className="space-y-6 max-w-7xl">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Writer's Workspace</h1>
+        <h1 className="text-xl font-semibold text-foreground">Writer's Workspace</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Multi-channel production hub — social, email, paid, SEO.
         </p>

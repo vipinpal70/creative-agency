@@ -108,7 +108,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       }
       draft.status = status;
 
-      // Cascade draft status to the parent deliverable
+      // Cascade draft status to the parent deliverable + push writerTimeline entry
       const deliverable = await Deliverable.findOne({ _id: delId, clientId: id });
       if (deliverable) {
         if (status === "submitted") deliverable.status = "internal_review";
@@ -125,6 +125,30 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       : session.email;
 
     const now = new Date();
+
+    // Push writerTimeline entry for status transitions
+    if (status !== undefined) {
+      const timelineStatusMap: Record<string, string> = {
+        submitted: "internal_review",
+        approved:  "approved",
+        rejected:  "rejected",
+      };
+      const tlStatus = timelineStatusMap[status];
+      if (tlStatus) {
+        await Deliverable.updateOne(
+          { _id: delId },
+          {
+            $push: {
+              "statusTimeline.writerTimeline": {
+                status:    tlStatus,
+                timestamp: now,
+                changedBy: { userId: session.userId, name: editorName, email: session.email },
+              },
+            },
+          }
+        );
+      }
+    }
     const newValues: Record<string, unknown> = {};
     if (creativeCopy !== undefined)  newValues.creativeCopy = creativeCopy;
     if (Array.isArray(frames))       newValues.frames       = frames;

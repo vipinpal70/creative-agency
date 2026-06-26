@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import {Briefcase, ChartBarStacked, Calendar, CheckSquare, BarChart3, Palette} from "lucide-react";
 
 const Icon = {
   Dashboard: () => (
@@ -12,10 +13,7 @@ const Icon = {
     </svg>
   ),
   Clients: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
+    <Briefcase width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
   Onboarding: () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -24,23 +22,13 @@ const Icon = {
     </svg>
   ),
   Gantt: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
+    <ChartBarStacked width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
   Calendar: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
+    <Calendar width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
   Tasks: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="5" height="5" rx="1" /><rect x="3" y="10" width="5" height="5" rx="1" />
-      <rect x="3" y="17" width="5" height="5" rx="1" /><line x1="12" y1="5" x2="21" y2="5" />
-      <line x1="12" y1="12" x2="21" y2="12" /><line x1="12" y1="19" x2="21" y2="19" />
-    </svg>
+    <CheckSquare width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
   Approvals: () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -59,9 +47,7 @@ const Icon = {
     </svg>
   ),
   Designer: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="13.5" cy="6.5" r="2.5" /><path d="M17.5 17.5a4.5 4.5 0 0 1-9 0c0-2.485 4.5-11.5 4.5-11.5S17.5 15.015 17.5 17.5z" />
-    </svg>
+    <Palette width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
   Portal: () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -71,10 +57,7 @@ const Icon = {
     </svg>
   ),
   Analytics: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" /><line x1="2" y1="20" x2="22" y2="20" />
-    </svg>
+    <BarChart3 width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
   Bell: () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -111,8 +94,6 @@ const Icon = {
   ),
 };
 
-// ── nav structure ─────────────────────────────────────────────────────────────
-
 const NAV_GROUPS = [
   {
     label: "OVERVIEW",
@@ -126,7 +107,7 @@ const NAV_GROUPS = [
   {
     label: "PROJECTS",
     items: [
-      { title: "Gantt Chart", href: "/dashboard/gantt", icon: Icon.Gantt },
+      { title: "Gantt Chart", href: "/dashboard/gantt-chart", icon: Icon.Gantt },
       { title: "Content Calendar", href: "/dashboard/calendar", icon: Icon.Calendar },
       { title: "Task Board", href: "/dashboard/tasks", icon: Icon.Tasks },
       { title: "Approvals", href: "/dashboard/approvals", icon: Icon.Approvals },
@@ -152,7 +133,7 @@ const NAV_GROUPS = [
   },
 ];
 
-// ── component ─────────────────────────────────────────────────────────────────
+// Component
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -165,8 +146,8 @@ export function AppSidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-3 py-4 border-b border-gray-100 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-indigo-500/30 shrink-0">
-          CA
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
+          CO
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
@@ -182,7 +163,7 @@ export function AppSidebar() {
           <div key={group.label} className="mb-1">
             {/* Group label */}
             {!collapsed && (
-              <p className="text-[9px] font-semibold tracking-widest text-gray-300 uppercase px-2 pt-3 pb-1 select-none">
+              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase px-2 pt-3 pb-1 select-none">
                 {group.label}
               </p>
             )}
@@ -217,7 +198,7 @@ export function AppSidebar() {
                     <item.icon />
                   </span>
                   {!collapsed && (
-                    <span className="truncate leading-none">{item.title}</span>
+                    <span className="font-normal text-gray-800 leading-none">{item.title}</span>
                   )}
                 </Link>
               );
@@ -227,6 +208,7 @@ export function AppSidebar() {
       </nav>
 
       {/* Collapse toggle */}
+      <div className="border border-t border-gray-100 mb-2"></div>
       <button
         onClick={() => setCollapsed((c) => !c)}
         className="flex items-center justify-center gap-2 mx-2 mb-3 px-2 py-1.5 rounded-lg text-[11px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all duration-150 shrink-0 border border-gray-300"

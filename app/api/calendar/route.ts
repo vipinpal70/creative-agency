@@ -80,6 +80,18 @@ export async function GET(req: NextRequest) {
         status:         del.status,
         buckets:        del.buckets ?? [],
         scheduledDate:  del.scheduledDate?.toISOString() ?? null,
+        statusTimeline: {
+          writerTimeline: (del.statusTimeline?.writerTimeline ?? []).map((e: any) => ({
+            status:    e.status,
+            timestamp: e.timestamp?.toISOString() ?? "",
+            changedBy: e.changedBy,
+          })),
+          designerTimeline: (del.statusTimeline?.designerTimeline ?? []).map((e: any) => ({
+            status:    e.status,
+            timestamp: e.timestamp?.toISOString() ?? "",
+            changedBy: e.changedBy,
+          })),
+        },
         draft: draft
           ? {
               id:            draft._id.toString(),

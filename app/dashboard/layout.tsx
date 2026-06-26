@@ -30,7 +30,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
 
         {/* Top bar */}
-        <header className="h-14 flex items-center justify-between border-b border-gray-100 bg-white/80 backdrop-blur-sm px-5 shrink-0 sticky top-0 z-30">
+        <header className="h-16 flex items-center justify-between border-b border-gray-100 bg-white px-5 shrink-0 sticky top-0 z-30">
           {/* Left — breadcrumb placeholder */}
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
@@ -65,7 +65,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             </div>
 
             {/* Avatar */}
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-indigo-500/25 cursor-pointer">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-indigo-500/25 cursor-pointer">
               {initials}
             </div>
           </div>

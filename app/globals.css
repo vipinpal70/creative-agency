@@ -1,4 +1,20 @@
 @import "tailwindcss";
+@import "@svar-ui/react-gantt/style.css";
+
+/* ── Custom Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8d8d8;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0fdf4;
+}
 
 @theme {
   /* Customize default theme colors to map to Green System */

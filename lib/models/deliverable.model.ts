@@ -1,5 +1,25 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 
+export type TimelineStatus =
+  | "created"
+  | "draft"
+  | "internal_review"
+  | "client_review"
+  | "approved"
+  | "rejected"
+  | "publish";
+
+export interface ITimelineEntry {
+  status:    TimelineStatus;
+  timestamp: Date;
+  changedBy: { userId: string; name: string; email: string };
+}
+
+export interface IStatusTimeline {
+  writerTimeline:   ITimelineEntry[];
+  designerTimeline: ITimelineEntry[];
+}
+
 export type DeliverableType =
   | "image"
   | "reel"
@@ -64,9 +84,27 @@ export interface IDeliverable extends Document {
   deliveredAt?: Date;
   publishedUrl?: string;
   notes?: string;
+  statusTimeline: IStatusTimeline;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const timelineEntrySchema = new Schema<ITimelineEntry>(
+  {
+    status:    {
+      type: String,
+      enum: ["created", "draft", "internal_review", "client_review", "approved", "rejected", "publish"],
+      required: true,
+    },
+    timestamp: { type: Date, required: true },
+    changedBy: {
+      userId: { type: String, required: true },
+      name:   { type: String, required: true },
+      email:  { type: String, required: true },
+    },
+  },
+  { _id: false }
+);
 
 const teamAssignmentSchema = new Schema<ITeamAssignment>(
   {
@@ -102,6 +140,10 @@ const deliverableSchema = new Schema<IDeliverable>(
     deliveredAt:   { type: Date },
     publishedUrl:  { type: String, trim: true },
     notes:         { type: String, trim: true },
+    statusTimeline: {
+      writerTimeline:   { type: [timelineEntrySchema], default: [] },
+      designerTimeline: { type: [timelineEntrySchema], default: [] },
+    },
   },
   { timestamps: true }
 );

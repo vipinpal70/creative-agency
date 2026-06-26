@@ -101,6 +101,20 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       lastChangedBy: { userId: session.userId, name: authorName, email: session.email, changedAt: now },
     });
 
+    // Push "created" entry to writerTimeline on the parent deliverable
+    await Deliverable.updateOne(
+      { _id: delId },
+      {
+        $push: {
+          "statusTimeline.writerTimeline": {
+            status:    "created",
+            timestamp: now,
+            changedBy: { userId: session.userId, name: authorName, email: session.email },
+          },
+        },
+      }
+    );
+
     // Record creation in history
     await DraftHistory.create({
       clientId:      id,

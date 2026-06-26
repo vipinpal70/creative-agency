@@ -28,6 +28,26 @@ export interface CalendarDraft {
   } | null;
 }
 
+export type TimelineStatus =
+  | "created"
+  | "draft"
+  | "internal_review"
+  | "client_review"
+  | "approved"
+  | "rejected"
+  | "publish";
+
+export interface TimelineEntry {
+  status:    TimelineStatus;
+  timestamp: string;
+  changedBy: { userId: string; name: string; email: string };
+}
+
+export interface StatusTimeline {
+  writerTimeline:   TimelineEntry[];
+  designerTimeline: TimelineEntry[];
+}
+
 export interface CalendarCopy {
   deliverableId: string;
   calendarId: string;
@@ -41,5 +61,6 @@ export interface CalendarCopy {
   status: string;
   buckets: string[];
   scheduledDate: string | null;
+  statusTimeline: StatusTimeline;
   draft: CalendarDraft | null;
 }
