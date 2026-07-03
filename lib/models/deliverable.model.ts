@@ -3,11 +3,19 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 export type TimelineStatus =
   | "created"
   | "draft"
+  | "content_internal_review"
+  | "content_client_review"
+  | "content_approved"
+  | "design_in_progress"
+  | "design_internal_review"
+  | "design_client_review"
+  | "design_approved"
+  | "rejected"
+  | "publish"
+  // legacy values from before the content/design split
   | "internal_review"
   | "client_review"
-  | "approved"
-  | "rejected"
-  | "publish";
+  | "approved";
 
 export interface ITimelineEntry {
   status:    TimelineStatus;
@@ -51,10 +59,18 @@ export type DeliverablePlatform =
 export type DeliverableStatus =
   | "pending"
   | "in_progress"
+  | "content_internal_review"
+  | "content_client_review"
+  | "content_approved"
+  | "design_in_progress"
+  | "design_internal_review"
+  | "design_client_review"
+  | "design_approved"
+  | "delivered"
+  // legacy values from before the content/design split
   | "internal_review"
   | "client_review"
-  | "approved"
-  | "delivered";
+  | "approved";
 
 export type TeamRole =
   | "writer"
@@ -93,7 +109,14 @@ const timelineEntrySchema = new Schema<ITimelineEntry>(
   {
     status:    {
       type: String,
-      enum: ["created", "draft", "internal_review", "client_review", "approved", "rejected", "publish"],
+      enum: [
+        "created", "draft",
+        "content_internal_review", "content_client_review", "content_approved",
+        "design_in_progress", "design_internal_review", "design_client_review", "design_approved",
+        "rejected", "publish",
+        // legacy
+        "internal_review", "client_review", "approved",
+      ],
       required: true,
     },
     timestamp: { type: Date, required: true },
@@ -132,7 +155,14 @@ const deliverableSchema = new Schema<IDeliverable>(
     buckets:   { type: [String], default: [] },
     status: {
       type: String,
-      enum: ["pending", "in_progress", "internal_review", "client_review", "approved", "delivered"],
+      enum: [
+        "pending", "in_progress",
+        "content_internal_review", "content_client_review", "content_approved",
+        "design_in_progress", "design_internal_review", "design_client_review", "design_approved",
+        "delivered",
+        // legacy
+        "internal_review", "client_review", "approved",
+      ],
       default: "pending",
     },
     assignedTeam:  { type: [teamAssignmentSchema], default: [] },

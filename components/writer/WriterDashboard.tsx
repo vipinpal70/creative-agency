@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
-  ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus,
+  ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -228,13 +228,13 @@ export default function WriterDashboard() {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "submitted" }),
+          body: JSON.stringify({ status: "content_internal_review" }),
         }
       );
       setCopies((prev) =>
         prev.map((c) =>
           c.id === delId
-            ? { ...c, status: "internal_review", latestDraft: c.latestDraft ? { ...c.latestDraft, status: "submitted" } : null }
+            ? { ...c, status: "content_internal_review", latestDraft: c.latestDraft ? { ...c.latestDraft, status: "content_internal_review" } : null }
             : c
         )
       );
@@ -335,11 +335,18 @@ export default function WriterDashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Writer's Workspace</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Multi-channel production hub — social, email, paid, SEO.
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Writer's Workspace</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Multi-channel production hub — social, email, paid, SEO.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <a href="/dashboard/approvals">
+            <ShieldCheck className="h-4 w-4 mr-1.5" /> Approvals
+          </a>
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

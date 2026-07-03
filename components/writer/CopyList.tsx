@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock } from "lucide-react";
 import type { WriterDeliverable } from "./types";
+import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -16,24 +17,6 @@ function timeAgo(dateStr: string): string {
   if (d < 7) return `${d}d ago`;
   return new Date(dateStr).toLocaleDateString();
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Draft",
-  in_progress: "In Progress",
-  internal_review: "Internal Review",
-  client_review: "Client Review",
-  approved: "Approved",
-  delivered: "Delivered",
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground",
-  in_progress: "bg-blue-100 text-blue-700",
-  internal_review: "bg-amber-100 text-amber-700",
-  client_review: "bg-purple-100 text-purple-700",
-  approved: "bg-green-100 text-green-700",
-  delivered: "bg-emerald-100 text-emerald-700",
-};
 
 interface Props {
   copies: WriterDeliverable[];

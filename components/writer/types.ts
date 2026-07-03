@@ -1,3 +1,5 @@
+import type { DraftStatus } from "@/lib/status-flow";
+
 export interface ContentBucket {
   id: string;
   name: string;
@@ -67,7 +69,8 @@ export interface DraftSnapshot {
   videoNotes?: string;
   articleMode?: string;
   articleCopy?: string;
-  status: "draft" | "submitted" | "approved" | "rejected";
+  // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
+  status: DraftStatus | "submitted" | "approved";
   lastChangedBy?: LastChangedBy | null;
 }
 

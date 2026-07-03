@@ -1,3 +1,5 @@
+import type { DraftStatus } from "@/lib/status-flow";
+
 export interface CalendarDraft {
   id: string;
   version: number;
@@ -18,7 +20,8 @@ export interface CalendarDraft {
   articleMode: string;
   articleCopy: string;
   notes: string;
-  status: "draft" | "submitted" | "approved" | "rejected";
+  // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
+  status: DraftStatus | "submitted" | "approved";
   rejectionNote: string;
   lastChangedBy: {
     userId: string;
@@ -31,11 +34,18 @@ export interface CalendarDraft {
 export type TimelineStatus =
   | "created"
   | "draft"
+  | "content_internal_review"
+  | "content_client_review"
+  | "content_approved"
+  | "design_internal_review"
+  | "design_client_review"
+  | "design_approved"
+  | "rejected"
+  | "publish"
+  // legacy values from before the content/design split
   | "internal_review"
   | "client_review"
-  | "approved"
-  | "rejected"
-  | "publish";
+  | "approved";
 
 export interface TimelineEntry {
   status:    TimelineStatus;

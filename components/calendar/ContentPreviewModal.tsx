@@ -25,6 +25,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/lib/types";
+import {
+  STATUS_LABEL,
+  STATUS_COLOR,
+  normalizeDraftStatus,
+  APPROVE_TRANSITIONS,
+} from "@/lib/status-flow";
+import type { DraftStatus } from "@/lib/status-flow";
 import type { CalendarCopy, CalendarDraft } from "./types";
 
 interface HistoryChange {
@@ -50,21 +57,8 @@ interface Props {
   onUpdate: (deliverableId: string, updatedDraft: CalendarDraft) => void;
 }
 
-const DELIVERABLE_STATUS_LABEL: Record<string, string> = {
-  pending:          "Draft",
-  in_progress:      "In Progress",
-  internal_review:  "Internal Review",
-  client_review:    "Client Review",
-  approved:         "Approved",
-  delivered:        "Delivered",
-};
-
-const DRAFT_STATUS_COLOR: Record<string, string> = {
-  draft:     "bg-muted text-muted-foreground",
-  submitted: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  approved:  "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  rejected:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+const DELIVERABLE_STATUS_LABEL = STATUS_LABEL;
+const DRAFT_STATUS_COLOR = STATUS_COLOR;
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -734,9 +728,7 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
     }
   };
 
-  const handleAction = async (
-    newStatus: "submitted" | "approved" | "rejected"
-  ) => {
+  const handleAction = async (newStatus: DraftStatus) => {
     if (!item?.draft) return;
     setActioning(true);
     try {
@@ -1090,70 +1082,95 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                   </div>
 
                   <div className="grid grid-cols-1 gap-2">
-                    {draft.status === "draft" && (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleAction("submitted")}
-                        disabled={actioning}
-                      >
-                        {actioning ? (
-                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                        ) : (
-                          <Send className="h-3.5 w-3.5 mr-1.5" />
-                        )}
-                        Submit for Review
-                      </Button>
-                    )}
-                    {draft.status === "submitted" && (
-                      <>
-                        <Button
-                          onClick={() => handleAction("approved")}
-                          disabled={actioning}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          {actioning ? (
-                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                          ) : (
-                            <Check className="h-3.5 w-3.5 mr-1.5" />
+                    {(() => {
+                      const normStatus = normalizeDraftStatus(draft.status) ?? "draft";
+                      const nextOnApprove = APPROVE_TRANSITIONS[normStatus];
+                      const approveLabel =
+                        normStatus === "content_internal_review" || normStatus === "design_internal_review"
+                          ? "Approve → Client Review"
+                          : "Client Approved";
+
+                      return (
+                        <>
+                          {normStatus === "draft" && (
+                            <Button
+                              variant="outline"
+                              onClick={() => handleAction("content_internal_review")}
+                              disabled={actioning}
+                            >
+                              {actioning ? (
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                              ) : (
+                                <Send className="h-3.5 w-3.5 mr-1.5" />
+                              )}
+                              Submit for Review
+                            </Button>
                           )}
-                          Approve
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleAction("rejected")}
-                          disabled={actioning}
-                        >
-                          {actioning ? (
-                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                          ) : (
-                            <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+                          {nextOnApprove && (
+                            <>
+                              <Button
+                                onClick={() => handleAction(nextOnApprove)}
+                                disabled={actioning}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                {actioning ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                                )}
+                                {approveLabel}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => handleAction("rejected")}
+                                disabled={actioning}
+                              >
+                                {actioning ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                ) : (
+                                  <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+                                )}
+                                Request Changes
+                              </Button>
+                            </>
                           )}
-                          Request Changes
-                        </Button>
-                      </>
-                    )}
-                    {draft.status === "approved" && (
-                      <div className="flex items-center gap-2 text-green-600 text-sm">
-                        <Check className="h-4 w-4" />
-                        This draft has been approved.
-                      </div>
-                    )}
-                    {draft.status === "rejected" && (
-                      <>
-                        <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
-                          {draft.rejectionNote
-                            ? `Feedback: ${draft.rejectionNote}`
-                            : "Changes were requested."}
-                        </div>
-                        <Button
-                          onClick={() => handleAction("submitted")}
-                          disabled={actioning}
-                          variant="outline"
-                        >
-                          Re-submit for Review
-                        </Button>
-                      </>
-                    )}
+                          {normStatus === "content_approved" && (
+                            <div className="flex items-center gap-2 text-green-600 text-sm">
+                              <Check className="h-4 w-4" />
+                              Copy approved — ready for design.
+                            </div>
+                          )}
+                          {normStatus === "design_in_progress" && (
+                            <div className="flex items-center gap-2 text-sky-600 text-sm">
+                              <Loader2 className="h-4 w-4" />
+                              Design in progress — awaiting submission from the designer.
+                            </div>
+                          )}
+                          {normStatus === "design_approved" && (
+                            <div className="flex items-center gap-2 text-green-600 text-sm">
+                              <Check className="h-4 w-4" />
+                              Design approved.
+                            </div>
+                          )}
+                          {normStatus === "rejected" && (
+                            <>
+                              <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
+                                {draft.rejectionNote
+                                  ? `Feedback: ${draft.rejectionNote}`
+                                  : "Changes were requested."}
+                              </div>
+                              <Button
+                                onClick={() => handleAction("content_internal_review")}
+                                disabled={actioning}
+                                variant="outline"
+                              >
+                                Re-submit for Review
+                              </Button>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </TabsContent>
               </Tabs>

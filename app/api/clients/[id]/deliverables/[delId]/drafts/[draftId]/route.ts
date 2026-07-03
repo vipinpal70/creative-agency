@@ -6,11 +6,16 @@ import Deliverable from "@/lib/models/deliverable.model";
 import DraftHistory from "@/lib/models/draft-history.model";
 import User from "@/lib/models/user.model";
 import { computeChanges } from "@/lib/draft-history";
-import type { DraftStatus } from "@/lib/models/content-draft.model";
+import {
+  DRAFT_STATUSES,
+  normalizeDraftStatus,
+  DELIVERABLE_STATUS_FOR_DRAFT,
+  timelineForStatus,
+  historyActionForStatus,
+} from "@/lib/status-flow";
+import type { DraftStatus } from "@/lib/status-flow";
 
 type Ctx = { params: Promise<{ id: string; delId: string; draftId: string }> };
-
-const VALID_STATUSES: DraftStatus[] = ["draft", "submitted", "approved", "rejected"];
 
 // GET /api/clients/[id]/deliverables/[delId]/drafts/[draftId]
 export async function GET(req: NextRequest, { params }: Ctx) {
@@ -39,8 +44,9 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 // PATCH /api/clients/[id]/deliverables/[delId]/drafts/[draftId]
 // Updatable: mediaType, creativeCopy, caption, hashtags,
 //            publishDate, publishTime, notes, status, rejectionNote
-// When status → submitted: auto-moves deliverable to internal_review
-// When status → approved:  auto-moves deliverable to approved
+// Status transitions cascade to the parent deliverable and push a
+// writerTimeline (content_*) or designerTimeline (design_*) entry.
+// Legacy statuses ("submitted", "approved") are mapped forward on write.
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
@@ -54,6 +60,27 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (!draft) {
       return NextResponse.json({ error: "Draft not found" }, { status: 404 });
     }
+
+    // Design-phase lock: while a design is in progress, only the designer who
+    // claimed it (via Start Work) — or an admin — may modify it.
+    if (
+      draft.status === "design_in_progress" &&
+      draft.designStartedBy &&
+      draft.designStartedBy.userId !== session.userId.toString() &&
+      session.role !== "admin"
+    ) {
+      return NextResponse.json(
+        { error: `This design is being worked on by ${draft.designStartedBy.name}` },
+        { status: 403 }
+      );
+    }
+
+    // Resolve editor name up front (needed for claim + timeline + history)
+    const editor = await User.findById(session.userId).select("firstName lastName email").lean();
+    const editorName = editor
+      ? `${editor.firstName} ${editor.lastName || ""}`.trim()
+      : session.email;
+    const now = new Date();
 
     const {
       mediaType, creativeCopy, frames, caption, hashtags,
@@ -99,55 +126,64 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (publishDate !== undefined)   draft.publishDate  = publishDate ? new Date(publishDate) : null;
     if (Array.isArray(hashtags))     draft.hashtags     = hashtags;
 
+    let normalizedStatus: DraftStatus | null = null;
     if (status !== undefined) {
-      if (!VALID_STATUSES.includes(status)) {
+      normalizedStatus = normalizeDraftStatus(status);
+      if (!normalizedStatus) {
         return NextResponse.json(
-          { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` },
+          { error: `Invalid status. Must be one of: ${DRAFT_STATUSES.join(", ")}` },
           { status: 400 }
         );
       }
-      draft.status = status;
 
-      // Cascade draft status to the parent deliverable + push writerTimeline entry
+      // "Start Work" claim: first designer to move it to design_in_progress owns it
+      if (normalizedStatus === "design_in_progress") {
+        if (
+          draft.designStartedBy &&
+          draft.designStartedBy.userId !== session.userId.toString() &&
+          session.role !== "admin"
+        ) {
+          return NextResponse.json(
+            { error: `Already being worked on by ${draft.designStartedBy.name}` },
+            { status: 409 }
+          );
+        }
+        if (!draft.designStartedBy) {
+          draft.designStartedBy = {
+            userId: session.userId.toString(),
+            name: editorName,
+            email: session.email,
+            startedAt: now,
+          };
+        }
+      }
+
+      draft.status = normalizedStatus;
+
+      // Cascade draft status to the parent deliverable
       const deliverable = await Deliverable.findOne({ _id: delId, clientId: id });
       if (deliverable) {
-        if (status === "submitted") deliverable.status = "internal_review";
-        if (status === "approved")  deliverable.status = "approved";
-        if (status === "rejected")  deliverable.status = "in_progress";
+        deliverable.status = DELIVERABLE_STATUS_FOR_DRAFT[normalizedStatus] as any;
         await deliverable.save();
       }
     }
 
-    // Resolve editor name and record history
-    const editor = await User.findById(session.userId).select("firstName lastName email").lean();
-    const editorName = editor
-      ? `${editor.firstName} ${editor.lastName || ""}`.trim()
-      : session.email;
-
-    const now = new Date();
-
-    // Push writerTimeline entry for status transitions
-    if (status !== undefined) {
-      const timelineStatusMap: Record<string, string> = {
-        submitted: "internal_review",
-        approved:  "approved",
-        rejected:  "rejected",
-      };
-      const tlStatus = timelineStatusMap[status];
-      if (tlStatus) {
-        await Deliverable.updateOne(
-          { _id: delId },
-          {
-            $push: {
-              "statusTimeline.writerTimeline": {
-                status:    tlStatus,
-                timestamp: now,
-                changedBy: { userId: session.userId, name: editorName, email: session.email },
-              },
+    // Push timeline entry for status transitions:
+    // content_* transitions land on writerTimeline, design_* on designerTimeline
+    if (normalizedStatus && normalizedStatus !== "draft") {
+      const timelineKey = timelineForStatus(normalizedStatus);
+      await Deliverable.updateOne(
+        { _id: delId },
+        {
+          $push: {
+            [`statusTimeline.${timelineKey}`]: {
+              status:    normalizedStatus,
+              timestamp: now,
+              changedBy: { userId: session.userId, name: editorName, email: session.email },
             },
-          }
-        );
-      }
+          },
+        }
+      );
     }
     const newValues: Record<string, unknown> = {};
     if (creativeCopy !== undefined)  newValues.creativeCopy = creativeCopy;
@@ -157,7 +193,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (publishDate !== undefined)   newValues.publishDate  = publishDate ? new Date(publishDate) : null;
     if (publishTime !== undefined)   newValues.publishTime  = publishTime;
     if (notes !== undefined)         newValues.notes        = notes;
-    if (status !== undefined)            newValues.status       = status;
+    if (normalizedStatus)                newValues.status       = normalizedStatus;
     if (body.referenceUrl !== undefined) newValues.referenceUrl = body.referenceUrl;
     if (body.videoType !== undefined)    newValues.videoType    = body.videoType;
     if (body.videoNotes !== undefined)   newValues.videoNotes   = body.videoNotes;
@@ -171,10 +207,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const changes = computeChanges(oldValues, newValues);
 
     // Determine action label
-    let action: "edited" | "submitted" | "approved" | "rejected" = "edited";
-    if (status === "submitted") action = "submitted";
-    else if (status === "approved")  action = "approved";
-    else if (status === "rejected")  action = "rejected";
+    const action: "edited" | "submitted" | "approved" | "rejected" =
+      (normalizedStatus && historyActionForStatus(normalizedStatus)) || "edited";
 
     // Update lastChangedBy on draft
     draft.lastChangedBy = { userId: session.userId, name: editorName, email: session.email, changedAt: now };

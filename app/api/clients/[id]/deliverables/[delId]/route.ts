@@ -4,11 +4,15 @@ import { connectDB } from "@/lib/db";
 import Deliverable from "@/lib/models/deliverable.model";
 import type { DeliverableStatus, TimelineStatus } from "@/lib/models/deliverable.model";
 import User from "@/lib/models/user.model";
+import { normalizeDeliverableStatus } from "@/lib/status-flow";
 
 type Ctx = { params: Promise<{ id: string; delId: string }> };
 
 const VALID_STATUSES: DeliverableStatus[] = [
-  "pending", "in_progress", "internal_review", "client_review", "approved", "delivered",
+  "pending", "in_progress",
+  "content_internal_review", "content_client_review", "content_approved",
+  "design_internal_review", "design_client_review", "design_approved",
+  "delivered",
 ];
 
 // GET /api/clients/[id]/deliverables/[delId]
@@ -72,28 +76,30 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (Array.isArray(assignedTeam)) deliverable.assignedTeam  = assignedTeam;
 
     if (status !== undefined) {
-      if (!VALID_STATUSES.includes(status)) {
+      // Legacy statuses ("internal_review", "approved", …) map to their new value
+      const normalized = normalizeDeliverableStatus(status) as DeliverableStatus;
+      if (!VALID_STATUSES.includes(normalized)) {
         return NextResponse.json(
           { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` },
           { status: 400 }
         );
       }
-      deliverable.status = status;
+      deliverable.status = normalized;
       // Auto-stamp deliveredAt when marked delivered
-      if (status === "delivered" && !deliverable.deliveredAt) {
+      if (normalized === "delivered" && !deliverable.deliveredAt) {
         deliverable.deliveredAt = deliveredAt ? new Date(deliveredAt) : new Date();
       }
       // Clear deliveredAt if pulled back from delivered
-      if (status !== "delivered") {
+      if (normalized !== "delivered") {
         deliverable.deliveredAt = undefined;
       }
 
       // Push writerTimeline entry for status transitions driven from deliverable
       const writerTlMap: Partial<Record<DeliverableStatus, TimelineStatus>> = {
-        client_review: "client_review",
-        delivered:     "publish",
+        content_client_review: "content_client_review",
+        delivered:             "publish",
       };
-      const writerTlStatus = writerTlMap[status as DeliverableStatus];
+      const writerTlStatus = writerTlMap[normalized];
       if (writerTlStatus) {
         deliverable.statusTimeline.writerTimeline.push({
           status:    writerTlStatus,
@@ -106,7 +112,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     // Push designerTimeline entry when designerStatus is explicitly provided
     if (designerStatus !== undefined) {
       const VALID_TIMELINE_STATUSES: TimelineStatus[] = [
-        "created", "draft", "internal_review", "client_review", "approved", "rejected", "publish",
+        "created", "draft",
+        "content_internal_review", "content_client_review", "content_approved",
+        "design_internal_review", "design_client_review", "design_approved",
+        "rejected", "publish",
       ];
       if (!VALID_TIMELINE_STATUSES.includes(designerStatus)) {
         return NextResponse.json(

@@ -1,12 +1,21 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
+import type { DraftStatus } from "@/lib/status-flow";
 
-export type DraftStatus = "draft" | "submitted" | "approved" | "rejected";
+export type { DraftStatus } from "@/lib/status-flow";
 
 export interface ILastChangedBy {
   userId:    string;
   name:      string;
   email:     string;
   changedAt: Date;
+}
+
+// Designer who claimed the item via "Start Work" — locks design-phase edits to them
+export interface IDesignStartedBy {
+  userId:    string;
+  name:      string;
+  email:     string;
+  startedAt: Date;
 }
 
 export interface IContentDraft extends Document {
@@ -37,6 +46,7 @@ export interface IContentDraft extends Document {
 
   status:         DraftStatus;
   rejectionNote:  string;
+  designStartedBy: IDesignStartedBy | null;
 
   createdAt: Date;
   updatedAt: Date;
@@ -73,7 +83,20 @@ const contentDraftSchema = new Schema<IContentDraft>(
 
     status:        {
       type: String,
-      enum: ["draft", "submitted", "approved", "rejected"],
+      enum: [
+        "draft",
+        "content_internal_review",
+        "content_client_review",
+        "content_approved",
+        "design_in_progress",
+        "design_internal_review",
+        "design_client_review",
+        "design_approved",
+        "rejected",
+        // legacy values from before the content/design split
+        "submitted",
+        "approved",
+      ],
       default: "draft",
     },
     rejectionNote: { type: String, default: "" },
@@ -84,6 +107,16 @@ const contentDraftSchema = new Schema<IContentDraft>(
         name:      { type: String, required: true },
         email:     { type: String, required: true },
         changedAt: { type: Date,   required: true },
+      },
+      default: null,
+    },
+
+    designStartedBy: {
+      type: {
+        userId:    { type: String, required: true },
+        name:      { type: String, required: true },
+        email:     { type: String, required: true },
+        startedAt: { type: Date,   required: true },
       },
       default: null,
     },
