@@ -77,9 +77,13 @@ interface ClientDetail {
 }
 
 interface Deliverable {
-  id: string; title: string; platform: string; type: string;
-  status: "pending" | "delivered"; scheduledDate: string;
-  completedDate?: string; publishedUrl?: string; notes?: string;
+  id: string; title: string; module: string; type: string;
+  platforms: string[]; status: string; scheduledDate: string;
+  deliveredAt?: string | null; publishedUrl?: string; notes?: string;
+  statusTimeline?: {
+    writerTimeline?: { status: string; timestamp: string }[];
+    designerTimeline?: { status: string; timestamp: string }[];
+  };
 }
 
 interface TaskRequest {
@@ -213,7 +217,7 @@ function CredentialRow({ entry, onRemove }: { entry: Credential; onRemove: () =>
                 <div className="flex items-center justify-between gap-2 mt-0.5">
                   <span className="font-mono text-gray-900 truncate">{display}</span>
                   <button onClick={() => copyField(f.key, val)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-emerald-700 shrink-0">
-                    {copied ? <span className="text-[9px] font-bold text-emerald-600">✓</span> : <Copy className="w-3 h-3" />}
+                    {copied ? <span className="text-[9px] font-semibold text-emerald-600">✓</span> : <Copy className="w-3 h-3" />}
                   </button>
                 </div>
               </div>
@@ -294,59 +298,72 @@ const getModuleBadgeColors = (modName: string) => {
 
 
 
-function deriveScopeItems(scope: any | undefined, monthDels: Deliverable[]) {
+// A copy counts as delivered once it is fully approved (design_approved) or
+// explicitly marked delivered — the draft pipeline never sets "delivered".
+const DELIVERED_STATUSES = new Set(["delivered", "design_approved"]);
+
+const norm = (s?: string) => (s || "").toLowerCase().trim();
+const tokens = (s?: string) => norm(s).split(/[^a-z0-9]+/).filter(Boolean);
+
+// Scope item labels and deliverable types share the same vocabulary
+// ("reel", "carousel", "article/copy", …). Exact match first, then token
+// overlap for compound labels ("reel/story" ↔ "reel", "static/image" ↔ "static").
+function typeMatches(itemLabel: string, delType: string): boolean {
+  if (norm(itemLabel) === norm(delType)) return true;
+  const a = tokens(itemLabel);
+  const b = new Set(tokens(delType));
+  return a.some((t) => b.has(t));
+}
+
+function platformsOverlap(itemPlatforms?: string[], delPlatforms?: string[]): boolean {
+  const a = (itemPlatforms ?? []).map(norm).filter(Boolean);
+  const b = (delPlatforms ?? []).map(norm).filter(Boolean);
+  if (a.length === 0 || b.length === 0) return true;
+  return a.some((p) => b.includes(p));
+}
+
+// Modules that historically used different keys for the same thing
+const MODULE_ALIASES: Record<string, string> = { "paid-ads": "paid", emailWhatsapp: "email" };
+const normModule = (m?: string) => MODULE_ALIASES[m || ""] ?? norm(m);
+
+function deriveScopeItems(
+  scope: any | undefined,
+  dels: Deliverable[],
+  year: number,
+  month: number
+) {
   if (!scope || !Array.isArray(scope.items)) return [];
 
-  const getSocialType = (lbl: string) => {
-    const l = lbl.toLowerCase();
-    if (l === "reel/story" || l.includes("reel/story") || l === "reel" || l === "reels" || l === "story" || l === "stories") return "reel/story";
-    if (l === "image/carousel" || l.includes("image/carousel") || l.includes("carousel")) return "image/carousel";
-    if (l === "post" || l === "posts") return "post";
-    if (l === "static") return "static";
-    return "custom";
+  const inPeriod = (dateStr?: string | null) => {
+    if (!dateStr) return false;
+    const dt = new Date(dateStr);
+    return dt.getFullYear() === year && dt.getMonth() === month;
   };
 
-  const getPaidPlatform = (lbl: string) => {
-    const l = lbl.toLowerCase();
-    if (l.includes("google")) return "google-ads";
-    if (l.includes("linkedin") || l.includes("li ")) return "linkedin-ads";
-    return "meta-ads";
-  };
-
-  const getEmailType = (lbl: string) => {
-    const l = lbl.toLowerCase();
-    if (l.includes("trigger") || l.includes("flow") || l.includes("automation")) return "seo-task";
-    return "email-blast";
+  // Delivered in this period = the delivery event (deliveredAt or the
+  // design_approved timeline entry) happened in it, so copies scheduled last
+  // month but approved this month count for this month. Legacy documents
+  // without either timestamp fall back to the scheduled month.
+  const deliveredInPeriod = (d: Deliverable) => {
+    if (!DELIVERED_STATUSES.has(d.status)) return false;
+    if (d.deliveredAt) return inPeriod(d.deliveredAt);
+    const approvedEntries = (d.statusTimeline?.designerTimeline ?? []).filter(
+      (e) => e.status === "design_approved"
+    );
+    if (approvedEntries.length > 0) {
+      return approvedEntries.some((e) => inPeriod(e.timestamp));
+    }
+    return inPeriod(d.scheduledDate);
   };
 
   return scope.items.map((item: any) => {
-    let delivered = 0;
-    if (item.module === "social") {
-      delivered = monthDels.filter(
-        (d) => {
-          const reqType = getSocialType(item.label);
-          const delivType = d.type;
-          const isMatch = (reqType === delivType) ||
-            (reqType === "reel/story" && (delivType === "reel" || delivType === "story" || delivType === "reel/story")) ||
-            (reqType === "image/carousel" && (delivType === "image/carousel" || delivType === "carousel"));
-          return (item.platforms || []).includes(d.platform) && isMatch && d.status === "delivered";
-        }
-      ).length;
-    } else if (item.module === "paid" || item.module === "paid-ads") {
-      delivered = monthDels.filter(
-        (d) => d.platform === getPaidPlatform(item.label) && d.type === "ad" && d.status === "delivered"
-      ).length;
-    } else if (item.module === "email" || item.module === "emailWhatsapp") {
-      delivered = monthDels.filter(
-        (d) => d.platform === "email-whatsapp" && d.type === getEmailType(item.label) && d.status === "delivered"
-      ).length;
-    } else if (item.module === "seo") {
-      delivered = monthDels.filter((d) => d.platform === "seo" && d.type === "seo-task" && d.status === "delivered").length;
-    } else if (item.module === "influencer") {
-      delivered = monthDels.filter((d) => d.platform === "influencer" && d.type === "influencer-campaign" && d.status === "delivered").length;
-    } else {
-      delivered = monthDels.filter((d) => d.platform === "custom" && d.type === "custom" && d.status === "delivered").length;
-    }
+    const delivered = dels.filter(
+      (d) =>
+        normModule(d.module) === normModule(item.module) &&
+        typeMatches(item.label, d.type) &&
+        platformsOverlap(item.platforms, d.platforms) &&
+        deliveredInPeriod(d)
+    ).length;
 
     return {
       id: item.id || item._id || Math.random().toString(),
@@ -742,13 +759,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     finally { setNewScopeSubmitting(false); }
   };
 
-  // ── Derived scope dashboard data ───────────────────────────────────────────
+  // Derived scope dashboard data
 
-  const thisMonthDels = deliverables.filter((d) => {
-    const dt = new Date(d.scheduledDate);
-    return dt.getFullYear() === currentYear && dt.getMonth() === currentMonth;
-  });
-  const scopeItems = deriveScopeItems(client?.scope, thisMonthDels);
+  const scopeItems = deriveScopeItems(client?.scope, deliverables, currentYear, currentMonth);
   const activeModuleKeys = Array.from(new Set(scopeItems.map((s: any) => s.module)));
 
   const totalCommitted = scopeItems.reduce((a: number, s: any) => a + s.qty, 0);
@@ -766,8 +779,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  // ── Inline helpers ─────────────────────────────────────────────────────────
-
   const accessBadge = (type?: "login" | "email" | "none") => {
     if (!type || type === "none") return <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">No Access</span>;
     if (type === "email") return <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-100">Email Access</span>;
@@ -775,11 +786,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   };
 
   const monthName = new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" });
-
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -790,14 +796,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-100 pb-5">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-emerald-50 text-emerald-700 font-extrabold text-xl flex items-center justify-center rounded-2xl shadow-sm border border-emerald-100/50">
+            <div className="w-14 h-14 bg-emerald-50 text-emerald-700 font-semibold text-xl flex items-center justify-center rounded-2xl shadow-sm border border-emerald-100/50">
               {client.brandName.slice(0, 2).toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{client.name}</h1>
+                <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{client.name}</h1>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-100">{client.industry}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${client.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>{client.status}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${client.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>{client.status}</span>
               </div>
               <p className="text-xs text-gray-500 mt-1">Contract: {new Date(client.contractStart).toLocaleDateString()} → {new Date(client.contractEnd).toLocaleDateString()}</p>
             </div>
@@ -830,20 +836,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         })}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* CLIENT PROFILE                                                      */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* CLIENT PROFILE */}
       {activeTab === "profile" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-3">
-              <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">About Brand</h4>
+              <h4 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">About Brand</h4>
               <textarea value={aboutBrandDraft} onChange={(e) => setAboutBrandDraft(e.target.value)} rows={5}
                 placeholder="Core value propositions, tone of voice, design aesthetics..."
                 className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg placeholder-gray-400 bg-white resize-none" />
             </div>
             <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-3">
-              <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Requirement Notes</h4>
+              <h4 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Requirement Notes</h4>
               <textarea value={requirementNotesDraft} onChange={(e) => setRequirementNotesDraft(e.target.value)} rows={5}
                 placeholder="Specific goals, milestones, restrictions, special instructions..."
                 className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg placeholder-gray-400 bg-white resize-none" />
@@ -858,7 +862,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Social Presence */}
             <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-3">
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Brand Social Media Presence</h3>
+              <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Brand Social Media Presence</h3>
               {client.socialMediaPresence?.map((soc, idx) => (
                 <div key={idx} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded-lg border border-gray-100">
                   <span className="capitalize font-semibold text-gray-700 w-20 shrink-0">{soc.platform}</span>
@@ -880,11 +884,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
             {/* Competitors */}
             <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-3">
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Market Competitors</h3>
+              <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Market Competitors</h3>
               {client.competitors?.map((comp, idx) => (
                 <div key={idx} className="text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-100 flex justify-between items-start">
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-gray-800">{comp.name}</p>
+                    <p className="font-semibold text-gray-800">{comp.name}</p>
                     <a href={comp.websiteLink} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline block truncate">{comp.websiteLink}</a>
                     {comp.socialMediaLink && <a href={comp.socialMediaLink} target="_blank" rel="noreferrer" className="text-[10px] text-gray-500 hover:underline block truncate">{comp.socialMediaLink}</a>}
                   </div>
@@ -903,9 +907,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* OVERVIEW                                                            */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* OVERVIEW */}
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-6">
@@ -918,15 +920,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 { label: "Delivery %", value: `${overallPct}%` },
               ].map((k) => (
                 <div key={k.label} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{k.label}</p>
-                  <p className={`text-xl font-extrabold mt-1 ${(k as any).cls || "text-gray-900"}`}>{k.value}</p>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{k.label}</p>
+                  <p className={`text-xl font-semibold mt-1 ${(k as any).cls || "text-gray-900"}`}>{k.value}</p>
                 </div>
               ))}
             </div>
 
             {/* Active channel progress */}
             <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-4">
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Channel Progress — {monthName} {currentYear}</h3>
+              <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Channel Progress — {monthName} {currentYear}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {activeModuleKeys.length === 0 && <p className="text-xs text-gray-400 italic col-span-2 py-4 text-center">No scope configured yet.</p>}
                 {SCOPE_MODULES.filter((m) => activeModuleKeys.includes(m.key)).map((meta) => {
@@ -951,7 +953,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           {/* Right col */}
           <div className="space-y-6">
             <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-4">
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Primary Contact</h3>
+              <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Primary Contact</h3>
               <div className="text-xs space-y-2 text-gray-600">
                 <p><span className="font-semibold text-gray-900">Name:</span> {client.primaryContact.name}</p>
                 <p><span className="font-semibold text-gray-900">Email:</span> {client.primaryContact.email}</p>
@@ -959,7 +961,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
             <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-3">
-              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Business Info</h3>
+              <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wider">Business Info</h3>
               <div className="text-xs space-y-2 text-gray-600">
                 <p><span className="font-semibold text-gray-900">Industry:</span> {client.industry}</p>
                 <p><span className="font-semibold text-gray-900">Status:</span> <span className={`font-semibold capitalize ${client.status === "active" ? "text-emerald-600" : "text-gray-400"}`}>{client.status}</span></p>
@@ -971,9 +973,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* SCOPE DASHBOARD — matches ScopeDashboard.tsx reference             */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* SCOPE DASHBOARD */}
       {activeTab === "calendar" && (
         <div className="space-y-5">
           {/* Month navigation */}
@@ -983,7 +983,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500">
                 ‹
               </button>
-              <span className="text-sm font-bold text-gray-900 w-36 text-center">{monthName} {currentYear}</span>
+              <span className="text-sm font-semibold text-gray-900 w-36 text-center">{monthName} {currentYear}</span>
               <button onClick={() => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(currentYear + 1); } else setCurrentMonth(currentMonth + 1); }}
                 className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500">
                 ›
@@ -1002,7 +1002,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             ].map((k) => (
               <div key={k.label} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{k.label}</p>
-                <p className="text-2xl font-bold mt-1 text-gray-900">{k.value}</p>
+                <p className="text-2xl font-semibold mt-1 text-gray-900">{k.value}</p>
               </div>
             ))}
           </div>
@@ -1066,14 +1066,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* SCOPE OF WORK — history + create new                               */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* SCOPE OF WORK */}
       {activeTab === "scope" && (
         <div className="space-y-5">
           <div className="flex justify-between items-center border-b pb-3">
             <div>
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Scope of Work</h2>
+              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Scope of Work</h2>
               <p className="text-xs text-gray-500 mt-0.5">All contract periods — historical and current</p>
             </div>
             <button onClick={() => { setShowNewScopeModal(true); setNewScopeStep(0); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm">
@@ -1100,10 +1098,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <div className="flex items-center gap-3">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-gray-900">{sow.period || sow.label || "Scope of Work"}</span>
+                          <span className="text-sm font-semibold text-gray-900">{sow.period || sow.label || "Scope of Work"}</span>
                           {sow.label && sow.period && <span className="text-xs text-gray-500">— {sow.label}</span>}
                           {sow.isActive
-                            ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Active</span>
+                            ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Active</span>
                             : <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Historical</span>}
                         </div>
                         <p className="text-[10px] text-gray-400 mt-0.5">Created {new Date(sow.createdAt).toLocaleDateString()}</p>
@@ -1113,7 +1111,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             return (
                               <div className="flex flex-wrap gap-1.5 mt-1.5">
                                 {activeMods.map((mod) => (
-                                  <span key={mod} className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getModuleBadgeColors(mod).badge}`}>
+                                  <span key={mod} className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${getModuleBadgeColors(mod).badge}`}>
                                     {mod}
                                   </span>
                                 ))}
@@ -1158,7 +1156,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               const Icon = meta.icon;
                               return (
                                 <div key={modKey} className="space-y-2">
-                                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                  <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
                                     <Icon className={`w-3.5 h-3.5 ${meta.color}`} /> {meta.label} / Mo
                                   </h4>
                                   <div className="border border-gray-100 rounded-lg p-3 divide-y divide-gray-50 bg-gray-50/20 text-xs">
@@ -1167,7 +1165,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                         <div>
                                           <span>{item.label}</span>
                                           {modKey === "social" && item.platforms && item.platforms.length > 0 && (
-                                            <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-bold uppercase border border-emerald-100">
+                                            <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-semibold uppercase border border-emerald-100">
                                               {item.platforms.join(", ")}
                                             </span>
                                           )}
@@ -1192,15 +1190,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       )}
 
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* ACCESS CONTROL — matches CredentialVault reference                 */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ACCESS CONTROL */}
       {activeTab === "access" && (
         <div className="space-y-4">
           {/* SEO Tool Access (pinned above vault) */}
           {client.scope?.seo && (client.scope.seo.gaAccess?.type && client.scope.seo.gaAccess.type !== "none" || client.scope.seo.gtmAccess?.type && client.scope.seo.gtmAccess.type !== "none" || client.scope.seo.gscAccess?.type && client.scope.seo.gscAccess.type !== "none") && (
             <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/30 space-y-3">
-              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+              <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Globe className="w-3.5 h-3.5 text-emerald-600" /> SEO Tool Access
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1210,7 +1206,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   { label: "Google Search Console", field: client.scope.seo.gscAccess },
                 ].map(({ label, field }) => (
                   <div key={label} className="bg-white border border-gray-100 rounded-lg p-3 space-y-1.5">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
                     {accessBadge(field?.type)}
                     {field?.details && <p className="text-[10px] text-gray-600 font-mono mt-1">{field.details}</p>}
                   </div>
@@ -1293,11 +1289,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             return (
               <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
                 <div className="bg-white border border-gray-100 shadow-xl rounded-2xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
-                  <h3 className="text-sm font-bold text-gray-900 border-b pb-2">Add credential</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Add credential</h3>
                   <div className="space-y-3 text-xs">
                     {/* Category */}
                     <div className="space-y-1">
-                      <label className="font-bold text-gray-500 uppercase">Category</label>
+                      <label className="font-semibold text-gray-500 uppercase">Category</label>
                       <select
                         value={credForm.category}
                         onChange={(e) => setCredForm({ category: e.target.value as CredentialCategory, label: credForm.label, values: {} })}
@@ -1310,7 +1306,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     </div>
                     {/* Label */}
                     <div className="space-y-1">
-                      <label className="font-bold text-gray-500 uppercase">Label</label>
+                      <label className="font-semibold text-gray-500 uppercase">Label</label>
                       <input
                         type="text"
                         placeholder="e.g. Instagram, Mailchimp, GoDaddy"
@@ -1322,7 +1318,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     {/* Dynamic fields driven by category */}
                     {catFields.map((f) => (
                       <div key={f.key} className="space-y-1">
-                        <label className="font-bold text-gray-500 uppercase">{f.label}</label>
+                        <label className="font-semibold text-gray-500 uppercase">{f.label}</label>
                         {f.type === "textarea" ? (
                           <textarea
                             rows={2}
@@ -1343,7 +1339,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
                     <button onClick={() => { setShowAddCredential(false); setCredForm({ category: "social", label: "", values: {} }); }} className="px-3 py-1.5 border rounded-lg text-xs">Cancel</button>
-                    <button onClick={handleAddCredentialSubmit} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Save credential</button>
+                    <button onClick={handleAddCredentialSubmit} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold">Save credential</button>
                   </div>
                 </div>
               </div>
@@ -1352,14 +1348,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* ASSIGNED TEAM                                                       */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* ASSIGNED TEAM */}
       {activeTab === "team" && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-6 space-y-5">
           <div className="flex justify-between items-center border-b pb-3">
             <div>
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Project Team</h2>
+              <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Project Team</h2>
               <p className="text-xs text-gray-500 mt-0.5">Team members assigned to this client</p>
             </div>
             <button
@@ -1379,17 +1373,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   className="flex items-center justify-between p-4 border border-gray-100 bg-white rounded-xl transition-all shadow-sm"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-semibold text-xs flex items-center justify-center">
                       {initials}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-gray-900">{fullName}</h4>
+                      <h4 className="text-xs font-semibold text-gray-900">{fullName}</h4>
                       <p className="text-[10px] text-gray-500">{member.email}</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {member.roles?.map((r: string) => (
                           <span
                             key={r}
-                            className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 capitalize"
+                            className="text-[8px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 capitalize"
                           >
                             {r.replace("_", " ")}
                           </span>
@@ -1415,28 +1409,26 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* DOCUMENTS                                                           */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* DOCUMENTS */}
       {activeTab === "documents" && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-6 space-y-5">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-4 flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Documents</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{client.documents?.length || 0}</p>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Total Documents</p>
+                <p className="text-2xl font-semibold text-gray-900 mt-1">{client.documents?.length || 0}</p>
               </div>
               <FolderOpen className="w-8 h-8 text-emerald-600" />
             </div>
             <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-4 flex flex-col justify-center">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Allowed Formats</p>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Allowed Formats</p>
               <p className="text-xs font-medium text-gray-700 mt-1.5">PDF, DOC, DOCX, XLS, XLSX, JPEG, JPG, PNG</p>
             </div>
           </div>
 
           <div className="flex justify-between items-center border-b pb-2">
-            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Client Documents & Assets</h2>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Client Documents & Assets</h2>
             <button onClick={() => setShowAddDoc(true)} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm"><Plus className="w-3.5 h-3.5" /> Upload File</button>
           </div>
 
@@ -1447,12 +1439,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <table className="min-w-full divide-y divide-gray-100 text-xs">
                 <thead className="bg-gray-50/50">
                   <tr>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">File Name</th>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">File Path</th>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">File Size</th>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">Uploaded At</th>
-                    <th className="px-4 py-3 text-left font-bold text-gray-500 uppercase tracking-wider">Uploaded By</th>
-                    <th className="px-4 py-3 text-right font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">File Name</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">File Path</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">File Size</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Uploaded At</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-500 uppercase tracking-wider">Uploaded By</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -1522,7 +1514,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           {showAddDoc && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
               <div className="bg-white border border-gray-100 shadow-2xl rounded-2xl max-w-sm w-full p-6 space-y-4">
-                <h3 className="text-sm font-bold text-gray-900 border-b pb-2">Upload Document</h3>
+                <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Upload Document</h3>
                 <div className="space-y-4 text-xs">
                   <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center bg-gray-50/50 hover:bg-gray-50 transition-all relative">
                     <input
@@ -1553,13 +1545,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* MEETING LOGS                                                        */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* MEETING */}
       {activeTab === "meetings" && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-6 space-y-5">
           <div className="flex justify-between items-center border-b pb-2">
-            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Meeting Logs & Notes</h2>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Meeting Logs & Notes</h2>
             <button onClick={() => setShowAddMeeting(true)} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm"><Plus className="w-3.5 h-3.5" /> Log Meeting</button>
           </div>
           {client.meetingLogs?.length === 0 ? (
@@ -1569,7 +1559,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               {client.meetingLogs?.map((meeting) => (
                 <div key={meeting.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50/20 shadow-sm group space-y-2">
                   <div className="flex justify-between items-start">
-                    <div><h4 className="text-xs font-bold text-gray-900">{meeting.title}</h4><p className="text-[9px] text-gray-400 mt-0.5">{new Date(meeting.date).toLocaleDateString()} · {meeting.loggedBy}</p></div>
+                    <div><h4 className="text-xs font-semibold text-gray-900">{meeting.title}</h4><p className="text-[9px] text-gray-400 mt-0.5">{new Date(meeting.date).toLocaleDateString()} · {meeting.loggedBy}</p></div>
                     <button onClick={() => handleRemoveMeeting(meeting.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                   <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line bg-white border p-3 rounded-lg border-gray-100/50">{meeting.notes}</p>
@@ -1580,28 +1570,26 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           {showAddMeeting && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
               <div className="bg-white border border-gray-100 shadow-xl rounded-2xl max-w-lg w-full p-5 space-y-4">
-                <h3 className="text-sm font-bold text-gray-900 border-b pb-2">Log Meeting Notes</h3>
+                <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Log Meeting Notes</h3>
                 <div className="space-y-3 text-xs">
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1"><label className="font-bold text-gray-500 uppercase">Meeting Title *</label><input type="text" placeholder="Weekly Retention Sync" value={newMeeting.title} onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
-                    <div className="space-y-1"><label className="font-bold text-gray-500 uppercase">Date</label><input type="date" value={newMeeting.date} onChange={(e) => setNewMeeting({ ...newMeeting, date: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
+                    <div className="space-y-1"><label className="font-semibold text-gray-500 uppercase">Meeting Title *</label><input type="text" placeholder="Weekly Retention Sync" value={newMeeting.title} onChange={(e) => setNewMeeting({ ...newMeeting, title: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
+                    <div className="space-y-1"><label className="font-semibold text-gray-500 uppercase">Date</label><input type="date" value={newMeeting.date} onChange={(e) => setNewMeeting({ ...newMeeting, date: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
                   </div>
-                  <div className="space-y-1"><label className="font-bold text-gray-500 uppercase">Notes & Takeaways *</label><textarea rows={6} placeholder="Action items, decisions, next steps..." value={newMeeting.notes} onChange={(e) => setNewMeeting({ ...newMeeting, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div className="space-y-1"><label className="font-semibold text-gray-500 uppercase">Notes & Takeaways *</label><textarea rows={6} placeholder="Action items, decisions, next steps..." value={newMeeting.notes} onChange={(e) => setNewMeeting({ ...newMeeting, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
                 </div>
-                <div className="flex justify-end gap-2 pt-2"><button onClick={() => setShowAddMeeting(false)} className="px-3 py-1.5 border rounded-lg text-xs">Cancel</button><button onClick={handleAddMeetingSubmit} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Save Meeting Log</button></div>
+                <div className="flex justify-end gap-2 pt-2"><button onClick={() => setShowAddMeeting(false)} className="px-3 py-1.5 border rounded-lg text-xs">Cancel</button><button onClick={handleAddMeetingSubmit} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold">Save Meeting Log</button></div>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* REQUEST TASKS                                                       */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* REQUEST TASKS */}
       {activeTab === "requests" && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-6 space-y-5">
           <div className="flex justify-between items-center border-b pb-2">
-            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Client Requested Tasks</h2>
+            <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Client Requested Tasks</h2>
             <button onClick={() => setShowAddTaskReq(true)} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm"><Plus className="w-3.5 h-3.5" /> Request Task</button>
           </div>
           {taskRequests.length === 0 ? (
@@ -1612,14 +1600,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <div key={task.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50/20 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-gray-900">{task.title}</span>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${task.status === "completed" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : task.status === "approved" ? "bg-indigo-50 text-indigo-700 border border-indigo-100" : task.status === "rejected" ? "bg-red-50 text-red-700 border border-red-100" : "bg-amber-50 text-amber-700 border border-amber-100"}`}>{task.status}</span>
+                      <span className="text-xs font-semibold text-gray-900">{task.title}</span>
+                      <span className={`text-[9px] font-semibold px-2 py-0.5 rounded uppercase ${task.status === "completed" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : task.status === "approved" ? "bg-indigo-50 text-indigo-700 border border-indigo-100" : task.status === "rejected" ? "bg-red-50 text-red-700 border border-red-100" : "bg-amber-50 text-amber-700 border border-amber-100"}`}>{task.status}</span>
                     </div>
                     <p className="text-xs text-gray-600">{task.description}</p>
                     <p className="text-[9px] text-gray-400">{new Date(task.createdAt).toLocaleDateString()}{task.dueDate && ` · Due: ${new Date(task.dueDate).toLocaleDateString()}`}{task.requestedBy && ` · By: ${task.requestedBy.firstName} ${task.requestedBy.lastName}`}</p>
                   </div>
-                  {task.status === "pending" && <div className="flex gap-1.5 shrink-0"><button onClick={() => handleUpdateTaskRequestStatus(task.id, "approved")} className="px-2.5 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700">Approve</button><button onClick={() => handleUpdateTaskRequestStatus(task.id, "rejected")} className="px-2.5 py-1 bg-gray-200 text-gray-700 rounded text-[10px] font-semibold hover:bg-gray-300">Reject</button></div>}
-                  {task.status === "approved" && <button onClick={() => handleUpdateTaskRequestStatus(task.id, "completed")} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 rounded text-[10px] font-bold shrink-0">Mark Completed</button>}
+                  {task.status === "pending" && <div className="flex gap-1.5 shrink-0"><button onClick={() => handleUpdateTaskRequestStatus(task.id, "approved")} className="px-2.5 py-1 bg-emerald-600 text-white rounded text-[10px] font-semibold hover:bg-emerald-700">Approve</button><button onClick={() => handleUpdateTaskRequestStatus(task.id, "rejected")} className="px-2.5 py-1 bg-gray-200 text-gray-700 rounded text-[10px] font-semibold hover:bg-gray-300">Reject</button></div>}
+                  {task.status === "approved" && <button onClick={() => handleUpdateTaskRequestStatus(task.id, "completed")} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 rounded text-[10px] font-semibold shrink-0">Mark Completed</button>}
                 </div>
               ))}
             </div>
@@ -1627,29 +1615,27 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           {showAddTaskReq && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
               <div className="bg-white border border-gray-100 shadow-xl rounded-2xl max-w-sm w-full p-5 space-y-4">
-                <h3 className="text-sm font-bold text-gray-900 border-b pb-2">Request Custom Task</h3>
+                <h3 className="text-sm font-semibold text-gray-900 border-b pb-2">Request Custom Task</h3>
                 <div className="space-y-3 text-xs">
-                  <div className="space-y-1"><label className="font-bold text-gray-500 uppercase">Task Title *</label><input type="text" placeholder="e.g. Father's Day Carousel Post" value={newTaskReq.title} onChange={(e) => setNewTaskReq({ ...newTaskReq, title: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
-                  <div className="space-y-1"><label className="font-bold text-gray-500 uppercase">Description / Specs *</label><textarea placeholder="Content outline, target platforms..." value={newTaskReq.description} onChange={(e) => setNewTaskReq({ ...newTaskReq, description: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" rows={3} /></div>
-                  <div className="space-y-1"><label className="font-bold text-gray-500 uppercase">Target Due Date</label><input type="date" value={newTaskReq.dueDate} onChange={(e) => setNewTaskReq({ ...newTaskReq, dueDate: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
+                  <div className="space-y-1"><label className="font-semibold text-gray-500 uppercase">Task Title *</label><input type="text" placeholder="e.g. Father's Day Carousel Post" value={newTaskReq.title} onChange={(e) => setNewTaskReq({ ...newTaskReq, title: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
+                  <div className="space-y-1"><label className="font-semibold text-gray-500 uppercase">Description / Specs *</label><textarea placeholder="Content outline, target platforms..." value={newTaskReq.description} onChange={(e) => setNewTaskReq({ ...newTaskReq, description: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" rows={3} /></div>
+                  <div className="space-y-1"><label className="font-semibold text-gray-500 uppercase">Target Due Date</label><input type="date" value={newTaskReq.dueDate} onChange={(e) => setNewTaskReq({ ...newTaskReq, dueDate: e.target.value })} className="w-full px-3 py-1.5 border rounded-lg" /></div>
                 </div>
-                <div className="flex justify-end gap-2 pt-2"><button onClick={() => setShowAddTaskReq(false)} className="px-3 py-1.5 border rounded-lg text-xs">Cancel</button><button onClick={handleAddTaskReqSubmit} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Submit Request</button></div>
+                <div className="flex justify-end gap-2 pt-2"><button onClick={() => setShowAddTaskReq(false)} className="px-3 py-1.5 border rounded-lg text-xs">Cancel</button><button onClick={handleAddTaskReqSubmit} className="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold">Submit Request</button></div>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* NEW SCOPE OF WORK MODAL — multi-step                               */}
-      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* NEW SCOPE OF WORK MODAL */}
       {showNewScopeModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white border border-gray-100 shadow-2xl rounded-2xl w-full max-w-2xl my-8">
             {/* Modal header */}
             <div className="flex items-center justify-between p-5 border-b">
               <div>
-                <h2 className="text-sm font-bold text-gray-900">New Scope of Work</h2>
+                <h2 className="text-sm font-semibold text-gray-900">New Scope of Work</h2>
                 <p className="text-xs text-gray-500 mt-0.5">Step {newScopeStep + 1} of 3</p>
               </div>
               {/* Step indicators */}
@@ -1667,13 +1653,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <p className="text-xs text-gray-500">Define the scope period details and select active modules.</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-gray-500 uppercase">Period *</label>
+                      <label className="text-xs font-semibold text-gray-500 uppercase">Period *</label>
                       <input type="text" placeholder="e.g. July 2026 / Q3 2026" value={newScopePeriod}
                         onChange={(e) => setNewScopePeriod(e.target.value)}
                         className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-gray-500 uppercase">Label (optional)</label>
+                      <label className="text-xs font-semibold text-gray-500 uppercase">Label (optional)</label>
                       <input type="text" placeholder="e.g. Revised contract, Growth phase" value={newScopeLabel}
                         onChange={(e) => setNewScopeLabel(e.target.value)}
                         className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
@@ -1681,7 +1667,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </div>
 
                   <div className="space-y-2 pt-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase block">Active Retainer Modules</label>
+                    <label className="text-xs font-semibold text-gray-500 uppercase block">Active Retainer Modules</label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
                         { key: "social", label: "Social Media Marketing", desc: "Instagram, FB, LinkedIn, YT, X" },
@@ -1706,7 +1692,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               {active && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                             </div>
                             <div>
-                              <p className="text-xs font-bold text-gray-900">{m.label}</p>
+                              <p className="text-xs font-semibold text-gray-900">{m.label}</p>
                               <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{m.desc}</p>
                             </div>
                           </button>
@@ -1736,7 +1722,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                           <div className="flex items-center gap-2">
                             <span className={`h-2.5 w-2.5 rounded-full bg-${meta.color}-500`} />
-                            <h3 className="text-xs font-bold text-gray-800">{meta.label}</h3>
+                            <h3 className="text-xs font-semibold text-gray-800">{meta.label}</h3>
                           </div>
                           <button
                             type="button"
@@ -1752,7 +1738,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                 },
                               ]);
                             }}
-                            className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
                           >
                             <Plus className="w-3.5 h-3.5" /> Add Item
                           </button>
@@ -1768,7 +1754,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               {modKey === "social" ? (
                                 <>
                                   <div className="col-span-12 sm:col-span-3 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Deliverable</label>
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase">Deliverable</label>
                                     <select
                                       value={s.label}
                                       onChange={(e) => updateNewScopeItem(s.id, { label: e.target.value })}
@@ -1785,7 +1771,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                   </div>
 
                                   <div className="col-span-4 sm:col-span-2 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Qty / mo</label>
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase">Qty / mo</label>
                                     <input
                                       type="number"
                                       min="0"
@@ -1797,7 +1783,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                   </div>
 
                                   <div className="col-span-12 sm:col-span-4 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Platforms</label>
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase">Platforms</label>
                                     <div className="flex gap-1.5 flex-wrap">
                                       {[
                                         { key: "instagram", icon: instagram, label: "Instagram" },
@@ -1833,7 +1819,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               ) : (
                                 <>
                                   <div className="col-span-12 sm:col-span-6 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Deliverable</label>
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase">Deliverable</label>
                                     <input
                                       type="text"
                                       placeholder="e.g. Meta Ad Creatives, Blogs, etc."
@@ -1844,7 +1830,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                   </div>
 
                                   <div className="col-span-6 sm:col-span-3 space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase">Qty / mo</label>
+                                    <label className="text-[10px] font-semibold text-gray-400 uppercase">Qty / mo</label>
                                     <input
                                       type="number"
                                       min="0"
@@ -1879,21 +1865,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               {newScopeStep === 2 && (
                 <div className="space-y-4">
                   <div className="bg-gray-50 border border-gray-150 rounded-xl p-5 space-y-3">
-                    <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Review Contract Period</h3>
+                    <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wider">Review Contract Period</h3>
                     <div className="grid grid-cols-2 gap-4 text-xs text-gray-600">
                       <div>
-                        <p className="text-[10px] text-gray-400 uppercase font-bold">Scope Period</p>
-                        <p className="font-bold text-gray-900 mt-0.5">{newScopePeriod}</p>
+                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Scope Period</p>
+                        <p className="font-semibold text-gray-900 mt-0.5">{newScopePeriod}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] text-gray-400 uppercase font-bold">Label</p>
-                        <p className="font-bold text-gray-900 mt-0.5">{newScopeLabel || "—"}</p>
+                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Label</p>
+                        <p className="font-semibold text-gray-900 mt-0.5">{newScopeLabel || "—"}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Configured Deliverables</h3>
+                    <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wider">Configured Deliverables</h3>
                     {(() => {
                       const modulesMap: Record<string, string> = {
                         social: "Social Media Marketing",
@@ -1907,7 +1893,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         const items = newScopeItems.filter((s) => s.module === modKey);
                         return (
                           <div key={modKey} className="border border-gray-100 rounded-xl p-4 space-y-2 bg-white">
-                            <p className="text-xs font-bold text-gray-800">{modulesMap[modKey] || modKey}</p>
+                            <p className="text-xs font-semibold text-gray-800">{modulesMap[modKey] || modKey}</p>
                             <div className="divide-y divide-gray-50 text-xs text-gray-600">
                               {items.map((item) => (
                                 <div key={item.id} className="py-1.5 space-y-0.5">
@@ -1915,12 +1901,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                     <div>
                                       <span className="font-medium">{item.label}</span>
                                       {modKey === "social" && item.platforms && item.platforms.length > 0 && (
-                                        <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-bold uppercase border border-emerald-100">
+                                        <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-2 font-semibold uppercase border border-emerald-100">
                                           {item.platforms.join(", ")}
                                         </span>
                                       )}
                                     </div>
-                                    <span className="font-bold text-gray-900">{item.unit || "0"} / mo</span>
+                                    <span className="font-semibold text-gray-900">{item.unit || "0"} / mo</span>
                                   </div>
                                 </div>
                               ))}
@@ -1964,7 +1950,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <button
                   onClick={handleCreateNewScope}
                   disabled={newScopeSubmitting}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold disabled:opacity-70"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold disabled:opacity-70"
                 >
                   {newScopeSubmitting ? "Creating..." : "Create Scope of Work"}
                 </button>
@@ -1974,12 +1960,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-
       {showAddTeamModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white border border-gray-100 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-scale-up">
             <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-              <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Add Team Member</h3>
+              <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wider">Add Team Member</h3>
               <button onClick={() => setShowAddTeamModal(false)} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
             </div>
             <div className="p-4 max-h-[300px] overflow-y-auto space-y-2">
@@ -1995,11 +1980,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   return (
                     <div key={member._id} className="flex items-center justify-between p-3 border border-gray-50 rounded-lg hover:bg-gray-50 bg-white shadow-sm">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-semibold text-[10px] flex items-center justify-center">
                           {initials}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-gray-900">{member.name}</p>
+                          <p className="text-xs font-semibold text-gray-900">{member.name}</p>
                           <p className="text-[9px] text-gray-500">{member.email}</p>
                         </div>
                       </div>
@@ -2008,7 +1993,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                           await handleAssignTeamToggle(member._id);
                           setShowAddTeamModal(false);
                         }}
-                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold shadow-sm"
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-semibold shadow-sm"
                       >
                         Assign
                       </button>
@@ -2033,7 +2018,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             {uploadingFile.status === "uploading" && (
               <div className="relative flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-200 border-t-emerald-600"></div>
-                <span className="absolute text-[8px] font-bold text-emerald-700">{uploadingFile.progress}%</span>
+                <span className="absolute text-[8px] font-semibold text-emerald-700">{uploadingFile.progress}%</span>
               </div>
             )}
             {uploadingFile.status === "success" && (
@@ -2048,7 +2033,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-gray-900 truncate">
+            <p className="text-xs font-semibold text-gray-900 truncate">
               {uploadingFile.status === "uploading" && "Uploading File..."}
               {uploadingFile.status === "success" && "Upload Complete!"}
               {uploadingFile.status === "error" && "Upload Failed"}

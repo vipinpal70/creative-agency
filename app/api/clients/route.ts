@@ -23,21 +23,73 @@ export async function GET(req: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    // Fetch deliverables for the current month from the new Deliverable collection
+    // Committed = scheduled this month. Delivered = delivery event this month
+    // (a copy scheduled last month but approved this month counts for this
+    // month), so fetch deliverables matching either window.
+    const inMonth = (d?: Date | null) => !!d && d >= startOfMonth && d <= endOfMonth;
     const deliverables = await Deliverable.find(
-      { scheduledDate: { $gte: startOfMonth, $lte: endOfMonth } },
-      { clientId: 1, status: 1 }
+      {
+        $or: [
+          { scheduledDate: { $gte: startOfMonth, $lte: endOfMonth } },
+          { deliveredAt: { $gte: startOfMonth, $lte: endOfMonth } },
+          {
+            "statusTimeline.designerTimeline": {
+              $elemMatch: {
+                status: "design_approved",
+                timestamp: { $gte: startOfMonth, $lte: endOfMonth },
+              },
+            },
+          },
+        ],
+      },
+      { clientId: 1, status: 1, scheduledDate: 1, deliveredAt: 1, statusTimeline: 1 }
     ).lean();
+
+    // Active scopes drive the contracted monthly quantity (totalScope)
+    const scopes = await ScopeOfWork.find(
+      { isActive: true },
+      { clientId: 1, items: 1 }
+    ).lean();
+
+    // The draft pipeline ends at design_approved — nothing sets "delivered"
+    // automatically — so fully approved copies count as delivered here.
+    const DELIVERED_STATUSES = new Set(["delivered", "design_approved"]);
+
+    // When the delivery happened: explicit deliveredAt, else the timestamp of
+    // the design_approved timeline entry. Legacy docs without either fall back
+    // to the scheduled month.
+    const deliveredThisMonth = (d: (typeof deliverables)[number]) => {
+      if (!DELIVERED_STATUSES.has(d.status)) return false;
+      if (d.deliveredAt) return inMonth(d.deliveredAt);
+      const approvedEntries = (d.statusTimeline?.designerTimeline ?? []).filter(
+        (e) => e.status === "design_approved"
+      );
+      if (approvedEntries.length > 0) {
+        return approvedEntries.some((e) => inMonth(e.timestamp));
+      }
+      return inMonth(d.scheduledDate);
+    };
 
     // Map deliverables progress
     const clientProgress = clients.map((c) => {
       const clientDels = deliverables.filter((d) => d.clientId.toString() === c._id.toString());
-      const committed = clientDels.length;
-      const delivered = clientDels.filter((d) => d.status === "delivered").length;
-      const progressPercent = committed === 0 ? 0 : Math.round((delivered / committed) * 100);
+      const committed = clientDels.filter((d) => inMonth(d.scheduledDate)).length;
+      const delivered = clientDels.filter(deliveredThisMonth).length;
 
-      // Extract list of active module keys
-      const activeModules: string[] = [];
+      const totalScope = scopes
+        .filter((s) => s.clientId.toString() === c._id.toString())
+        .reduce(
+          (sum, s) =>
+            sum + s.items.reduce((acc, it) => acc + (parseInt(it.unit ?? "0") || 0), 0),
+          0
+        );
+
+      const denominator = totalScope > 0 ? totalScope : committed;
+      const progressPercent =
+        denominator === 0
+          ? 0
+          : Math.min(100, Math.round((delivered / denominator) * 100));
+
       return {
         id: c._id.toString(),
         name: c.name,
@@ -50,6 +102,7 @@ export async function GET(req: NextRequest) {
         primaryContact: c.primaryContact,
         assignedTeam: c.assignedTeam,
         committed,
+        totalScope,
         delivered,
         progressPercent,
       };

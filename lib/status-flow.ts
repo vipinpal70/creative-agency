@@ -52,6 +52,41 @@ export const APPROVE_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
   design_client_review: "design_approved",
 };
 
+// Rejecting an item at a review step: content rejections go back to the
+// writer ("rejected"); design rejections return to the claiming designer
+// ("design_in_progress" — the copy itself stays approved).
+export const REJECT_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
+  content_internal_review: "rejected",
+  content_client_review: "rejected",
+  design_internal_review: "design_in_progress",
+  design_client_review: "design_in_progress",
+};
+
+// Exceptional case: "article/copy" submitted without a creative has nothing
+// to design, so it skips the design phase entirely — client approval of the
+// content takes it straight to design_approved (final).
+export function skipsDesignPhase(draft: {
+  mediaType?: string;
+  articleMode?: string;
+}): boolean {
+  return (
+    (draft.mediaType || "").toLowerCase().trim() === "article/copy" &&
+    draft.articleMode === "without-creative"
+  );
+}
+
+// Approve target for a draft at a given status, applying the design-skip rule.
+export function approveTargetFor(
+  status: DraftStatus,
+  draft: { mediaType?: string; articleMode?: string }
+): DraftStatus | undefined {
+  const next = APPROVE_TRANSITIONS[status];
+  if (next === "content_approved" && skipsDesignPhase(draft)) {
+    return "design_approved";
+  }
+  return next;
+}
+
 // Status the parent deliverable takes when its draft enters a given status.
 export const DELIVERABLE_STATUS_FOR_DRAFT: Record<DraftStatus, string> = {
   draft: "in_progress",

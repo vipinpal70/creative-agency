@@ -71,6 +71,7 @@ export interface DraftSnapshot {
   articleCopy?: string;
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";
+  rejectionNote?: string;
   lastChangedBy?: LastChangedBy | null;
 }
 

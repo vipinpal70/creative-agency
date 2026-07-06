@@ -10,7 +10,7 @@ import DraftHistory from "@/lib/models/draft-history.model";
 import User from "@/lib/models/user.model";
 import {
   normalizeDraftStatus,
-  APPROVE_TRANSITIONS,
+  approveTargetFor,
   DELIVERABLE_STATUS_FOR_DRAFT,
   timelineForStatus,
   historyActionForStatus,
@@ -56,7 +56,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     let timelineStatus;
     let historyAction: "submitted" | "approved" | "rejected" | "edited";
     if (action === "approve") {
-      next = APPROVE_TRANSITIONS[current];
+      // Applies the design-skip rule: article/copy without a creative goes
+      // straight from content client approval to design_approved (final).
+      next = approveTargetFor(current, draft);
       if (!next) {
         return NextResponse.json(
           { error: `Copy in status "${current}" is not awaiting review` },

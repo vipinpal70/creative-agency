@@ -29,7 +29,9 @@ import {
   STATUS_LABEL,
   STATUS_COLOR,
   normalizeDraftStatus,
-  APPROVE_TRANSITIONS,
+  approveTargetFor,
+  skipsDesignPhase,
+  REJECT_TRANSITIONS,
 } from "@/lib/status-flow";
 import type { DraftStatus } from "@/lib/status-flow";
 import type { CalendarCopy, CalendarDraft } from "./types";
@@ -196,6 +198,14 @@ function VideoPreview({
           alt="Video thumbnail"
           className="w-full h-full object-cover"
         />
+      ) : videoUrl ? (
+        <video
+          src={videoUrl}
+          preload="metadata"
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+        />
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
           <Film className="h-10 w-10 text-white/30" />
@@ -354,7 +364,7 @@ function SocialMockup({
         ) : mediaCategory === "video" ? (
           <VideoPreview
             videoUrl={draft?.videoUrl || ""}
-            thumbnailUrl={draft?.thumbnailUrl || ""}
+            thumbnailUrl={draft?.thumbnailUrl || draft?.imageUrl || ""}
           />
         ) : draft?.imageUrl ? (
           <img
@@ -471,7 +481,7 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
       <div className="w-full max-w-sm rounded-xl overflow-hidden border border-border shadow-xl bg-black aspect-video">
         <VideoPreview
           videoUrl={draft?.videoUrl || ""}
-          thumbnailUrl={draft?.thumbnailUrl || ""}
+          thumbnailUrl={draft?.thumbnailUrl || draft?.imageUrl || ""}
         />
       </div>
     );
@@ -482,6 +492,28 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
       <div className="w-full max-w-sm rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
         <ImagePreview
           imageUrl={draft?.imageUrl || ""}
+          mediaType={draft?.mediaType || item.type}
+        />
+      </div>
+    );
+  }
+
+  // Uncategorized media type but a creative was uploaded — show it
+  if (draft?.videoUrl) {
+    return (
+      <div className="w-full max-w-sm rounded-xl overflow-hidden border border-border shadow-xl bg-black aspect-video">
+        <VideoPreview
+          videoUrl={draft.videoUrl}
+          thumbnailUrl={draft.thumbnailUrl || ""}
+        />
+      </div>
+    );
+  }
+  if (draft?.imageUrl) {
+    return (
+      <div className="w-full max-w-sm rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
+        <ImagePreview
+          imageUrl={draft.imageUrl}
           mediaType={draft?.mediaType || item.type}
         />
       </div>
@@ -728,12 +760,12 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
     }
   };
 
-  const handleAction = async (newStatus: DraftStatus) => {
+  const handleAction = async (newStatus: DraftStatus, isRejection = false) => {
     if (!item?.draft) return;
     setActioning(true);
     try {
       const body: Record<string, unknown> = { status: newStatus };
-      if (note && newStatus === "rejected") body.rejectionNote = note;
+      if (note && isRejection) body.rejectionNote = note;
       const updated = await patchDraft(body);
       if (updated) {
         onUpdate(item.deliverableId, {
@@ -779,23 +811,27 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                   · {item.platforms.join(", ")}
                 </span>
               )}
-              {draft && (
+              {/* Single status badge: the draft status is the real pipeline
+                  state; the deliverable status is only a coarse rollup and is
+                  shown only when there is no draft yet. */}
+              {draft ? (
                 <span
                   className={cn(
-                    "text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize",
+                    "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
                     draftStatusColor
                   )}
                 >
-                  {draft.status}
+                  {STATUS_LABEL[draft.status] ?? draft.status}
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    "text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
+                  )}
+                >
+                  {DELIVERABLE_STATUS_LABEL[item.status] ?? item.status}
                 </span>
               )}
-              <span
-                className={cn(
-                  "text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
-                )}
-              >
-                {DELIVERABLE_STATUS_LABEL[item.status] ?? item.status}
-              </span>
             </div>
           </div>
           <button
@@ -1054,11 +1090,11 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                     </p>
                     <span
                       className={cn(
-                        "inline-block text-xs font-medium px-2 py-0.5 rounded-full capitalize",
+                        "inline-block text-xs font-medium px-2 py-0.5 rounded-full",
                         draftStatusColor
                       )}
                     >
-                      {draft.status}
+                      {STATUS_LABEL[draft.status] ?? draft.status}
                     </span>
                     {draft.lastChangedBy && (
                       <p className="text-[10px] text-muted-foreground mt-1">
@@ -1084,7 +1120,10 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                   <div className="grid grid-cols-1 gap-2">
                     {(() => {
                       const normStatus = normalizeDraftStatus(draft.status) ?? "draft";
-                      const nextOnApprove = APPROVE_TRANSITIONS[normStatus];
+                      // Applies the design-skip rule: article/copy without a
+                      // creative goes straight to design_approved (final).
+                      const nextOnApprove = approveTargetFor(normStatus, draft);
+                      const nextOnReject = REJECT_TRANSITIONS[normStatus];
                       const approveLabel =
                         normStatus === "content_internal_review" || normStatus === "design_internal_review"
                           ? "Approve → Client Review"
@@ -1122,7 +1161,9 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                               </Button>
                               <Button
                                 variant="outline"
-                                onClick={() => handleAction("rejected")}
+                                onClick={() =>
+                                  handleAction(nextOnReject ?? "rejected", true)
+                                }
                                 disabled={actioning}
                               >
                                 {actioning ? (
@@ -1149,7 +1190,9 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                           {normStatus === "design_approved" && (
                             <div className="flex items-center gap-2 text-green-600 text-sm">
                               <Check className="h-4 w-4" />
-                              Design approved.
+                              {skipsDesignPhase(draft)
+                                ? "Approved — no design phase needed."
+                                : "Design approved."}
                             </div>
                           )}
                           {normStatus === "rejected" && (

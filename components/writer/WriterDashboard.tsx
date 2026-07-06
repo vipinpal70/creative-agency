@@ -33,6 +33,7 @@ import type {
 } from "@/components/writer/types";
 import { MODULES } from "@/lib/types";
 import type { ModuleKey } from "@/lib/types";
+import { normalizeDraftStatus } from "@/lib/status-flow";
 
 type ModuleFilter = "all" | ModuleKey;
 
@@ -247,7 +248,9 @@ export default function WriterDashboard() {
   // ── Submit all draft copies ──
   const submitAll = async () => {
     if (!activeCalendar) return;
-    const drafts = copies.filter((c) => c.status === "pending" && c.latestDraft?.status === "draft");
+    const drafts = copies.filter(
+      (c) => c.latestDraft && normalizeDraftStatus(c.latestDraft.status) === "draft"
+    );
     for (const c of drafts) {
       if (c.latestDraft) await submitCopy(c.id, c.latestDraft.id);
     }

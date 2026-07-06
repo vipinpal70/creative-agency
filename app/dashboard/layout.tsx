@@ -30,14 +30,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
 
         {/* Top bar */}
-        <header className="h-16 flex items-center justify-between border-b border-gray-100 bg-white px-5 shrink-0 sticky top-0 z-30">
-          {/* Left — breadcrumb placeholder */}
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-            <span className="text-[11px] font-medium text-gray-400">CreativeOS</span>
-            <span className="text-[11px] text-gray-300">/</span>
-            <span className="text-[11px] font-semibold text-gray-600">Dashboard</span>
-          </div>
+        <header className="h-14 flex items-center justify-end border-b border-gray-100 bg-white px-5 shrink-0 sticky top-0 z-30">
 
           {/* Right — notifications + user avatar */}
           <div className="flex items-center gap-2.5">

@@ -2,9 +2,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock } from "lucide-react";
+import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock, MessageSquare } from "lucide-react";
 import type { WriterDeliverable } from "./types";
-import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
+import { STATUS_LABEL, STATUS_COLOR, normalizeDraftStatus } from "@/lib/status-flow";
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -29,7 +29,7 @@ interface Props {
 
 export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, submitting }: Props) {
   const draftCopies = copies.filter(
-    (c) => c.status === "pending" && c.latestDraft?.status === "draft"
+    (c) => c.latestDraft && normalizeDraftStatus(c.latestDraft.status) === "draft"
   );
 
   if (copies.length === 0) {
@@ -61,9 +61,15 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
       <CardContent className="space-y-3">
         {copies.map((copy) => {
           const draft = copy.latestDraft;
-          const isDraft = copy.status === "pending" && draft?.status === "draft";
-          const label = STATUS_LABEL[copy.status] || copy.status;
-          const colorClass = STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground";
+          // The draft status is the real pipeline state — display and gate
+          // actions on it. The deliverable status is only a coarse rollup
+          // (e.g. a rejected draft rolls up to "in_progress").
+          const draftStatus = draft ? normalizeDraftStatus(draft.status) : null;
+          const isDraft = draftStatus === "draft";
+          const isRejected = draftStatus === "rejected";
+          const displayStatus = draft ? draft.status : copy.status;
+          const label = STATUS_LABEL[displayStatus] || displayStatus;
+          const colorClass = STATUS_COLOR[displayStatus] || "bg-muted text-muted-foreground";
           const isCarousel = copy.type.toLowerCase() === "carousel";
 
           const previewText = isCarousel && draft?.frames?.length
@@ -128,8 +134,19 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                 </div>
               )}
 
+              {isRejected && (
+                <div className="flex items-start gap-2 text-xs bg-red-50 text-red-700 rounded-lg p-2.5">
+                  <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    {draft?.rejectionNote
+                      ? `Feedback: ${draft.rejectionNote}`
+                      : "Changes were requested. Edit the copy and re-submit."}
+                  </span>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 pt-1">
-                {isDraft && draft && (
+                {(isDraft || isRejected) && draft && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -139,10 +156,10 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                     {submitting === copy.id
                       ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                       : <Send className="h-3 w-3 mr-1" />}
-                    Submit for Review
+                    {isRejected ? "Re-submit for Review" : "Submit for Review"}
                   </Button>
                 )}
-                {isDraft && draft && (
+                {(isDraft || isRejected) && draft && (
                   <Button
                     variant="outline"
                     size="sm"

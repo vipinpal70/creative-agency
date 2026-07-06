@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Film, Check, X, User,
-  ShieldCheck, FileText, ClipboardList, MessageSquare, Image as ImageIcon,
+  ShieldCheck, FileText, ClipboardList, MessageSquare, Palette, Image as ImageIcon,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
@@ -35,10 +35,10 @@ interface ApprovalTask {
 // Constants 
 
 const COPY_STAGES = [
-  { key: "content_internal_review", label: "Content · Internal Review", approveLabel: "Approve → Client Review" },
-  { key: "content_client_review",   label: "Content · Client Review",   approveLabel: "Client Approved" },
-  { key: "design_internal_review",  label: "Design · Internal Review",  approveLabel: "Approve → Client Review" },
-  { key: "design_client_review",    label: "Design · Client Review",    approveLabel: "Client Approved" },
+  { key: "content_internal_review", label: "📄 Content · Internal Review", approveLabel: "Approve → Client Review" },
+  { key: "content_client_review", label: "📄 Content · Client Review", approveLabel: "Client Approved" },
+  { key: "design_internal_review", label: "🎨 Design · Internal Review", approveLabel: "Approve → Client Review" },
+  { key: "design_client_review", label: "🎨 Design · Client Review", approveLabel: "Client Approved" },
 ] as const;
 
 type CopyStageKey = (typeof COPY_STAGES)[number]["key"];
@@ -48,6 +48,16 @@ const PRIORITY_COLOR: Record<string, string> = {
   MEDIUM: "bg-yellow-100 text-yellow-700",
   HIGH: "bg-red-100 text-red-600",
   URGENT: "bg-red-200 text-red-700",
+};
+
+// Task statuses that count as "awaiting approval":
+// a member marks a task COMPLETED, then it moves through the review stages.
+const TASK_REVIEW_STATUSES = "COMPLETED,INTERNAL_REVIEW,CLIENT_REVIEW";
+
+const TASK_STATUS_BADGE: Record<string, { label: string; color: string }> = {
+  COMPLETED:       { label: "Completed",       color: "bg-cyan-50 text-cyan-700" },
+  INTERNAL_REVIEW: { label: "Internal Review", color: "bg-violet-50 text-violet-700" },
+  CLIENT_REVIEW:   { label: "Client Review",   color: "bg-amber-50 text-amber-700" },
 };
 
 // Reject-with-note inline form
@@ -289,8 +299,12 @@ function TaskApprovalCard({ task, onDone }: { task: ApprovalTask; onDone: () => 
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
             )}
           </div>
-          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-cyan-50 text-cyan-700">
-            Completed
+          <span
+            className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${
+              TASK_STATUS_BADGE[task.status]?.color ?? "bg-muted text-muted-foreground"
+            }`}
+          >
+            {TASK_STATUS_BADGE[task.status]?.label ?? task.status}
           </span>
         </div>
 
@@ -351,7 +365,7 @@ function TaskApprovalCard({ task, onDone }: { task: ApprovalTask; onDone: () => 
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// Page
 
 export default function ApprovalsPage() {
   const [tab, setTab] = useState<"copies" | "tasks">("copies");
@@ -374,7 +388,7 @@ export default function ApprovalsPage() {
   const loadTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetch("/api/tasks?status=COMPLETED").then((r) => r.json());
+      const data = await fetch(`/api/tasks?status=${TASK_REVIEW_STATUSES}`).then((r) => r.json());
       setTasks(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
@@ -439,10 +453,22 @@ export default function ApprovalsPage() {
           ) : copies.length === 0 ? (
             <Card>
               <CardContent className="p-10 text-center space-y-3">
-                <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto" />
-                <p className="text-sm text-muted-foreground">
-                  No copies awaiting {activeStage.label.toLowerCase()}.
-                </p>
+                
+                {copyStage === "design_internal_review" || copyStage === "design_client_review" ? (
+                  <>
+                    <Palette className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+                    <p className="text-sm text-muted-foreground">
+                      No designs awaiting approval
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+                    <p className="text-sm text-muted-foreground">
+                      No copies awaiting approval
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -472,7 +498,11 @@ export default function ApprovalsPage() {
               <CardContent className="p-10 text-center space-y-3">
                 <ClipboardList className="h-10 w-10 text-muted-foreground/30 mx-auto" />
                 <p className="text-sm text-muted-foreground">
-                  No completed tasks awaiting approval.
+                  No tasks awaiting approval.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Tasks appear here once they are marked Completed or moved to
+                  Internal / Client Review on the task board.
                 </p>
               </CardContent>
             </Card>

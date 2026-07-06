@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {Briefcase, ChartBarStacked, Calendar, CheckSquare, BarChart3, Palette} from "lucide-react";
+import logo from "@/public/CO-logo.png";
+import shortLogo from "@/public/CO-short-logo.png";
 
 const Icon = {
   Dashboard: () => (
@@ -124,7 +127,6 @@ const NAV_GROUPS = [
   {
     label: "MORE",
     items: [
-      { title: "Client Portal", href: "/dashboard/portal", icon: Icon.Portal },
       { title: "Analytics", href: "/dashboard/analytics", icon: Icon.Analytics },
       { title: "Notifications", href: "/dashboard/notifications", icon: Icon.Bell },
       { title: "File Repository", href: "/dashboard/files", icon: Icon.Files },
@@ -145,16 +147,12 @@ export function AppSidebar() {
       style={{ width: collapsed ? 56 : 200 }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-3 py-4 border-b border-gray-100 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-          CO
-        </div>
-        {!collapsed && (
-          <div className="overflow-hidden">
-            <p className="text-[13px] font-semibold text-gray-900 leading-tight">CreativeOS</p>
-            <p className="text-[10px] text-gray-400 leading-tight">Agency Platform</p>
-          </div>
-        )}
+      <div className="flex items-center gap-2.5 px-3 py-2 border-b border-gray-100 shrink-0">
+      {collapsed ? (
+        <Image src={shortLogo} alt="logo" width={100} height={100} className="shrink-0 object-contain" />
+      ) : (
+        <Image src={logo} alt="logo" width={150} height={150} className="shrink-0 object-contain" />
+      )}
       </div>
 
       {/* Nav groups */}

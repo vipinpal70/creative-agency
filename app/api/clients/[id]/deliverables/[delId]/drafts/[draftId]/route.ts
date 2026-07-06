@@ -9,6 +9,7 @@ import { computeChanges } from "@/lib/draft-history";
 import {
   DRAFT_STATUSES,
   normalizeDraftStatus,
+  skipsDesignPhase,
   DELIVERABLE_STATUS_FOR_DRAFT,
   timelineForStatus,
   historyActionForStatus,
@@ -136,25 +137,38 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         );
       }
 
-      // "Start Work" claim: first designer to move it to design_in_progress owns it
+      // Design-skip: article/copy without a creative has nothing to design,
+      // so content approval takes it straight to design_approved (final)
+      // instead of entering the designer queue.
+      if (normalizedStatus === "content_approved" && skipsDesignPhase(draft)) {
+        normalizedStatus = "design_approved";
+      }
+
+      // "Start Work" claim: first designer to move it to design_in_progress
+      // owns it. Only a fresh claim (from content_approved) is a claim —
+      // a rejection from design review back to design_in_progress is rework
+      // and must neither conflict nor reassign ownership.
       if (normalizedStatus === "design_in_progress") {
-        if (
-          draft.designStartedBy &&
-          draft.designStartedBy.userId !== session.userId.toString() &&
-          session.role !== "admin"
-        ) {
-          return NextResponse.json(
-            { error: `Already being worked on by ${draft.designStartedBy.name}` },
-            { status: 409 }
-          );
-        }
-        if (!draft.designStartedBy) {
-          draft.designStartedBy = {
-            userId: session.userId.toString(),
-            name: editorName,
-            email: session.email,
-            startedAt: now,
-          };
+        const isClaim = normalizeDraftStatus(draft.status) === "content_approved";
+        if (isClaim) {
+          if (
+            draft.designStartedBy &&
+            draft.designStartedBy.userId !== session.userId.toString() &&
+            session.role !== "admin"
+          ) {
+            return NextResponse.json(
+              { error: `Already being worked on by ${draft.designStartedBy.name}` },
+              { status: 409 }
+            );
+          }
+          if (!draft.designStartedBy) {
+            draft.designStartedBy = {
+              userId: session.userId.toString(),
+              name: editorName,
+              email: session.email,
+              startedAt: now,
+            };
+          }
         }
       }
 

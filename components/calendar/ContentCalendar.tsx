@@ -18,6 +18,7 @@ import {
   LayoutGrid,
   CalendarDays,
   RefreshCw,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/lib/types";
@@ -226,6 +227,7 @@ export default function ContentCalendar() {
     "social", "paid", "seo", "email", "website", "orm",
     "influencer", "video", "design", "custom",
   ]);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedItem, setSelectedItem] = useState<CalendarCopy | null>(null);
 
   // Load clients on mount
@@ -281,10 +283,16 @@ export default function ContentCalendar() {
       a.includes(k) ? a.filter((x) => x !== k) : [...a, k]
     );
 
-  // Filter items by active modules
+  // Filter items by active modules and status
   const filtered = useMemo(
-    () => items.filter((i) => activeModules.includes(i.module as ModuleKey)),
-    [items, activeModules]
+    () =>
+      items.filter(
+        (i) =>
+          activeModules.includes(i.module as ModuleKey) &&
+          (statusFilter === "all" ||
+            normalizeDeliverableStatus(i.status) === statusFilter)
+      ),
+    [items, activeModules, statusFilter]
   );
 
   // Month-filtered items
@@ -552,6 +560,22 @@ export default function ContentCalendar() {
               </button>
             );
           })}
+
+          <div className="ml-auto min-w-[190px]">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {DELIVERABLE_STATUSES.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -750,9 +774,10 @@ export default function ContentCalendar() {
                         )}
                       >
                         {col.length === 0 && (
-                          <p className="text-[10px] text-muted-foreground text-center py-4">
-                            Empty
-                          </p>
+                          <div className="flex flex-col items-center justify-center h-full">
+                            <FolderOpen className="h-3 w-3 text-gray-400" />
+                            <span className="text-xs text-gray-400">Empty</span>
+                          </div>
                         )}
                         {col.map((item) => (
                           <KanbanCard

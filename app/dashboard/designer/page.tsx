@@ -122,12 +122,14 @@ function CopyCard({
   isAdmin,
   onChanged,
   onPreview,
+  onUploaded,
 }: {
   copy: ApprovalCopy;
   currentUserId?: string;
   isAdmin: boolean;
   onChanged: () => void;
   onPreview: () => void;
+  onUploaded: (patch: Partial<ApprovalCopy>) => void;
 }) {
   const [starting, setStarting] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null); // -1 = single upload
@@ -206,12 +208,14 @@ function CopyCard({
         );
         await patchDraft({ frames: updated });
         setFrames(updated);
+        onUploaded({ frames: updated });
         toast.success(`Creative attached to frame ${frameNo}`);
       } else {
         const video = isVideoType(copy.mediaType, file.type);
         await patchDraft(video ? { videoUrl: fileUrl } : { imageUrl: fileUrl });
         setAttachedUrl(fileUrl);
         setAttachedIsVideo(video);
+        onUploaded(video ? { videoUrl: fileUrl } : { imageUrl: fileUrl });
         toast.success("Creative attached to copy");
       }
     } catch (err: any) {
@@ -540,6 +544,14 @@ export default function DesignerPage() {
               isAdmin={isAdmin}
               onChanged={() => loadCopies(stage)}
               onPreview={() => setPreviewCopy(copy)}
+              onUploaded={(patch) => {
+                setCopies((prev) =>
+                  prev.map((c) => (c.draftId === copy.draftId ? { ...c, ...patch } : c))
+                );
+                setPreviewCopy((prev) =>
+                  prev && prev.draftId === copy.draftId ? { ...prev, ...patch } : prev
+                );
+              }}
             />
           ))}
         </div>

@@ -20,6 +20,7 @@ interface ClientListItem {
   };
   assignedTeam: string[];
   committed: number;
+  totalScope: number;
   delivered: number;
   progressPercent: number;
 }
@@ -185,7 +186,7 @@ export default function ClientsPage() {
                     />
                   </div>
                   <div className="flex justify-between items-center text-[10px] text-gray-500">
-                    <span>Committed: {client.committed}</span>
+                    <span>Total Scope: {client.totalScope}</span>
                     <span>Delivered: {client.delivered}</span>
                   </div>
                 </div>
