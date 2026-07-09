@@ -26,9 +26,9 @@ export async function GET() {
       ...dbStatusesFor("content_client_review"),
       ...dbStatusesFor("design_internal_review"),
       ...dbStatusesFor("design_client_review"),
-    ];
-    const APPROVED = [...dbStatusesFor("content_approved"), ...dbStatusesFor("design_approved")];
-    const REJECTED = [...dbStatusesFor("rejected")];
+    ] as any[];
+    const APPROVED = [...dbStatusesFor("content_approved"), ...dbStatusesFor("design_approved")] as any[];
+    const REJECTED = [...dbStatusesFor("rejected")] as any[];
 
     const [totalCopies, pending, approved, rejected] = await Promise.all([
       ContentDraft.countDocuments({ clientId, archivedAt: null }),

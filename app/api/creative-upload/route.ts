@@ -6,6 +6,7 @@ import CreativeUpload from '@/lib/models/creative-uploads';
 import { saveFileToClientFolder } from '@/lib/storage/file-router';
 import { logActivity } from '@/lib/activity';
 import { promises as fs } from 'fs';
+import { isClient, forbidden } from '@/lib/authz';
 
 /**
  * POST /api/creative-upload
