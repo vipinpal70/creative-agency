@@ -48,6 +48,12 @@ export interface IContentDraft extends Document {
   rejectionNote:  string;
   designStartedBy: IDesignStartedBy | null;
 
+  // Soft-archive: when set, the copy is hidden from active lists but retained
+  // (and still visible in the designer Rejected tab / Archived page) until it is
+  // permanently deleted — manually by an admin or automatically 14 days later.
+  archivedAt:     Date | null;
+  archivedBy:     ILastChangedBy | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -120,6 +126,17 @@ const contentDraftSchema = new Schema<IContentDraft>(
       },
       default: null,
     },
+
+    archivedAt: { type: Date, default: null },
+    archivedBy: {
+      type: {
+        userId:    { type: String, required: true },
+        name:      { type: String, required: true },
+        email:     { type: String, required: true },
+        changedAt: { type: Date,   required: true },
+      },
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -127,6 +144,9 @@ const contentDraftSchema = new Schema<IContentDraft>(
 contentDraftSchema.index({ deliverableId: 1, version: 1 }, { unique: true });
 contentDraftSchema.index({ clientId: 1, calendarId: 1 });
 contentDraftSchema.index({ createdBy: 1, status: 1 });
+// Cleanup job scans archived copies by archive date; active-list queries filter
+// on archivedAt: null.
+contentDraftSchema.index({ archivedAt: 1 });
 
 const ContentDraft: Model<IContentDraft> =
   mongoose.models.ContentDraft ||

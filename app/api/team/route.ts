@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/user.model";
 import { generatePassword, randomAvatarColor, TEAM_ROLES } from "@/lib/team-constants";
@@ -13,6 +14,8 @@ export async function GET(req: NextRequest) {
       await logActivity({ req, action: "VIEW_TEAM_MEMBERS_UNAUTHORIZED", details: "Unauthorized view team members attempt", status: 401 });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    // Any authenticated user (incl. clients) may read the team directory —
+    // the client profile's Assigned Team tab needs member names.
 
     await connectDB();
     const members = await User.find({ role: "member" }).sort({ createdAt: -1 }).lean();
@@ -40,6 +43,7 @@ export async function POST(req: NextRequest) {
       await logActivity({ req, action: "CREATE_TEAM_MEMBER_UNAUTHORIZED", details: "Unauthorized create team member attempt", status: 401 });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (isClient(session)) return forbidden();
 
     body = await req.json();
     const { name, email, phone, roles, password: manualPassword, type, outsource } = body;

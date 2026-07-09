@@ -6,6 +6,7 @@ import ScopeOfWork from "@/lib/models/scope-of-work.model";
 import CalendarDeliverable from "@/lib/models/calendar-deliverable.model";
 import ClientTaskRequest from "@/lib/models/client-task-request.model";
 import { logActivity } from "@/lib/activity";
+import { isClient, forbidden, assertClientAccess, notFound } from "@/lib/authz";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -18,6 +19,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     }
 
     const { id } = await params;
+    // Owner-scoped: staff may read any client; a client only their own.
+    if (!(await assertClientAccess(session, id))) return notFound("Client not found");
     await connectDB();
 
     const client = await Client.findById(id)
@@ -52,6 +55,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     const { id } = await params;
+    // Owner-scoped: staff may edit any client; a client only their own.
+    if (!(await assertClientAccess(session, id))) return notFound("Client not found");
     const body = await req.json();
     await connectDB();
 
@@ -120,6 +125,9 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Staff-only: clients can never delete a client record.
+    if (isClient(session)) return forbidden();
 
     const { id } = await params;
     await connectDB();

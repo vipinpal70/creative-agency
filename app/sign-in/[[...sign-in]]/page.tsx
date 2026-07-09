@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function SignInPage() {
-  const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -35,7 +33,13 @@ export default function SignInPage() {
         return;
       }
 
-      router.push("/dashboard");
+      // Route by role: clients land in the portal, everyone else in the dashboard.
+      // Honor a ?redirect= target if present (the proxy still enforces isolation).
+      const role = data?.user?.role;
+      const fallback = role === "client" ? "/client" : "/dashboard";
+      const redirect = new URLSearchParams(window.location.search).get("redirect");
+      // Full navigation so the freshly-set auth cookie is applied on first load.
+      window.location.href = redirect || fallback;
     } catch {
       setError("Network error. Please try again.");
     } finally {

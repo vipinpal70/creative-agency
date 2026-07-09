@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import ActivityLog from "@/lib/models/activity-log.model";
 
@@ -9,6 +10,7 @@ export async function GET(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (isClient(session)) return forbidden();
 
     // Connect to Database
     await connectDB();

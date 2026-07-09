@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import {Briefcase, ChartBarStacked, Calendar, CheckSquare, BarChart3, Palette} from "lucide-react";
+import {Briefcase, ChartBarStacked, Calendar, CheckSquare, BarChart3, Palette, Archive, FolderOpen, LogOut, Loader2 } from "lucide-react";
 import logo from "@/public/CO-logo.png";
 import shortLogo from "@/public/CO-short-logo.png";
 
@@ -52,6 +52,9 @@ const Icon = {
   Designer: () => (
     <Palette width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
+  Archive: () => (
+    <Archive width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  ),
   Portal: () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
@@ -68,10 +71,7 @@ const Icon = {
     </svg>
   ),
   Files: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" />
-      <line x1="10" y1="12" x2="14" y2="12" />
-    </svg>
+    <FolderOpen width="15" height="15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /> 
   ),
   Menu: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -114,7 +114,6 @@ const NAV_GROUPS = [
       { title: "Content Calendar", href: "/dashboard/calendar", icon: Icon.Calendar },
       { title: "Task Board", href: "/dashboard/tasks", icon: Icon.Tasks },
       { title: "Approvals", href: "/dashboard/approvals", icon: Icon.Approvals },
-      { title: "Creative Upload", href: "/dashboard/uploads", icon: Icon.Upload },
     ],
   },
   {
@@ -130,6 +129,7 @@ const NAV_GROUPS = [
       { title: "Analytics", href: "/dashboard/analytics", icon: Icon.Analytics },
       { title: "Notifications", href: "/dashboard/notifications", icon: Icon.Bell },
       { title: "File Repository", href: "/dashboard/files", icon: Icon.Files },
+      { title: "Archived", href: "/dashboard/archived", icon: Icon.Archive },
       { title: "Activity Logs", href: "/dashboard/logs", icon: Icon.Activity },
     ],
   },
@@ -140,6 +140,19 @@ const NAV_GROUPS = [
 export function AppSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      /* clear the session regardless of the response */
+    }
+    // Full navigation so all in-memory app state is reset.
+    window.location.href = "/sign-in";
+  };
 
   return (
     <aside
@@ -161,7 +174,7 @@ export function AppSidebar() {
           <div key={group.label} className="mb-1">
             {/* Group label */}
             {!collapsed && (
-              <p className="text-[10px] font-medium tracking-widest text-gray-400 uppercase px-2 pt-3 pb-1 select-none">
+              <p className="text-[10px] font-normal tracking-widest text-gray-400 uppercase px-2 pt-3 pb-1 select-none">
                 {group.label}
               </p>
             )}
@@ -180,7 +193,7 @@ export function AppSidebar() {
                   href={item.href}
                   title={collapsed ? item.title : undefined}
                   className={`
-                    flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[12px] font-medium
+                    flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs font-medium
                     transition-all duration-150 group relative
                     ${isActive
                       ? "bg-indigo-50 text-indigo-600"
@@ -192,7 +205,7 @@ export function AppSidebar() {
                   {isActive && (
                     <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-indigo-500" />
                   )}
-                  <span className={`shrink-0 ${isActive ? "text-indigo-500" : "text-gray-400 group-hover:text-gray-600"}`}>
+                  <span className={`shrink-0 ${isActive ? "text-indigo-500" : "text-gray-600 group-hover:text-gray-600"}`}>
                     <item.icon />
                   </span>
                   {!collapsed && (
@@ -205,8 +218,22 @@ export function AppSidebar() {
         ))}
       </nav>
 
+      {/* Logout */}
+      <div className="border-t border-gray-100 mt-2" />
+      <button
+        onClick={handleLogout}
+        disabled={loggingOut}
+        title="Log out"
+        className={`flex items-center gap-2.5 mx-2 mt-2 px-2 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition-all duration-150 shrink-0 disabled:opacity-60 ${collapsed ? "justify-center" : ""}`}
+      >
+        <span className="shrink-0">
+          {loggingOut ? <Loader2 width={15} height={15} className="animate-spin" /> : <LogOut width={15} height={15} strokeWidth={2} />}
+        </span>
+        {!collapsed && <span className="font-normal leading-none">Log out</span>}
+      </button>
+
       {/* Collapse toggle */}
-      <div className="border border-t border-gray-100 mb-2"></div>
+      <div className="border border-t border-gray-100 mb-2 mt-2"></div>
       <button
         onClick={() => setCollapsed((c) => !c)}
         className="flex items-center justify-center gap-2 mx-2 mb-3 px-2 py-1.5 rounded-lg text-[11px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all duration-150 shrink-0 border border-gray-300"

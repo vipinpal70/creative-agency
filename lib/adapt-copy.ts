@@ -38,6 +38,8 @@ export interface ApprovalCopy {
   updatedAt: string;
   lastChangedBy: { userId: string; name: string; email: string; changedAt: string } | null;
   designStartedBy: { userId: string; name: string; email: string; startedAt: string } | null;
+  archivedAt: string | null;
+  archivedBy: { userId: string; name: string; email: string; changedAt: string } | null;
 }
 
 // Adapts the flat approvals API shape into the CalendarCopy/CalendarDraft

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import GanttTask from "@/lib/models/gantt-task.model";
 
@@ -22,6 +23,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { clientId } = await params;
+      if (!(await assertClientAccess(session, clientId))) return notFound();
+    }
 
     const { clientId, id } = await params;
     const body = await req.json();
@@ -55,6 +60,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     }
 
     // ── Normal update ─────────────────────────────────────────────────
+    // The Gantt widget sends changed fields under `task`.
+    const t = body.task ?? body;
     const {
       text,
       start,
@@ -63,7 +70,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       progress: rawProgress,
       type,
       parent:   rawParent,
-    } = body;
+    } = t;
 
     const duration = rawDuration !== undefined ? Math.max(1, Math.round(Number(rawDuration))) : undefined;
     const progress = rawProgress !== undefined ? Math.min(1, Math.max(0, Number(rawProgress))) : undefined;
@@ -92,6 +99,10 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { clientId } = await params;
+      if (!(await assertClientAccess(session, clientId))) return notFound();
+    }
 
     const { clientId, id } = await params;
     await connectDB();

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import Task from "@/lib/models/task.model";
 import mongoose from "mongoose";
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) return forbidden();
 
     const { id } = await params;
     if (!mongoose.Types.ObjectId.isValid(id)) {

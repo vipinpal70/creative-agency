@@ -18,12 +18,11 @@ export default function GanttPage() {
   const [clients, setClients]                   = useState<Client[]>([]);
   const [loadingClients, setLoadingClients]     = useState(true);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
-  const [ganttApi, setGanttApi]                 = useState<IApi | null>(null);
+  const [, setGanttApi]                         = useState<IApi | null>(null);
   const [isDuplicateOpen, setIsDuplicateOpen]   = useState(false);
 
-  // Load client list on mount
+  // Load client list on mount (loadingClients starts as true)
   useEffect(() => {
-    setLoadingClients(true);
     fetch("/api/clients")
       .then((r) => r.json())
       .then((data) => setClients(Array.isArray(data) ? data : []))
@@ -48,7 +47,9 @@ export default function GanttPage() {
   };
 
   return (
-    <div className="flex flex-col h-full gap-4 max-w-[1600px] mx-auto w-full">
+    // 6.5rem = dashboard top bar (h-14) + main padding (p-6 top and bottom);
+    // the layout's <main> has no definite height, so h-full would collapse here
+    <div className="flex flex-col h-[calc(100vh-6.5rem)] min-h-[560px] gap-4 max-w-[1600px] mx-auto w-full">
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex items-start justify-between shrink-0">
         <div>
@@ -113,6 +114,7 @@ export default function GanttPage() {
       {/* ── Gantt Chart ─────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden mb-2">
         <GanttChart
+          key={selectedClientId}
           clientId={selectedClientId || null}
           onApiReady={handleApiReady}
           readOnly={false}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/user.model";
 import { TEAM_ROLES } from "@/lib/team-constants";
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       await logActivity({ req, action: "VIEW_TEAM_MEMBER_UNAUTHORIZED", details: "Unauthorized view team member attempt", status: 401 });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (isClient(session)) return forbidden();
 
     const { id } = await params;
     await connectDB();
@@ -49,6 +51,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       await logActivity({ req, action: "UPDATE_TEAM_MEMBER_UNAUTHORIZED", details: `Unauthorized update team member attempt: ${id}`, status: 401 });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (isClient(session)) return forbidden();
 
     body = await req.json();
     await connectDB();
@@ -152,6 +155,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       await logActivity({ req, action: "DELETE_TEAM_MEMBER_UNAUTHORIZED", details: `Unauthorized delete team member attempt: ${id}`, status: 401 });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (isClient(session)) return forbidden();
 
     await connectDB();
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { X, User, Briefcase, Layout, AlertCircle, Loader2, ClipboardCheck } from "lucide-react";
-import type { TaskPriority } from "@/lib/models/task.model";
+import { X, User, Briefcase, Layers, AlertCircle, Loader2, ClipboardCheck } from "lucide-react";
+import type { TaskPriority } from "@/lib/task-status";
+import { formatModuleLabel, MODULE_LABELS } from "@/components/tasks/KanbanBoard";
 
 type TeamMember = {
   userId: string;
@@ -28,8 +29,8 @@ type TaskPayload = {
   clientId: string;
   assignedToId: string;
   taskCategory?: string;
+  module?: string;
   priority: TaskPriority;
-  startDate?: string;
   endDate?: string;
 };
 
@@ -79,49 +80,48 @@ export function NewTaskModal({
   const [description, setDescription] = useState("");
   const [clientId, setClientId] = useState("");
   const [taskCategory, setTaskCategory] = useState("");
+  const [module, setModule] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
-  const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
   if (!isOpen) return null;
+
+  const moduleOptions = Object.keys(MODULE_LABELS);
 
   const selectedClient = clients.find((client) => client.id === clientId);
   const clientTeamMembers = selectedClient?.teamMembers ?? [];
   const availableCategories = Array.from(
     new Set([
       ...clientTeamMembers.map((member) => member.userRole).filter(Boolean),
-      "COPYWRITER",
-      "GRAPHIC_DESIGNER",
-      "VIDEO_EDITOR",
-      "SEO_SPECIALIST",
-      "PERFORMANCE_MARKETING_SPECIALIST",
-      "EMAIL_MARKETING_SPECIALIST",
-      "WHATSAPP_MARKETING_SPECIALIST",
+      "Copywriter",
+      "Graphic Designer",
+      "Video Editor",
+      "SEO Specialist",
+      "Performance Marketing Specialist",
+      "Email Marketing Specialist",
+      "Whatsapp Marketing Specialist",
     ])
   ).sort();
   const teamMemberIds = new Set(clientTeamMembers.map((member) => member.userId));
   const matchingOrgMembers = members.filter((member) =>
-    !teamMemberIds.has(member.id) &&
-    (!taskCategory || (member.roles ?? []).some((role) => role === taskCategory))
+    !teamMemberIds.has(member.id)
   );
   const assigneeGroups = [
     {
       label: selectedClient?.companyName ? `${selectedClient.companyName} Team` : 'Client Team',
-      options: clientTeamMembers
-        .filter((m) => !taskCategory || m.userRole === taskCategory)
-        .map((m) => ({
-          id: m.userId,
-          name: m.userName,
-          role: m.userRole,
-        })),
+      options: clientTeamMembers.map((m) => ({
+        id: m.userId,
+        name: m.userName,
+        role: m.userRole,
+      })),
     },
     {
-      label: taskCategory ? `${formatRoleLabel(taskCategory)} Members` : 'Organization Members',
+      label: 'Organization Members',
       options: matchingOrgMembers.map((m) => ({
         id: m.id,
         name: m.name,
-        role: (m.roles ?? [])[0] ?? taskCategory,
+        role: (m.roles ?? [])[0] ?? "",
       })),
     },
   ].filter((group) => group.options.length > 0);
@@ -134,8 +134,8 @@ export function NewTaskModal({
       clientId,
       assignedToId,
       taskCategory: taskCategory || undefined,
+      module: module || undefined,
       priority,
-      startDate: startDate || undefined,
       endDate: endDate || undefined,
     });
   };
@@ -164,6 +164,7 @@ export function NewTaskModal({
             />
           </div>
 
+          {/* client name */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider px-1">Client</label>
             <div className="relative">
@@ -174,9 +175,10 @@ export function NewTaskModal({
                 onChange={(e) => {
                   setClientId(e.target.value);
                   setTaskCategory("");
+                  setModule("");
                   setAssignedToId("");
                 }}
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/60 appearance-none bg-gray-50/30 transition-all font-normal text-xs text-gray-400"
+                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/60 appearance-none bg-gray-50/30 transition-all font-normal text-xs text-gray-800"
               >
                 <option value="">Select Client</option>
                 {clients.map((client) => (
@@ -188,6 +190,49 @@ export function NewTaskModal({
             </div>
           </div>
 
+          {/* module */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">Module</label>
+              <div className="relative">
+                <Layers className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  value={module}
+                  disabled={!clientId}
+                  onChange={(e) => setModule(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/60 appearance-none bg-gray-50/30 transition-all font-normal text-xs disabled:opacity-50"
+                >
+                  <option value="">
+                    {!clientId ? "Select client first" : "Select Module"}
+                  </option>
+                  {moduleOptions.map((m) => (
+                    <option key={m} value={m}>
+                      {formatModuleLabel(m)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">Priority</label>
+              <div className="relative">
+                <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/60 appearance-none bg-gray-50/30 transition-all font-normal text-xs"
+                >
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* task category */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">Task Category</label>
@@ -198,7 +243,6 @@ export function NewTaskModal({
                   disabled={!clientId || availableCategories.length === 0}
                   onChange={(e) => {
                     setTaskCategory(e.target.value);
-                    setAssignedToId("");
                   }}
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/60 appearance-none bg-gray-50/30 transition-all font-normal text-xs disabled:opacity-50"
                 >
@@ -212,6 +256,7 @@ export function NewTaskModal({
               </div>
             </div>
 
+            {/* assignee */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">Assignee</label>
               <div className="relative">
@@ -239,37 +284,9 @@ export function NewTaskModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">Priority</label>
-              <div className="relative">
-                <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                  className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/60 appearance-none bg-gray-50/30 transition-all font-normal text-xs"
-                >
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
-                  <option value="URGENT">Urgent</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">Start Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/60 transition-all font-normal text-xs"
-              />
-            </div>
-          </div>
-
+          {/* deadline */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">End Date</label>
+            <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">Deadline</label>
             <input
               type="date"
               value={endDate}
@@ -278,6 +295,7 @@ export function NewTaskModal({
             />
           </div>
 
+          {/* description */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-medium text-gray-500 uppercase -tracking-tighter px-1">Description</label>
             <textarea

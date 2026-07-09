@@ -1,5 +1,10 @@
 @import "tailwindcss";
-@import "@svar-ui/react-gantt/style.css";
+
+/* SVAR Gantt: the <Willow> theme wrapper renders a plain div with no size of
+   its own — make it fill the sized container around it. */
+.wx-theme.wx-willow-theme {
+  height: 100%;
+}
 
 /* ── Custom Scrollbar ──────────────────────────────────────────────────── */
 ::-webkit-scrollbar {

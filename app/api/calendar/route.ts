@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import Calendar from "@/lib/models/calendar.model";
 import Deliverable from "@/lib/models/deliverable.model";
@@ -20,6 +21,9 @@ export async function GET(req: NextRequest) {
     if (!clientId) {
       return NextResponse.json({ error: "clientId is required" }, { status: 400 });
     }
+
+    // Clients may only read their own content calendar.
+    if (!(await assertClientAccess(session, clientId))) return notFound();
 
     await connectDB();
 

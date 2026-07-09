@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden, assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import GanttLink from "@/lib/models/gantt-link.model";
 import mongoose from "mongoose";
@@ -14,6 +15,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
     const { clientId } = await params;
     await connectDB();
+
+    // Clients may only read links for their own gantt chart.
+    if (!(await assertClientAccess(session, clientId))) return notFound();
 
     const links = await GanttLink.find({ clientId }).lean();
 
@@ -31,6 +35,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Staff-only: clients cannot create gantt links.
+    if (isClient(session)) {
+      const { clientId } = await params;
+      if (!(await assertClientAccess(session, clientId))) return notFound();
+    }
 
     const { clientId } = await params;
     const body = await req.json();

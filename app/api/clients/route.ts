@@ -5,7 +5,10 @@ import Client from "@/lib/models/client.model";
 import ScopeOfWork from "@/lib/models/scope-of-work.model";
 import CalendarDeliverable from "@/lib/models/calendar-deliverable.model"; // legacy: used only for onboarding seed
 import Deliverable from "@/lib/models/deliverable.model";
+import User from "@/lib/models/user.model";
 import { logActivity } from "@/lib/activity";
+import { isClient, forbidden } from "@/lib/authz";
+import bcrypt from "bcryptjs";
 
 // GET /api/clients - lists all clients with their overall progress computed for the current month
 export async function GET(req: NextRequest) {
@@ -14,6 +17,8 @@ export async function GET(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    // Staff-only: the full client directory must never be exposed to a client user.
+    if (isClient(session)) return forbidden();
 
     await connectDB();
     const clients = await Client.find({}).sort({ createdAt: -1 }).lean();
@@ -124,6 +129,8 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    // Staff-only: only agency staff may onboard clients.
+    if (isClient(session)) return forbidden();
 
     const body = await req.json();
     const {
@@ -147,6 +154,14 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
+
+    if (body.clientUser?.email && body.clientUser?.password) {
+      const emailLower = body.clientUser.email.toLowerCase().trim();
+      const existingUser = await User.findOne({ email: emailLower });
+      if (existingUser) {
+        return NextResponse.json({ error: `User with email "${emailLower}" is already registered` }, { status: 409 });
+      }
+    }
 
     // 1. Create the Client document
     const client = await Client.create({
@@ -332,7 +347,24 @@ export async function POST(req: NextRequest) {
       await CalendarDeliverable.insertMany(deliverablesToCreate);
     }
 
-    await logActivity({ req, action: "ONBOARD_CLIENT_SUCCESS", details: `Onboarded client: ${client.name} (Brand: ${client.brandName}). Seeded ${deliverablesToCreate.length} deliverables.`, status: 201 });
+    // 4. Create client user login account if requested
+    let hasCreatedUser = false;
+    if (body.clientUser?.email && body.clientUser?.password) {
+      const emailLower = body.clientUser.email.toLowerCase().trim();
+      const hashed = await bcrypt.hash(body.clientUser.password, 12);
+      await User.create({
+        firstName: name.trim(),
+        lastName: "Client",
+        email: emailLower,
+        password: hashed,
+        role: "client",
+        status: "active",
+        clientId: client._id,
+      });
+      hasCreatedUser = true;
+    }
+
+    await logActivity({ req, action: "ONBOARD_CLIENT_SUCCESS", details: `Onboarded client: ${client.name} (Brand: ${client.brandName}). Seeded ${deliverablesToCreate.length} deliverables. User created: ${hasCreatedUser}`, status: 201 });
 
     return NextResponse.json({
       id: client._id.toString(),

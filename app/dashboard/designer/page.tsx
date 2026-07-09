@@ -1,30 +1,49 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Image as ImageIcon, Film,
   Send, Upload, ShieldCheck, Palette, User, MessageSquare, Play,
-  History, ChevronDown, ChevronUp, Lock,
+  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 import { useAuth } from "@/hooks/useAuth";
+
+// Days an archived copy is kept before automatic permanent deletion.
+const ARCHIVE_RETENTION_DAYS = 14;
+
+// Whole days remaining before an archived copy is auto-deleted (never negative).
+function archiveDaysLeft(archivedAt: string): number {
+  const elapsedMs = Date.now() - new Date(archivedAt).getTime();
+  const elapsedDays = Math.floor(elapsedMs / (24 * 60 * 60 * 1000));
+  return Math.max(0, ARCHIVE_RETENTION_DAYS - elapsedDays);
+}
 
 const STAGES = [
   { key: "content_approved",       label: "Ready for Design" },
   { key: "design_in_progress",     label: "In Progress" },
   { key: "design_internal_review", label: "Internal Review" },
   { key: "design_client_review",   label: "Client Review" },
-  { key: "design_approved",        label: "Approved" },
+  { key: "history",                label: "History" },
 ] as const;
 
 type StageKey = (typeof STAGES)[number]["key"];
+
+// The History tab splits into two status buckets.
+const HISTORY_SUBS = [
+  { key: "design_approved", label: "Approved" },
+  { key: "rejected",        label: "Rejected" },
+] as const;
+
+type HistorySub = (typeof HISTORY_SUBS)[number]["key"];
 
 function isVideoType(mediaType: string, fileType?: string) {
   if (fileType) return fileType.startsWith("video/");
@@ -116,32 +135,44 @@ function ActivityTrail({ copy }: { copy: ApprovalCopy }) {
 
 // ─── Copy card ────────────────────────────────────────────────────────────────
 
-function CopyCard({
+const CopyCard = memo(function CopyCard({
   copy,
   currentUserId,
   isAdmin,
+  canArchive,
+  inRejectedView,
   onChanged,
   onPreview,
   onUploaded,
+  onPatch,
+  onRemove,
 }: {
   copy: ApprovalCopy;
   currentUserId?: string;
   isAdmin: boolean;
+  canArchive: boolean;
+  inRejectedView: boolean;
   onChanged: () => void;
-  onPreview: () => void;
-  onUploaded: (patch: Partial<ApprovalCopy>) => void;
+  onPreview: (copy: ApprovalCopy) => void;
+  onUploaded: (draftId: string, patch: Partial<ApprovalCopy>) => void;
+  onPatch: (draftId: string, patch: Partial<ApprovalCopy>) => void;
+  onRemove: (draftId: string) => void;
 }) {
   const [starting, setStarting] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null); // -1 = single upload
   const [submitting, setSubmitting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [frames, setFrames] = useState(copy.frames ?? []);
   const [attachedUrl, setAttachedUrl] = useState<string>(copy.imageUrl || copy.videoUrl || "");
   const [attachedIsVideo, setAttachedIsVideo] = useState<boolean>(!!copy.videoUrl && !copy.imageUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingFrameRef = useRef<number | null>(null);
 
-  const isQueue = copy.status === "content_approved";
-  const isWorking = copy.status === "design_in_progress";
+  const isArchived = !!copy.archivedAt;
+  const isQueue = copy.status === "content_approved" && !isArchived;
+  const isWorking = copy.status === "design_in_progress" && !isArchived;
   const carousel = isCarousel(copy);
 
   const claimer = copy.designStartedBy;
@@ -208,14 +239,14 @@ function CopyCard({
         );
         await patchDraft({ frames: updated });
         setFrames(updated);
-        onUploaded({ frames: updated });
+        onUploaded(copy.draftId, { frames: updated });
         toast.success(`Creative attached to frame ${frameNo}`);
       } else {
         const video = isVideoType(copy.mediaType, file.type);
         await patchDraft(video ? { videoUrl: fileUrl } : { imageUrl: fileUrl });
         setAttachedUrl(fileUrl);
         setAttachedIsVideo(video);
-        onUploaded(video ? { videoUrl: fileUrl } : { imageUrl: fileUrl });
+        onUploaded(copy.draftId, video ? { videoUrl: fileUrl } : { imageUrl: fileUrl });
         toast.success("Creative attached to copy");
       }
     } catch (err: any) {
@@ -252,20 +283,89 @@ function CopyCard({
     }
   };
 
+  const handleArchiveToggle = async (action: "archive" | "restore") => {
+    setArchiving(true);
+    try {
+      const res = await fetch(`/api/approvals/copies/${copy.draftId}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Request failed");
+
+      if (action === "archive") {
+        toast.success("Copy archived");
+        // Stays visible (with badge) in the Rejected view; leaves any other list.
+        if (inRejectedView) {
+          onPatch(copy.draftId, { archivedAt: data.archivedAt, archivedBy: data.archivedBy });
+        } else {
+          onRemove(copy.draftId);
+        }
+      } else {
+        toast.success("Copy restored");
+        // A restored copy only belongs in the Rejected view if it's actually
+        // rejected; one archived from an active stage leaves the view.
+        if (inRejectedView && copy.status === "rejected") {
+          onPatch(copy.draftId, { archivedAt: null, archivedBy: null });
+        } else {
+          onRemove(copy.draftId);
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Action failed");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/approvals/copies/${copy.draftId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Delete failed");
+      toast.success("Copy permanently deleted");
+      setConfirmDelete(false);
+      onRemove(copy.draftId);
+    } catch (err: any) {
+      toast.error(err.message || "Delete failed");
+      setDeleting(false);
+    }
+  };
+
   return (
     <Card
       className="cursor-pointer hover:shadow-md hover:border-primary/20 transition-all"
-      onClick={onPreview}
+      onClick={() => onPreview(copy)}
     >
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-medium text-foreground line-clamp-2 flex-1 min-w-0">{copyText}</p>
-          <span
-            className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
-          >
-            {STATUS_LABEL[copy.status] || copy.status}
-          </span>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <span
+              className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
+            >
+              {STATUS_LABEL[copy.status] || copy.status}
+            </span>
+            {isArchived && (
+              <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-zinc-200 text-zinc-700">
+                <Archive className="h-3 w-3" /> Archived
+              </span>
+            )}
+          </div>
         </div>
+
+        {isArchived && copy.archivedAt && (
+          <div className="flex items-center gap-2 text-xs bg-zinc-100 text-zinc-600 rounded-lg p-2.5">
+            <Archive className="h-3.5 w-3.5 shrink-0" />
+            <span>
+              Archived{copy.archivedBy ? ` by ${copy.archivedBy.name}` : ""} ·{" "}
+              {new Date(copy.archivedAt).toLocaleDateString()} · auto-deletes in{" "}
+              {archiveDaysLeft(copy.archivedAt)} day{archiveDaysLeft(copy.archivedAt) === 1 ? "" : "s"}
+            </span>
+          </div>
+        )}
 
         {copy.caption && (
           <p className="text-xs text-muted-foreground line-clamp-1 italic">{copy.caption}</p>
@@ -459,37 +559,193 @@ function CopyCard({
             </div>
           )}
 
+          {/* Archive / Restore / Delete */}
+          {(canArchive || isAdmin) && (
+            <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-border">
+              {canArchive && !isArchived && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-[11px]"
+                  disabled={archiving}
+                  onClick={() => handleArchiveToggle("archive")}
+                >
+                  {archiving ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Archive className="h-3 w-3 mr-1" />
+                  )}
+                  Archive
+                </Button>
+              )}
+              {canArchive && isArchived && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-[11px]"
+                  disabled={archiving}
+                  onClick={() => handleArchiveToggle("restore")}
+                >
+                  {archiving ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <ArchiveRestore className="h-3 w-3 mr-1" />
+                  )}
+                  Restore
+                </Button>
+              )}
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[11px] text-red-600 hover:text-red-700 hover:bg-red-50"
+                  disabled={deleting}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" /> Delete
+                </Button>
+              )}
+            </div>
+          )}
+
           <ActivityTrail copy={copy} />
         </div>
       </CardContent>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        destructive
+        busy={deleting}
+        title="Permanently delete this copy?"
+        description={
+          <>
+            This removes the copy, all attached files (images, videos, documents),
+            and its history. <span className="font-medium text-red-600">This cannot be undone.</span>
+          </>
+        }
+        confirmLabel="Delete permanently"
+        onConfirm={handleDelete}
+        onCancel={() => !deleting && setConfirmDelete(false)}
+      />
     </Card>
   );
-}
+});
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DesignerPage() {
   const { user } = useAuth();
   const [stage, setStage] = useState<StageKey>("content_approved");
+  const [historySub, setHistorySub] = useState<HistorySub>("design_approved");
   const [copies, setCopies] = useState<ApprovalCopy[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
+  const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
+  const [clientFilter, setClientFilter] = useState<string>("");
 
   const isAdmin = user?.role === "admin";
+  const canArchive = user?.role === "admin" || user?.role === "member";
 
-  const loadCopies = useCallback(async (s: StageKey) => {
-    setLoading(true);
-    try {
-      const data = await fetch(`/api/approvals/copies?status=${s}`).then((r) => r.json());
-      setCopies(Array.isArray(data) ? data : []);
-    } finally {
+  // The tab drives which DB status we list. "history" is a UI-only tab whose
+  // sub-tabs map to real statuses.
+  const activeStatus: string = stage === "history" ? historySub : stage;
+  // The Rejected sub-tab also surfaces archived copies (with an Archived badge).
+  const inRejectedView = stage === "history" && historySub === "rejected";
+
+  // Per-status cache for instant tab switches (stale-while-revalidate).
+  const cacheRef = useRef<Record<string, ApprovalCopy[]>>({});
+  // Guards against out-of-order responses when tabs are switched quickly.
+  const reqRef = useRef<string>("");
+  const activeStatusRef = useRef(activeStatus);
+  activeStatusRef.current = activeStatus;
+
+  const loadCopies = useCallback(async (s: string, { bustCache = false } = {}) => {
+    if (bustCache) cacheRef.current = {};
+    const cached = cacheRef.current[s];
+    if (cached) {
+      setCopies(cached);
       setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    reqRef.current = s;
+    try {
+      // The rejected bucket additionally includes archived copies.
+      const qs = s === "rejected" ? `status=${s}&includeArchived=1` : `status=${s}`;
+      const data = await fetch(`/api/approvals/copies?${qs}`).then((r) => r.json());
+      const list: ApprovalCopy[] = Array.isArray(data) ? data : [];
+      cacheRef.current[s] = list;
+      if (reqRef.current === s) setCopies(list);
+    } finally {
+      if (reqRef.current === s) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadCopies(stage);
-  }, [stage, loadCopies]);
+    loadCopies(activeStatus);
+  }, [activeStatus, loadCopies]);
+
+  useEffect(() => {
+    fetch("/api/clients")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: any[]) =>
+        setClients(
+          data.map((c) => ({
+            id: c.id,
+            companyName: c.brandName || c.name || "Unknown",
+          }))
+        )
+      )
+      .catch(console.error);
+  }, []);
+
+  // Stable card callbacks so memoized CopyCards don't re-render on every parent update.
+  const handleChanged = useCallback(() => {
+    // A mutation can move a copy between statuses, so drop the whole cache.
+    loadCopies(activeStatusRef.current, { bustCache: true });
+  }, [loadCopies]);
+
+  const handlePreview = useCallback((copy: ApprovalCopy) => setPreviewCopy(copy), []);
+
+  const handleUploaded = useCallback((draftId: string, patch: Partial<ApprovalCopy>) => {
+    setCopies((prev) => {
+      const next = prev.map((c) => (c.draftId === draftId ? { ...c, ...patch } : c));
+      const s = activeStatusRef.current;
+      if (cacheRef.current[s]) cacheRef.current[s] = next;
+      return next;
+    });
+    setPreviewCopy((prev) =>
+      prev && prev.draftId === draftId ? { ...prev, ...patch } : prev
+    );
+  }, []);
+
+  // Patch a copy in the current view and drop sibling caches — archive/restore
+  // moves an item between status buckets, so other tabs must refetch on visit.
+  const handlePatchIsolated = useCallback((draftId: string, patch: Partial<ApprovalCopy>) => {
+    setCopies((prev) => {
+      const next = prev.map((c) => (c.draftId === draftId ? { ...c, ...patch } : c));
+      cacheRef.current = { [activeStatusRef.current]: next };
+      return next;
+    });
+    setPreviewCopy((prev) =>
+      prev && prev.draftId === draftId ? { ...prev, ...patch } : prev
+    );
+  }, []);
+
+  // Drop a copy from the current view immediately (archive-out / restore-out / delete).
+  const handleRemove = useCallback((draftId: string) => {
+    setCopies((prev) => {
+      const next = prev.filter((c) => c.draftId !== draftId);
+      cacheRef.current = { [activeStatusRef.current]: next };
+      return next;
+    });
+    setPreviewCopy((prev) => (prev && prev.draftId === draftId ? null : prev));
+  }, []);
+
+  const filteredCopies = useMemo(
+    () => copies.filter((c) => !clientFilter || c.clientId === clientFilter),
+    [copies, clientFilter]
+  );
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -509,49 +765,82 @@ export default function DesignerPage() {
         </Button>
       </div>
 
-      <Tabs value={stage} onValueChange={(v) => setStage(v as StageKey)}>
-        <TabsList>
-          {STAGES.map((s) => (
-            <TabsTrigger key={s.key} value={s.key}>
-              {s.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full md:w-auto">
+          <Tabs value={stage} onValueChange={(v) => setStage(v as StageKey)}>
+            <TabsList>
+              {STAGES.map((s) => (
+                <TabsTrigger key={s.key} value={s.key}>
+                  {s.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+
+          {stage === "history" && (
+            <Tabs value={historySub} onValueChange={(v) => setHistorySub(v as HistorySub)}>
+              <TabsList>
+                {HISTORY_SUBS.map((s) => (
+                  <TabsTrigger key={s.key} value={s.key}>
+                    {s.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
+
+        <div className="relative">
+          <Building2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <select
+            className="pl-8 pr-7 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white text-gray-900 min-w-[180px] appearance-none"
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
+            aria-label="Filter by client"
+          >
+            <option value="">All Clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.companyName}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading copies…
         </div>
-      ) : copies.length === 0 ? (
+      ) : filteredCopies.length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center space-y-3">
             <ImageIcon className="h-10 w-10 text-muted-foreground/30 mx-auto" />
             <p className="text-sm text-muted-foreground">
-              {stage === "content_approved"
+              {activeStatus === "content_approved"
                 ? "No approved copies waiting for design."
+                : activeStatus === "design_approved"
+                ? "No approved copies yet."
+                : activeStatus === "rejected"
+                ? "No rejected copies."
                 : `No copies in ${STAGES.find((s) => s.key === stage)?.label.toLowerCase()}.`}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {copies.map((copy) => (
+          {filteredCopies.map((copy) => (
             <CopyCard
               key={copy.draftId}
               copy={copy}
               currentUserId={user?.id}
               isAdmin={isAdmin}
-              onChanged={() => loadCopies(stage)}
-              onPreview={() => setPreviewCopy(copy)}
-              onUploaded={(patch) => {
-                setCopies((prev) =>
-                  prev.map((c) => (c.draftId === copy.draftId ? { ...c, ...patch } : c))
-                );
-                setPreviewCopy((prev) =>
-                  prev && prev.draftId === copy.draftId ? { ...prev, ...patch } : prev
-                );
-              }}
+              canArchive={canArchive}
+              inRejectedView={inRejectedView}
+              onChanged={handleChanged}
+              onPreview={handlePreview}
+              onUploaded={handleUploaded}
+              onPatch={handlePatchIsolated}
+              onRemove={handleRemove}
             />
           ))}
         </div>
@@ -563,7 +852,7 @@ export default function DesignerPage() {
         open={!!previewCopy}
         onClose={() => {
           setPreviewCopy(null);
-          loadCopies(stage);
+          handleChanged();
         }}
         onUpdate={(_deliverableId, updatedDraft) => {
           setPreviewCopy((prev) =>

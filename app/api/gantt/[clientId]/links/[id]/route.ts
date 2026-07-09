@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import GanttLink from "@/lib/models/gantt-link.model";
 
@@ -10,6 +11,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { clientId } = await params;
+      if (!(await assertClientAccess(session, clientId))) return notFound();
+    }
 
     const { clientId, id } = await params;
     const body = await req.json();
@@ -39,6 +44,10 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { clientId } = await params;
+      if (!(await assertClientAccess(session, clientId))) return notFound();
+    }
 
     const { clientId, id } = await params;
     await connectDB();

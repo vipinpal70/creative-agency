@@ -57,6 +57,9 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onUpdate: (deliverableId: string, updatedDraft: CalendarDraft) => void;
+  // When true, the modal is a pure preview: edit form is disabled and the
+  // Approve tab / Save button are hidden. Used by the client portal.
+  readOnly?: boolean;
 }
 
 const DELIVERABLE_STATUS_LABEL = STATUS_LABEL;
@@ -675,7 +678,7 @@ function HistoryTab({
 }
 
 // ── Main Modal ──────────────────────────────────────────────────────
-export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
+export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = false }: Props) {
   const [form, setForm] = useState<Partial<CalendarDraft>>({});
   const [saving, setSaving]     = useState(false);
   const [actioning, setActioning] = useState(false);
@@ -877,12 +880,16 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                     <TabsTrigger value="details" className="flex-1">
                       Details
                     </TabsTrigger>
-                    <TabsTrigger value="history" className="flex-1">
-                      History
-                    </TabsTrigger>
-                    <TabsTrigger value="approve" className="flex-1">
-                      Approve
-                    </TabsTrigger>
+                    {!readOnly && (
+                      <TabsTrigger value="history" className="flex-1">
+                        History
+                      </TabsTrigger>
+                    )}
+                    {!readOnly && (
+                      <TabsTrigger value="approve" className="flex-1">
+                        Approve
+                      </TabsTrigger>
+                    )}
                   </TabsList>
                 </div>
 
@@ -891,6 +898,7 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                   value="details"
                   className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-4"
                 >
+                  <fieldset disabled={readOnly} className="contents">
                   {/* Carousel frames — editable */}
                   {mediaCategory === "carousel" && draft.frames.length > 0 && (
                     <div className="space-y-3 p-3 rounded-lg bg-muted/40 border border-border">
@@ -1061,10 +1069,13 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate }: Props) {
                     />
                   </div>
 
-                  <Button className="w-full" onClick={handleSave} disabled={saving}>
-                    {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-                    Save Changes
-                  </Button>
+                  </fieldset>
+                  {!readOnly && (
+                    <Button className="w-full" onClick={handleSave} disabled={saving}>
+                      {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  )}
                 </TabsContent>
 
                 {/* History Tab */}

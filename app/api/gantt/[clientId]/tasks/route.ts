@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden, assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import GanttTask from "@/lib/models/gantt-task.model";
 import mongoose from "mongoose";
@@ -14,6 +15,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
     const { clientId } = await params;
     await connectDB();
+
+    // Clients may only read their own gantt chart.
+    if (!(await assertClientAccess(session, clientId))) return notFound();
 
     const tasks = await GanttTask.find({ clientId })
       .sort({ orderId: 1 })
@@ -34,8 +38,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Staff-only: clients cannot create gantt tasks.
+    if (isClient(session)) {
+      const { clientId } = await params;
+      if (!(await assertClientAccess(session, clientId))) return notFound();
+    }
+
     const { clientId } = await params;
     const body = await req.json();
+    // The Gantt widget sends the new task under `task`; ordering hints
+    // (mode/target) come at the top level.
+    const t = body.task ?? body;
     const {
       text = "New Task",
       start,
@@ -44,9 +57,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       progress:  rawProgress = 0,
       type = "task",
       parent:    rawParent,
-      mode,
-      target,
-    } = body;
+    } = t;
+    const { mode, target } = body;
 
     const duration = Math.max(1, Math.round(Number(rawDuration)));
     const progress = Math.min(1, Math.max(0, Number(rawProgress)));

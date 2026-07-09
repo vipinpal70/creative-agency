@@ -30,7 +30,19 @@ export async function proxy(req: NextRequest) {
 
   try {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret);
+    const role = payload.role as string | undefined;
+
+    // Role-based tree isolation: clients live in /client, everyone else in
+    // /dashboard. Each is redirected out of the other's tree.
+    const isClient = role === "client";
+    if (isClient && pathname.startsWith("/dashboard")) {
+      return NextResponse.redirect(new URL("/client", req.url));
+    }
+    if (!isClient && pathname.startsWith("/client")) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
     return NextResponse.next();
   } catch (err) {
     const res = NextResponse.redirect(

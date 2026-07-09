@@ -97,6 +97,7 @@ export async function GET(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (isClient(session)) return forbidden();
 
     await connectDB();
 
@@ -141,6 +142,7 @@ export async function DELETE(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (isClient(session)) return forbidden();
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');

@@ -9,19 +9,26 @@ import User from "@/lib/models/user.model";
 import { normalizeDraftStatus } from "@/lib/status-flow";
 import type { DraftStatus } from "@/lib/status-flow";
 import { serializeCopy, dbStatusesFor } from "@/lib/serialize-copy";
+import { isClient, forbidden } from "@/lib/authz";
 
 // GET /api/approvals/copies?status=content_internal_review[,design_internal_review]
 // Lists copies (drafts) across all clients, filtered by status.
 // Default: content_internal_review. Legacy statuses match their mapped value.
+//
+// Archived copies are excluded from all active lists by default. Pass
+// ?includeArchived=1 (used by the designer Rejected tab) to also return
+// archived copies alongside the requested status.
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) return forbidden();
 
     await connectDB();
 
     const { searchParams } = new URL(req.url);
     const statusParam = searchParams.get("status") || "content_internal_review";
+    const includeArchived = searchParams.get("includeArchived") === "1";
 
     const requested = statusParam
       .split(",")
@@ -37,8 +44,11 @@ export async function GET(req: NextRequest) {
     // Reference models so populate works even before they're registered elsewhere
     void Deliverable; void Calendar; void Client; void User;
 
-    // Filter includes legacy string values, so it's wider than the schema type
-    const filter: Record<string, any> = { status: { $in: dbStatuses } };
+    // Active lists never show archived copies. The Rejected tab additionally
+    // surfaces every archived copy (regardless of status) via includeArchived.
+    const filter: Record<string, any> = includeArchived
+      ? { $or: [{ status: { $in: dbStatuses } }, { archivedAt: { $ne: null } }] }
+      : { status: { $in: dbStatuses }, archivedAt: null };
     const drafts = await ContentDraft.find(filter)
       .populate("clientId", "name brandName")
       .populate("deliverableId", "title platforms buckets type status module scheduledDate")

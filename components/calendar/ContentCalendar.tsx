@@ -210,11 +210,17 @@ function CalendarChip({
 }
 
 // ── Main Component ───────────────────────────────────────────────────
-export default function ContentCalendar() {
+// `lockedClientId` scopes the whole view to a single client and hides the
+// client picker (used by the client portal); `readOnly` makes the preview
+// modal view-only. Staff use the component with no props.
+export default function ContentCalendar({
+  lockedClientId,
+  readOnly = false,
+}: { lockedClientId?: string; readOnly?: boolean } = {}) {
   const [clients, setClients]             = useState<Client[]>([]);
   const [scopes, setScopes]               = useState<Scope[]>([]);
   const [items, setItems]                 = useState<CalendarCopy[]>([]);
-  const [selectedClient, setSelectedClient] = useState("");
+  const [selectedClient, setSelectedClient] = useState(lockedClientId ?? "");
   const [selectedScope, setSelectedScope]   = useState("");
   const [loadingClients, setLoadingClients] = useState(true);
   const [loadingScopes, setLoadingScopes]   = useState(false);
@@ -230,15 +236,17 @@ export default function ContentCalendar() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedItem, setSelectedItem] = useState<CalendarCopy | null>(null);
 
-  // Load clients on mount
+  // Load clients on mount. Skipped in the client portal, which is locked to a
+  // single client and must not (and cannot) list every client.
   useEffect(() => {
+    if (lockedClientId) { setLoadingClients(false); return; }
     setLoadingClients(true);
     fetch("/api/clients")
       .then((r) => r.json())
       .then((data) => setClients(Array.isArray(data) ? data : []))
       .catch(() => setClients([]))
       .finally(() => setLoadingClients(false));
-  }, []);
+  }, [lockedClientId]);
 
   // Load scopes when client changes
   useEffect(() => {
@@ -246,6 +254,12 @@ export default function ContentCalendar() {
       setScopes([]);
       setSelectedScope("");
       setItems([]);
+      return;
+    }
+    // Clients cannot enumerate scopes (the scope list is a staff-only endpoint);
+    // the portal simply shows all of the client's calendar items.
+    if (lockedClientId) {
+      setScopes([]);
       return;
     }
     setLoadingScopes(true);
@@ -362,7 +376,8 @@ export default function ContentCalendar() {
         </p>
       </div>
 
-      {/* Client + Scope selectors */}
+      {/* Client + Scope selectors (hidden in the single-client portal view) */}
+      {!lockedClientId && (
       <Card>
         <CardContent className="p-4 flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 min-w-[200px] flex-1 max-w-xs">
@@ -451,6 +466,7 @@ export default function ContentCalendar() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Main tabs: Calendar / Kanban */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -802,6 +818,7 @@ export default function ContentCalendar() {
         open={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         onUpdate={handleUpdate}
+        readOnly={readOnly}
       />
     </div>
   );

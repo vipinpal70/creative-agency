@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import Calendar from "@/lib/models/calendar.model";
 import ScopeOfWork from "@/lib/models/scope-of-work.model";
@@ -14,6 +15,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { id } = await params;
+      if (!(await assertClientAccess(session, id))) return notFound();
+    }
 
     const { id } = await params;
     await connectDB();
@@ -75,6 +80,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { id } = await params;
+      if (!(await assertClientAccess(session, id))) return notFound();
+    }
 
     const { id } = await params;
     const body = await req.json();

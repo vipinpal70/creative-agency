@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Film, Check, X, User,
-  ShieldCheck, FileText, ClipboardList, MessageSquare, Palette, Image as ImageIcon,
+  ShieldCheck, FileText, ClipboardList, MessageSquare, Palette, Image as ImageIcon, ChevronDown,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
@@ -27,6 +27,7 @@ interface ApprovalTask {
   startDate?: string | null;
   endDate?: string | null;
   client: { companyName: string };
+  clientId: string;
   assignedTo?: { id: string; name: string } | null;
   category?: string | null;
   feedbacks: string[];
@@ -374,6 +375,8 @@ export default function ApprovalsPage() {
   const [tasks, setTasks] = useState<ApprovalTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
+  const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
+  const [clientFilter, setClientFilter] = useState<string>("");
 
   const loadCopies = useCallback(async (stage: CopyStageKey) => {
     setLoading(true);
@@ -400,7 +403,23 @@ export default function ApprovalsPage() {
     else loadTasks();
   }, [tab, copyStage, loadCopies, loadTasks]);
 
+  useEffect(() => {
+    fetch("/api/clients")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: any[]) =>
+        setClients(
+          data.map((c) => ({
+            id: c.id,
+            companyName: c.brandName || c.name || "Unknown",
+          }))
+        )
+      )
+      .catch(console.error);
+  }, []);
+
   const activeStage = COPY_STAGES.find((s) => s.key === copyStage)!;
+  const filteredCopies = copies.filter((c) => !clientFilter || c.clientId === clientFilter);
+  const filteredTasks = tasks.filter((t) => !clientFilter || t.clientId === clientFilter);
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -413,44 +432,62 @@ export default function ApprovalsPage() {
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as "copies" | "tasks")}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "copies")}>
         <TabsList>
           <TabsTrigger value="copies">
             <FileText className="h-3.5 w-3.5 mr-1.5" /> Copies
           </TabsTrigger>
-          <TabsTrigger value="tasks">
+          {/* <TabsTrigger value="tasks">
             <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Tasks
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
       </Tabs>
 
       {tab === "copies" && (
         <>
-          {/* Review-stage filter */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {COPY_STAGES.map((s) => {
-              const on = copyStage === s.key;
-              return (
-                <button
-                  key={s.key}
-                  onClick={() => setCopyStage(s.key)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    on
-                      ? "bg-primary text-primary-foreground border-transparent"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              );
-            })}
+          {/* Review-stage filter + Client filter */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              {COPY_STAGES.map((s) => {
+                const on = copyStage === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => setCopyStage(s.key)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                      on
+                        ? "bg-primary text-primary-foreground border-transparent"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="relative">
+              <Building2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <select
+                className="pl-8 pr-7 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white text-gray-900 min-w-[180px] appearance-none"
+                value={clientFilter}
+                onChange={(e) => setClientFilter(e.target.value)}
+                aria-label="Filter by client"
+              >
+                <option value="">All Clients</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.companyName}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
           </div>
 
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading copies…
             </div>
-          ) : copies.length === 0 ? (
+          ) : filteredCopies.length === 0 ? (
             <Card>
               <CardContent className="p-10 text-center space-y-3">
                 
@@ -473,7 +510,7 @@ export default function ApprovalsPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {copies.map((copy) => (
+              {filteredCopies.map((copy) => (
                 <CopyApprovalCard
                   key={copy.draftId}
                   copy={copy}
@@ -487,13 +524,13 @@ export default function ApprovalsPage() {
         </>
       )}
 
-      {tab === "tasks" && (
+      {/* {tab === "tasks" && (
         <>
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading tasks…
             </div>
-          ) : tasks.length === 0 ? (
+          ) : filteredTasks.length === 0 ? (
             <Card>
               <CardContent className="p-10 text-center space-y-3">
                 <ClipboardList className="h-10 w-10 text-muted-foreground/30 mx-auto" />
@@ -508,13 +545,13 @@ export default function ApprovalsPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {tasks.map((task) => (
+              {filteredTasks.map((task) => (
                 <TaskApprovalCard key={task.id} task={task} onDone={loadTasks} />
               ))}
             </div>
           )}
         </>
-      )}
+      )} */}
 
       {/* Copy preview modal (same one the content calendar uses) */}
       <ContentPreviewModal

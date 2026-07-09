@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
-import Task from "@/lib/models/task.model";
+import Task, { normalizeTaskStatus, TASK_STATUSES } from "@/lib/models/task.model";
 import mongoose from "mongoose";
 
 function serializeTask(task: any) {
@@ -11,9 +12,8 @@ function serializeTask(task: any) {
     id: task._id.toString(),
     title: task.title,
     description: task.description,
-    status: task.status,
+    status: normalizeTaskStatus(task.status),
     priority: task.priority,
-    startDate: task.startDate?.toISOString() ?? null,
     endDate: task.endDate?.toISOString() ?? null,
     clientId: client?._id?.toString() ?? task.clientId?.toString() ?? null,
     organizationId: task.organizationId,
@@ -30,6 +30,7 @@ function serializeTask(task: any) {
         }
       : null,
     category: task.category ?? null,
+    module: task.module ?? null,
     subTasks: task.subTasks ?? [],
   };
 }
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) return forbidden();
 
     await connectDB();
     const { searchParams } = new URL(req.url);
@@ -50,7 +52,18 @@ export async function GET(req: NextRequest) {
       filter.clientId = new mongoose.Types.ObjectId(clientId);
     }
     if (status) {
-      filter.status = { $in: status.split(",").map((s) => s.trim().toUpperCase()) };
+      const wanted = new Set(status.split(",").map((s) => s.trim().toUpperCase()));
+      // Legacy statuses collapse into the three-column set, so match on the
+      // normalized value rather than the raw stored one.
+      filter.status = {
+        $in: TASK_STATUSES.filter((s) => wanted.has(s)).flatMap((s) =>
+          s === "OPEN"
+            ? ["OPEN", "OPENED", "REJECTED"]
+            : s === "IN_PROGRESS"
+              ? ["IN_PROGRESS", "ON_HOLD", "INTERNAL_REVIEW", "CLIENT_REVIEW"]
+              : ["CLOSED", "COMPLETED", "APPROVED"]
+        ),
+      };
     }
 
     const tasks = await Task.find(filter)
@@ -71,9 +84,10 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) return forbidden();
 
     const body = await req.json();
-    const { title, description, clientId, assignedToId, taskCategory, priority, startDate, endDate, organizationId } = body;
+    const { title, description, clientId, assignedToId, taskCategory, module, priority, endDate, organizationId } = body;
 
     if (!title?.trim()) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
@@ -93,8 +107,8 @@ export async function POST(req: NextRequest) {
           ? new mongoose.Types.ObjectId(assignedToId)
           : undefined,
       category: taskCategory || undefined,
+      module: module || undefined,
       priority: priority || "MEDIUM",
-      startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
       organizationId: organizationId || "default-org",
       createdById:

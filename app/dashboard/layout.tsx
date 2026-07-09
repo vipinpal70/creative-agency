@@ -14,6 +14,9 @@ export const metadata: Metadata = {
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/sign-in");
+  // Defense in depth: middleware already routes clients to /client, but guard
+  // here too so no staff page ever renders for a client account.
+  if (session.role === "client") redirect("/client");
 
   const initials = session.email
     .split("@")[0]
@@ -58,7 +61,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             </div>
 
             {/* Avatar */}
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-[11px] shadow-md shadow-indigo-500/25 cursor-pointer">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold text-[11px] cursor-pointer">
               {initials}
             </div>
           </div>

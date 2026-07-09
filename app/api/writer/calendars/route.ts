@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import Calendar from "@/lib/models/calendar.model";
 import ScopeOfWork from "@/lib/models/scope-of-work.model";
@@ -13,6 +14,7 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) return forbidden();
 
     await connectDB();
 
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) return forbidden();
 
     const body = await req.json();
     const { clientId, scopeId, module, name, objective, startDate, endDate, status, plannedItems } = body;

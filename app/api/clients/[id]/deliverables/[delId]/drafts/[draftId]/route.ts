@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import ContentDraft from "@/lib/models/content-draft.model";
 import Deliverable from "@/lib/models/deliverable.model";
 import DraftHistory from "@/lib/models/draft-history.model";
 import User from "@/lib/models/user.model";
 import { computeChanges } from "@/lib/draft-history";
+import { purgeDraft } from "@/lib/copy-cleanup";
 import {
   DRAFT_STATUSES,
   normalizeDraftStatus,
@@ -23,6 +25,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { id } = await params;
+      if (!(await assertClientAccess(session, id))) return notFound();
+    }
 
     const { id, delId, draftId } = await params;
     await connectDB();
@@ -52,6 +58,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { id } = await params;
+      if (!(await assertClientAccess(session, id))) return notFound();
+    }
 
     const { id, delId, draftId } = await params;
     const body = await req.json();
@@ -60,6 +70,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const draft = await ContentDraft.findOne({ _id: draftId, deliverableId: delId });
     if (!draft) {
       return NextResponse.json({ error: "Draft not found" }, { status: 404 });
+    }
+
+    // Archived copies are read-only — no edits or workflow moves until restored.
+    if (draft.archivedAt) {
+      return NextResponse.json(
+        { error: "This copy is archived and cannot be edited. Restore it first." },
+        { status: 409 }
+      );
     }
 
     // Design-phase lock: while a design is in progress, only the designer who
@@ -257,6 +275,10 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) {
+      const { id } = await params;
+      if (!(await assertClientAccess(session, id))) return notFound();
+    }
 
     const { delId, draftId } = await params;
     await connectDB();
@@ -273,9 +295,11 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await draft.deleteOne();
+    // Full cleanup: remove stored files and linked history alongside the draft
+    // so no orphaned data is left behind.
+    const result = await purgeDraft(draft);
 
-    return NextResponse.json({ message: "Draft deleted" });
+    return NextResponse.json({ message: "Draft deleted", ...result });
   } catch (err: any) {
     console.error("[draft DELETE]", err);
     return NextResponse.json({ error: err.message || "Internal error" }, { status: 500 });

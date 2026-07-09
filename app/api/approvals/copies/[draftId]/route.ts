@@ -16,6 +16,8 @@ import {
   historyActionForStatus,
 } from "@/lib/status-flow";
 import { serializeCopy } from "@/lib/serialize-copy";
+import { purgeDraft } from "@/lib/copy-cleanup";
+import { isClient, resolveClientId, forbidden, notFound } from "@/lib/authz";
 
 type Ctx = { params: Promise<{ draftId: string }> };
 
@@ -47,9 +49,28 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const draft = await ContentDraft.findById(draftId);
     if (!draft) return NextResponse.json({ error: "Copy not found" }, { status: 404 });
 
+    // Archived copies are frozen — they can't be approved/rejected until restored.
+    if (draft.archivedAt) {
+      return NextResponse.json(
+        { error: "This copy is archived. Restore it before taking action." },
+        { status: 409 }
+      );
+    }
+
     const current = normalizeDraftStatus(draft.status);
     if (!current) {
       return NextResponse.json({ error: `Copy has unknown status "${draft.status}"` }, { status: 409 });
+    }
+
+    // A client may only act on their own copies, and only while the copy is
+    // in one of the client-review stages. Staff (internal reviewers) are
+    // unrestricted here.
+    if (isClient(session)) {
+      const own = await resolveClientId(session);
+      if (!own || own !== draft.clientId?.toString()) return notFound("Copy not found");
+      if (current !== "content_client_review" && current !== "design_client_review") {
+        return forbidden("This copy is not awaiting your review");
+      }
     }
 
     let next;
@@ -129,6 +150,36 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     return NextResponse.json(serializeCopy(populated));
   } catch (err: any) {
     console.error("[approvals/copies PATCH]", err);
+    return NextResponse.json({ error: err.message || "Internal error" }, { status: 500 });
+  }
+}
+
+// DELETE /api/approvals/copies/[draftId]
+// Permanently removes a copy — the draft, its stored files, and all linked
+// metadata. Admin only (enforced on the backend regardless of the UI).
+export async function DELETE(req: NextRequest, { params }: Ctx) {
+  try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
+    }
+
+    const { draftId } = await params;
+    if (!mongoose.Types.ObjectId.isValid(draftId)) {
+      return NextResponse.json({ error: "Invalid draft ID" }, { status: 400 });
+    }
+
+    await connectDB();
+
+    const draft = await ContentDraft.findById(draftId).lean();
+    // Idempotent: treat an already-deleted copy as success.
+    if (!draft) return NextResponse.json({ message: "Already deleted", deleted: false });
+
+    const result = await purgeDraft(draft as any);
+    return NextResponse.json({ message: "Copy permanently deleted", ...result });
+  } catch (err: any) {
+    console.error("[approvals/copies DELETE]", err);
     return NextResponse.json({ error: err.message || "Internal error" }, { status: 500 });
   }
 }

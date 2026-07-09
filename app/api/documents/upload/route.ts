@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import Client from "@/lib/models/client.model";
 import fs from "fs";
@@ -12,12 +13,13 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
     const { searchParams } = new URL(req.url);
     const clientId = searchParams.get("clientId");
     if (!clientId) {
       return NextResponse.json({ error: "Client ID is required" }, { status: 400 });
     }
+    // Owner-scoped: staff any client, a client only their own.
+    if (!(await assertClientAccess(session, clientId))) return notFound("Client not found");
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

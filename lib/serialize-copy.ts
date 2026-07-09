@@ -55,5 +55,7 @@ export function serializeCopy(draft: any) {
     updatedAt: draft.updatedAt,
     lastChangedBy: draft.lastChangedBy ?? null,
     designStartedBy: draft.designStartedBy ?? null,
+    archivedAt: draft.archivedAt ?? null,
+    archivedBy: draft.archivedBy ?? null,
   };
 }

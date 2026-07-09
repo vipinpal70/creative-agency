@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
-  ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck,
+  ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck, ChevronDown,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -78,6 +78,10 @@ export default function WriterDashboard() {
   // ── Copy modal (create or edit) ──
   const [copyModal, setCopyModal] = useState<CopyModalState>(null);
 
+  // ── Central Client filter state ──
+  const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
+  const [clientFilter, setClientFilter] = useState<string>("");
+
   // ── Load calendars ──
   const loadCalendars = useCallback(async () => {
     setLoading(true);
@@ -90,6 +94,21 @@ export default function WriterDashboard() {
   }, []);
 
   useEffect(() => { loadCalendars(); }, [loadCalendars]);
+
+  // ── Load clients ──
+  useEffect(() => {
+    fetch("/api/clients")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: any[]) =>
+        setClients(
+          data.map((c) => ({
+            id: c.id,
+            companyName: c.brandName || c.name || "Unknown",
+          }))
+        )
+      )
+      .catch(console.error);
+  }, []);
 
   // ── Load copies when entering copies step ──
   const loadCopies = useCallback(async (cal: WriterCalendar) => {
@@ -332,7 +351,8 @@ export default function WriterDashboard() {
     toast({ title: "Copy removed" });
   };
 
-  const filtered = filter === "all" ? calendars : calendars.filter((c) => c.module === filter);
+  const filtered = (filter === "all" ? calendars : calendars.filter((c) => c.module === filter))
+    .filter((c) => !clientFilter || c.clientId === clientFilter);
 
   const calPlannedItems = activeCalendar?.plannedItems ?? [];
 
@@ -374,31 +394,50 @@ export default function WriterDashboard() {
           ) : (
             <>
               {/* Filters + New button */}
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {(["all", "social", "email", "paid", "seo", "video", "design"] as ModuleFilter[]).map((k) => {
-                    const m = k === "all" ? null : MODULES.find((x) => x.key === k)!;
-                    const on = filter === k;
-                    return (
-                      <button
-                        key={k}
-                        onClick={() => setFilter(k)}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                          on ? "border-transparent" : "border-border text-muted-foreground hover:text-foreground"
-                        }`}
-                        style={
-                          on && m
-                            ? { background: `hsl(var(--mod-${m.tone}) / 0.12)`, color: `hsl(var(--mod-${m.tone}))` }
-                            : on
-                              ? { background: "hsl(var(--accent))" }
-                              : undefined
-                        }
-                      >
-                        {m?.label ?? "All"}
-                      </button>
-                    );
-                  })}
+              <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(["all", "social", "email", "paid", "seo", "video", "design"] as ModuleFilter[]).map((k) => {
+                      const m = k === "all" ? null : MODULES.find((x) => x.key === k)!;
+                      const on = filter === k;
+                      return (
+                        <button
+                          key={k}
+                          onClick={() => setFilter(k)}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                            on ? "border-transparent" : "border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                          style={
+                            on && m
+                              ? { background: `hsl(var(--mod-${m.tone}) / 0.12)`, color: `hsl(var(--mod-${m.tone}))` }
+                              : on
+                                ? { background: "hsl(var(--accent))" }
+                                : undefined
+                          }
+                        >
+                          {m?.label ?? "All"}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="relative">
+                    <Building2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <select
+                      className="pl-8 pr-7 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white text-gray-900 min-w-[180px] appearance-none"
+                      value={clientFilter}
+                      onChange={(e) => setClientFilter(e.target.value)}
+                      aria-label="Filter by client"
+                    >
+                      <option value="">All Clients</option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={c.id}>{c.companyName}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  </div>
                 </div>
+
                 <Button size="sm" onClick={() => setCalendarsView("create")}>
                   <CalendarPlus className="h-4 w-4 mr-1.5" /> New Calendar
                 </Button>

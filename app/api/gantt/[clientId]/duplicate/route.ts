@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, forbidden } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import GanttTask from "@/lib/models/gantt-task.model";
 import GanttLink from "@/lib/models/gantt-link.model";
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (isClient(session)) return forbidden();
 
     const { clientId } = await params;
     const body = await req.json();

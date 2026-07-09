@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { IApi } from "@svar-ui/react-gantt";
-import { Gantt, Toolbar } from "@svar-ui/react-gantt";
-import "@svar-ui/react-gantt/style.css";
+import type { IApi, ILink } from "@svar-ui/react-gantt";
+import { Editor, Gantt, Toolbar, Willow } from "@svar-ui/react-gantt";
+// all.css bundles the Willow theme variables and Toolbar/grid/editor styles;
+// the "style.css" entry only contains the bare gantt widget styles.
+import "@svar-ui/react-gantt/all.css";
 import { GanttSkeleton } from "@/components/gantt/GanttSkeleton";
 import { useGanttData } from "@/lib/gantt/hooks";
 
@@ -24,7 +26,7 @@ export default function GanttChart({ clientId, onApiReady, readOnly = false }: G
     const base = `/api/gantt/${clientId}`;
 
     ganttApi.on("add-task", async (ev) => {
-      const { id, task, target, mode } = ev as any;
+      const { id, task, target, mode } = ev;
       await fetch(`${base}/tasks`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,7 +35,7 @@ export default function GanttChart({ clientId, onApiReady, readOnly = false }: G
     });
 
     ganttApi.on("update-task", async (ev) => {
-      const { id, task } = ev as any;
+      const { id, task } = ev;
       if (ev.inProgress) return; // skip interim drag events
       await fetch(`${base}/tasks/${id}`, {
         method:  "PUT",
@@ -43,12 +45,12 @@ export default function GanttChart({ clientId, onApiReady, readOnly = false }: G
     });
 
     ganttApi.on("delete-task", async (ev) => {
-      const { id } = ev as any;
+      const { id } = ev;
       await fetch(`${base}/tasks/${id}`, { method: "DELETE" });
     });
 
     ganttApi.on("add-link", async (ev) => {
-      const { id, link } = ev as any;
+      const { id, link } = ev;
       await fetch(`${base}/links`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,7 +59,7 @@ export default function GanttChart({ clientId, onApiReady, readOnly = false }: G
     });
 
     ganttApi.on("update-link", async (ev) => {
-      const { id, link } = ev as any;
+      const { id, link } = ev;
       await fetch(`${base}/links/${id}`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json" },
@@ -66,7 +68,7 @@ export default function GanttChart({ clientId, onApiReady, readOnly = false }: G
     });
 
     ganttApi.on("delete-link", async (ev) => {
-      const { id } = ev as any;
+      const { id } = ev;
       await fetch(`${base}/links/${id}`, { method: "DELETE" });
     });
   };
@@ -96,24 +98,29 @@ export default function GanttChart({ clientId, onApiReady, readOnly = false }: G
     id:     l.id,
     source: l.source,
     target: l.target,
-    type:   l.type as any,
+    type:   l.type as ILink["type"],
   }));
 
   return (
-    <div className="w-full h-full flex flex-col">
-      {!readOnly && api && (
-        <div className="shrink-0">
-          <Toolbar api={api} />
+    <Willow>
+      <div className="w-full h-full flex flex-col rounded-lg border border-border overflow-hidden bg-card">
+        {!readOnly && api && (
+          <div className="shrink-0 border-b border-border">
+            <Toolbar api={api} />
+          </div>
+        )}
+        <div className="flex-1 min-h-0">
+          <Gantt
+            tasks={ganttTasks}
+            links={ganttLinks}
+            readonly={readOnly}
+            init={handleInit}
+          />
         </div>
-      )}
-      <div className="flex-1 min-h-0">
-        <Gantt
-          tasks={ganttTasks}
-          links={ganttLinks}
-          readonly={readOnly}
-          init={handleInit}
-        />
+        {/* The task editor is a standalone component in SVAR Gantt v2 —
+            without it, double-clicking a task fires "show-editor" into the void */}
+        {!readOnly && api && <Editor api={api} />}
       </div>
-    </div>
+    </Willow>
   );
 }

@@ -1,17 +1,9 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
+import { TASK_STATUS_ENUM as STATUS_ENUM } from "../task-status";
+import type { TaskStatus, TaskPriority } from "../task-status";
 
-export type TaskStatus =
-  | "OPEN"
-  | "OPENED"
-  | "IN_PROGRESS"
-  | "ON_HOLD"
-  | "COMPLETED"
-  | "INTERNAL_REVIEW"
-  | "CLIENT_REVIEW"
-  | "APPROVED"
-  | "REJECTED";
-
-export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export { TASK_STATUSES, normalizeTaskStatus } from "../task-status";
+export type { TaskStatus, TaskPriority } from "../task-status";
 
 export interface ISubTask {
   title: string;
@@ -45,6 +37,7 @@ export interface ITask extends Document {
   createdById?: mongoose.Types.ObjectId;
   assignedToId?: mongoose.Types.ObjectId;
   category?: string;
+  module?: string; // Scope-of-work module, e.g. "social", "paid", "seo"
   
   // Role-specific assignees
   writerId?: mongoose.Types.ObjectId;
@@ -75,7 +68,7 @@ const subTaskSchema = new Schema<ISubTask>({
   title: { type: String, required: true },
   status: {
     type: String,
-    enum: ["OPEN", "OPENED", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "INTERNAL_REVIEW", "CLIENT_REVIEW", "APPROVED", "REJECTED"],
+    enum: STATUS_ENUM,
     default: "OPEN"
   }
 });
@@ -98,7 +91,7 @@ const taskSchema = new Schema<ITask>(
     description: { type: String, trim: true },
     status: {
       type: String,
-      enum: ["OPEN", "OPENED", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "INTERNAL_REVIEW", "CLIENT_REVIEW", "APPROVED", "REJECTED"],
+      enum: STATUS_ENUM,
       default: "OPEN"
     },
     priority: {
@@ -116,6 +109,7 @@ const taskSchema = new Schema<ITask>(
     createdById: { type: Schema.Types.ObjectId, ref: "User" },
     assignedToId: { type: Schema.Types.ObjectId, ref: "User" },
     category: { type: String },
+    module: { type: String },
 
     // Role-specific assignees
     writerId: { type: Schema.Types.ObjectId, ref: "User" },
@@ -124,26 +118,10 @@ const taskSchema = new Schema<ITask>(
     videoEditorId: { type: Schema.Types.ObjectId, ref: "User" },
 
     // Per-role statuses
-    writerStatus: {
-      type: String,
-      enum: ["OPEN", "OPENED", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "INTERNAL_REVIEW", "CLIENT_REVIEW", "APPROVED", "REJECTED"],
-      default: "OPEN"
-    },
-    editorStatus: {
-      type: String,
-      enum: ["OPEN", "OPENED", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "INTERNAL_REVIEW", "CLIENT_REVIEW", "APPROVED", "REJECTED"],
-      default: "OPEN"
-    },
-    designerStatus: {
-      type: String,
-      enum: ["OPEN", "OPENED", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "INTERNAL_REVIEW", "CLIENT_REVIEW", "APPROVED", "REJECTED"],
-      default: "OPEN"
-    },
-    videoEditorStatus: {
-      type: String,
-      enum: ["OPEN", "OPENED", "IN_PROGRESS", "ON_HOLD", "COMPLETED", "INTERNAL_REVIEW", "CLIENT_REVIEW", "APPROVED", "REJECTED"],
-      default: "OPEN"
-    },
+    writerStatus: { type: String, enum: STATUS_ENUM, default: "OPEN" },
+    editorStatus: { type: String, enum: STATUS_ENUM, default: "OPEN" },
+    designerStatus: { type: String, enum: STATUS_ENUM, default: "OPEN" },
+    videoEditorStatus: { type: String, enum: STATUS_ENUM, default: "OPEN" },
 
     // Links
     contentBucketId: { type: String },

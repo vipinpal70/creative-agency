@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { isClient, assertClientAccess, notFound } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import ClientTaskRequest from "@/lib/models/client-task-request.model";
 import CalendarDeliverable from "@/lib/models/calendar-deliverable.model";
@@ -13,6 +14,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (isClient(session)) {
+      const { id } = await params;
+      if (!(await assertClientAccess(session, id))) return notFound();
     }
 
     const { id: clientId } = await params;
@@ -41,6 +46,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (isClient(session)) {
+      const { id } = await params;
+      if (!(await assertClientAccess(session, id))) return notFound();
     }
 
     const { id: clientId } = await params;
@@ -80,6 +89,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (isClient(session)) {
+      const { id } = await params;
+      if (!(await assertClientAccess(session, id))) return notFound();
     }
 
     const { id: clientId } = await params;

@@ -24,6 +24,7 @@ export interface IUser extends Document {
   status: TeamMemberStatus;    // active/inactive
   type: TeamMemberType;        // internal/outsource
   outsource?: IOutsourceDetails;
+  clientId?: mongoose.Types.ObjectId; // set for role === "client": the Client record this user owns
   avatarColor?: string;
   lastEmailSentAt?: Date;
   createdById?: string;
@@ -77,6 +78,7 @@ const userSchema = new Schema<IUser>(
       default: "internal",
     },
     outsource: { type: outsourceSchema },
+    clientId: { type: Schema.Types.ObjectId, ref: "Client" },
     avatarColor: { type: String, default: "#16A34A" },
     lastEmailSentAt: { type: Date },
     createdById: { type: String },
