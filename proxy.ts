@@ -17,7 +17,9 @@ const PUBLIC_PATHS = [
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isPublic =
+    pathname === "/" ||
+    PUBLIC_PATHS.filter((p) => p !== "/").some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
   const token = req.cookies.get(COOKIE_NAME)?.value;
@@ -54,5 +56,7 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|public/).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|uploads|.*\\..*).*)",
+  ],
 };

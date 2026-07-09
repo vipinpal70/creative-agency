@@ -3,53 +3,76 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# --- Configuration ---
-# Set the name of your PM2 application (defaults to package.json name)
+# -----------------------------
+# Configuration
+# -----------------------------
 PM2_APP_NAME="creativeos"
 NGINX_SERVICE="nginx"
+PROJECT_DIR="$(pwd)"
 
 echo "=========================================="
-# Get current branch name
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-echo "Starting deployment on branch: $CURRENT_BRANCH"
+echo "Starting deployment"
+echo "Branch : $CURRENT_BRANCH"
+echo "Project: $PROJECT_DIR"
 echo "=========================================="
 
-# 1. Fetch all the latest changes
-echo "Step 1: Pulling latest changes from git...🚀"
+# -----------------------------
+# Step 1 - Pull latest code
+# -----------------------------
+echo "🚀 Step 1: Pulling latest changes..."
 git pull origin "$CURRENT_BRANCH"
 
-# 2. Install npm dependencies
-echo "Step 2: Installing dependencies...😃🌐"
-# Use npm ci for clean, deterministic builds if package-lock.json exists, fallback to npm install
+# -----------------------------
+# Step 2 - Install dependencies
+# -----------------------------
+echo "📦 Step 2: Installing dependencies..."
 if [ -f package-lock.json ]; then
-  npm ci
+    npm ci
 else
-  npm install
+    npm install
 fi
 
-# 3. Build the application
-echo "Step 3: Building the production application...🛠️"
+# -----------------------------
+# Step 3 - Build application
+# -----------------------------
+echo "🛠️ Step 3: Building production application..."
 npm run build
 
-# 4. Restart or reload PM2 service
-echo "Step 4: Reloading PM2 process...🚀"
-if pm2 show "$PM2_APP_NAME" > /dev/null 2>&1; then
-  echo "Reloading PM2 application '$PM2_APP_NAME' (zero-downtime)..."
-  pm2 reload "$PM2_APP_NAME"
+# -----------------------------
+# Step 4 - Start/Reload PM2
+# -----------------------------
+echo "🚀 Step 4: Starting/Reloading PM2..."
+
+if pm2 describe "$PM2_APP_NAME" >/dev/null 2>&1; then
+    echo "Reloading existing PM2 process..."
+    pm2 reload "$PM2_APP_NAME" --update-env
 else
-  echo "PM2 application '$PM2_APP_NAME' not running. Starting it now..."
-  pm2 start npm --name "$PM2_APP_NAME" -- start
+    echo "Starting new PM2 process..."
+    pm2 start npm \
+        --name "$PM2_APP_NAME" \
+        --cwd "$PROJECT_DIR" \
+        --update-env \
+        -- start
 fi
 
-# 5. Reload Nginx service
-echo "Step 5: Reloading Nginx service...🌍"
-# Nginx reload is preferred over restart as it is zero-downtime and fails safe
-if command -v systemctl >/dev/null 2>&1; then
-  sudo systemctl reload "$NGINX_SERVICE"
-else
-  echo "systemctl not found. Please reload Nginx manually (e.g., sudo service nginx reload)."
-fi
+# Save PM2 process list
+pm2 save
+
+# -----------------------------
+# Step 5 - Test & Reload Nginx
+# -----------------------------
+echo "🌐 Step 5: Testing Nginx configuration..."
+
+sudo nginx -t
+
+echo "Reloading Nginx..."
+sudo systemctl reload "$NGINX_SERVICE"
 
 echo "=========================================="
-echo "Deployment successfully completed 🚀👽✅"
+echo "✅ Deployment completed successfully!"
 echo "=========================================="
+
+echo ""
+echo "Application Status:"
+pm2 status "$PM2_APP_NAME"
