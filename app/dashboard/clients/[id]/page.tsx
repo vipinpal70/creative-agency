@@ -68,6 +68,7 @@ interface SowScope {
 interface ClientDetail {
   id: string; name: string; brandName: string; industry: string; website: string;
   status: "active" | "inactive"; contractStart: string; contractEnd: string;
+  clientPortalPassword?: string;
   primaryContact: { name: string; email: string; phone: string };
   aboutBrand?: string; requirementNotes?: string;
   competitors: Competitor[]; socialMediaPresence: SocialPresence[];
@@ -404,6 +405,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   });
   const [openCategories, setOpenCategories] = useState<string[]>(CREDENTIAL_CATEGORIES.map((c) => c.key));
 
+  // Client portal login (shown at top of Access Control tab)
+  const [showPortalPw, setShowPortalPw] = useState(false);
+  const [portalPwDraft, setPortalPwDraft] = useState("");
+  const [editingPortalPw, setEditingPortalPw] = useState(false);
+  const [portalCopied, setPortalCopied] = useState(false);
+
   // Doc / meeting state
   const [showAddDoc, setShowAddDoc] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<{
@@ -539,6 +546,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   }, [client]);
 
+  // Auto-refresh the scope/calendar deliverables every 30s while that tab is
+  // open, so edits made elsewhere appear without a manual refresh.
+  useEffect(() => {
+    if (activeTab !== "calendar") return;
+    const interval = setInterval(fetchDeliverables, 30_000);
+    return () => clearInterval(interval);
+  }, [activeTab, clientId]);
+
   // ── Fetch functions ────────────────────────────────────────────────────────
 
   const fetchClientData = async () => {
@@ -590,6 +605,21 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   };
 
   const handleSaveProfileInfo = () => patchClient({ aboutBrand: aboutBrandDraft, requirementNotes: requirementNotesDraft });
+
+  const generatePortalPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let pw = "";
+    for (let i = 0; i < 10; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+    return pw;
+  };
+
+  const handleSavePortalPassword = async (pw: string) => {
+    if (!pw.trim()) return;
+    await patchClient({ clientPortalPassword: pw.trim() } as Partial<ClientDetail>);
+    setEditingPortalPw(false);
+    setPortalPwDraft("");
+    setShowPortalPw(true);
+  };
 
   const handleAddCompetitor = () => {
     if (!client || !newComp.name.trim() || !newComp.websiteLink.trim()) return;
@@ -803,7 +833,33 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">{client.name}</h1>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-100">{client.industry}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${client.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"}`}>{client.status}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={client.status === "active"}
+                    onClick={() => patchClient({ status: client.status === "active" ? "inactive" : "active" })}
+                    title={`Toggle client status (currently ${client.status})`}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none focus:ring-2 focus:ring-gray-200 focus:ring-offset-1 ${
+                      client.status === "active" ? "bg-emerald-500" : "bg-red-500"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        client.status === "active" ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase border ${
+                      client.status === "active"
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : "bg-red-100 text-red-800 border-red-200"
+                    }`}
+                  >
+                    {client.status}
+                  </span>
+                </div>
               </div>
               <p className="text-xs text-gray-500 mt-1">Contract: {new Date(client.contractStart).toLocaleDateString()} → {new Date(client.contractEnd).toLocaleDateString()}</p>
             </div>
@@ -1193,6 +1249,111 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       {/* ACCESS CONTROL */}
       {activeTab === "access" && (
         <div className="space-y-4">
+          {/* Client Portal Login (pinned at very top) */}
+          <div className="border border-emerald-100 rounded-xl p-4 bg-emerald-50/20 space-y-3">
+            <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-600" /> Client Portal Login
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Email */}
+              <div className="bg-white border border-gray-100 rounded-lg p-3 space-y-1">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Sign-in Email</p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-gray-800 truncate">{client.primaryContact.email}</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(client.primaryContact.email); }}
+                    className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-emerald-700 shrink-0"
+                    title="Copy email"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+              {/* Password */}
+              <div className="bg-white border border-gray-100 rounded-lg p-3 space-y-1">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Password</p>
+                {client.clientPortalPassword ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono font-semibold text-gray-800 truncate">
+                      {showPortalPw ? client.clientPortalPassword : "••••••••••"}
+                    </span>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={() => setShowPortalPw((v) => !v)}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-emerald-700"
+                        title={showPortalPw ? "Hide" : "Reveal"}
+                      >
+                        {showPortalPw ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(client.clientPortalPassword || "");
+                          setPortalCopied(true);
+                          setTimeout(() => setPortalCopied(false), 1500);
+                        }}
+                        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-emerald-700"
+                        title="Copy password"
+                      >
+                        {portalCopied ? <span className="text-[9px] font-semibold text-emerald-600">✓</span> : <Copy className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">Not set — regenerate to create a login.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Set / regenerate password */}
+            {editingPortalPw ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={portalPwDraft}
+                  onChange={(e) => setPortalPwDraft(e.target.value)}
+                  placeholder="Enter new password"
+                  className="flex-1 min-w-[180px] text-xs px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-medium text-gray-900 bg-white"
+                />
+                <button
+                  onClick={() => setPortalPwDraft(generatePortalPassword())}
+                  className="px-2.5 py-2 border border-gray-200 text-[10px] font-bold text-gray-600 hover:bg-gray-50 rounded-lg"
+                >
+                  Generate
+                </button>
+                <button
+                  onClick={() => handleSavePortalPassword(portalPwDraft)}
+                  className="px-3 py-2 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => { setEditingPortalPw(false); setPortalPwDraft(""); }}
+                  className="px-3 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-semibold rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setEditingPortalPw(true); setPortalPwDraft(""); }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-gray-700 hover:bg-white text-xs font-semibold rounded-lg"
+                >
+                  Set custom password
+                </button>
+                <button
+                  onClick={() => handleSavePortalPassword(generatePortalPassword())}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm"
+                >
+                  Regenerate password
+                </button>
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400">
+              Updating this resets the client's actual portal login. Share the new password with the client.
+            </p>
+          </div>
+
           {/* SEO Tool Access (pinned above vault) */}
           {client.scope?.seo && (client.scope.seo.gaAccess?.type && client.scope.seo.gaAccess.type !== "none" || client.scope.seo.gtmAccess?.type && client.scope.seo.gtmAccess.type !== "none" || client.scope.seo.gscAccess?.type && client.scope.seo.gscAccess.type !== "none") && (
             <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/30 space-y-3">

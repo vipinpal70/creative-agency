@@ -244,6 +244,7 @@ export function SeoWizard({ taskTitle, client, onCancel, onComplete }: Props) {
                 <Input
                   type="date"
                   className="mt-1.5"
+                  min={new Date().toLocaleDateString("en-CA")}
                   value={publishDate}
                   onChange={(e) => setPublishDate(e.target.value)}
                 />

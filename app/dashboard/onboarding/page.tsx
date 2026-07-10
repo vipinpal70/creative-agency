@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus, Trash2, ArrowLeft, ArrowRight, UserCheck, ShieldAlert, Award, Globe, PlusCircle } from "lucide-react";
 import instagram from "@/app/assets/instagram.png";
@@ -36,11 +36,16 @@ export default function OnboardingPage() {
     return pw;
   };
 
+  // Seed a system-generated password once when the admin first reaches the
+  // review step. After that we never auto-fill again, so clearing the field to
+  // type a custom password (or leaving it blank) sticks.
+  const passwordSeeded = useRef(false);
   useEffect(() => {
-    if (step === 4 && !clientPassword) {
-      setClientPassword(generateRandomPassword());
+    if (step === 4 && generateCredentials && !passwordSeeded.current) {
+      passwordSeeded.current = true;
+      if (!clientPassword) setClientPassword(generateRandomPassword());
     }
-  }, [step, clientPassword]);
+  }, [step, generateCredentials, clientPassword]);
 
   // Form State
   const [name, setName] = useState("");

@@ -403,6 +403,25 @@ export default function ApprovalsPage() {
     else loadTasks();
   }, [tab, copyStage, loadCopies, loadTasks]);
 
+  // Silent auto-refresh every 30s so approvers see edits without refreshing.
+  // Doesn't toggle the loading spinner to avoid flicker.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (tab === "copies") {
+        fetch(`/api/approvals/copies?status=${copyStage}`)
+          .then((r) => r.json())
+          .then((d) => setCopies(Array.isArray(d) ? d : []))
+          .catch(() => {});
+      } else {
+        fetch(`/api/tasks?status=${TASK_REVIEW_STATUSES}`)
+          .then((r) => r.json())
+          .then((d) => setTasks(Array.isArray(d) ? d : []))
+          .catch(() => {});
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [tab, copyStage]);
+
   useEffect(() => {
     fetch("/api/clients")
       .then((res) => (res.ok ? res.json() : []))

@@ -292,6 +292,23 @@ export default function ContentCalendar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient, selectedScope]);
 
+  // Silent auto-refresh every 30s so edits to copies show without a manual
+  // refresh. Doesn't toggle the loading state, to avoid flicker.
+  useEffect(() => {
+    if (!selectedClient) return;
+    const url = selectedScope
+      ? `/api/calendar?clientId=${selectedClient}&scopeId=${selectedScope}`
+      : `/api/calendar?clientId=${selectedClient}`;
+    const interval = setInterval(() => {
+      fetch(url)
+        .then((r) => r.json())
+        .then((d) => setItems(Array.isArray(d) ? d : []))
+        .catch(() => {});
+    }, 30_000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClient, selectedScope]);
+
   const toggleModule = (k: ModuleKey) =>
     setActiveModules((a) =>
       a.includes(k) ? a.filter((x) => x !== k) : [...a, k]

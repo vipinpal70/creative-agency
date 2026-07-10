@@ -146,6 +146,8 @@ export function CopyEntryForm({ buckets, plannedItems, onAddCopy }: Props) {
   const [caption,       setCaption]       = useState("");
   const [hashtags,      setHashtags]      = useState("");
   const [publishDate,   setPublishDate]   = useState("");
+  // Local YYYY-MM-DD; blocks scheduling copies before today.
+  const today = new Date().toLocaleDateString("en-CA");
   const [publishTime,   setPublishTime]   = useState("");
   const [contentBucket, setContentBucket] = useState("");
   const [selPlatforms,  setSelPlatforms]  = useState<string[]>([]);
@@ -465,7 +467,7 @@ export function CopyEntryForm({ buckets, plannedItems, onAddCopy }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className={LABEL}>Publish Date *</label>
-            <Input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} />
+            <Input type="date" min={today} value={publishDate} onChange={(e) => setPublishDate(e.target.value)} />
           </div>
           <div className="space-y-2">
             <label className={LABEL}>Publish Time</label>

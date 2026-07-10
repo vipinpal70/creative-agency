@@ -5,8 +5,10 @@ import Client from "@/lib/models/client.model";
 import ScopeOfWork from "@/lib/models/scope-of-work.model";
 import CalendarDeliverable from "@/lib/models/calendar-deliverable.model";
 import ClientTaskRequest from "@/lib/models/client-task-request.model";
+import User from "@/lib/models/user.model";
 import { logActivity } from "@/lib/activity";
 import { isClient, forbidden, assertClientAccess, notFound } from "@/lib/authz";
+import bcrypt from "bcryptjs";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -91,6 +93,30 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (body.credentials !== undefined) client.credentials = body.credentials;
     if (body.documents !== undefined) client.documents = body.documents;
     if (body.meetingLogs !== undefined) client.meetingLogs = body.meetingLogs;
+
+    // Client portal password: store the readable copy and keep the linked
+    // client User's hashed login in sync (creating the account if needed).
+    if (body.clientPortalPassword !== undefined && body.clientPortalPassword !== "") {
+      // Staff-only: a client must not be able to silently reset their own login here.
+      if (isClient(session)) return forbidden();
+      client.clientPortalPassword = body.clientPortalPassword;
+      const hashed = await bcrypt.hash(body.clientPortalPassword, 12);
+      let user = await User.findOne({ clientId: id, role: "client" });
+      if (user) {
+        user.password = hashed;
+        await user.save();
+      } else if (client.primaryContact?.email) {
+        await User.create({
+          firstName: client.name,
+          lastName: "Client",
+          email: client.primaryContact.email.toLowerCase().trim(),
+          password: hashed,
+          role: "client",
+          status: "active",
+          clientId: client._id,
+        });
+      }
+    }
 
     await client.save();
 

@@ -137,6 +137,7 @@ export function EmailCampaignWizard({ taskTitle, client, onCancel, onComplete }:
                   <Input
                     type="date"
                     className="mt-1.5"
+                    min={new Date().toLocaleDateString("en-CA")}
                     value={sendDate}
                     onChange={(e) => setSendDate(e.target.value)}
                   />

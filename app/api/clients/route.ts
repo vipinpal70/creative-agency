@@ -95,6 +95,16 @@ export async function GET(req: NextRequest) {
           ? 0
           : Math.min(100, Math.round((delivered / denominator) * 100));
 
+      // Distinct scope-of-work modules for this client (drives the scope filter)
+      const modules = Array.from(
+        new Set(
+          scopes
+            .filter((s) => s.clientId.toString() === c._id.toString())
+            .flatMap((s) => (s.items ?? []).map((it: any) => it.module))
+            .filter(Boolean)
+        )
+      );
+
       return {
         id: c._id.toString(),
         name: c.name,
@@ -102,6 +112,7 @@ export async function GET(req: NextRequest) {
         industry: c.industry,
         website: c.website,
         status: c.status,
+        modules,
         contractStart: c.contractStart,
         contractEnd: c.contractEnd,
         primaryContact: c.primaryContact,
@@ -177,6 +188,8 @@ export async function POST(req: NextRequest) {
         email: primaryContact.email.toLowerCase().trim(),
         phone: primaryContact.phone?.trim(),
       },
+      // Stored readable so it can be shown later in the Access Control tab.
+      clientPortalPassword: body.clientUser?.password || undefined,
       aboutBrand: aboutBrand?.trim(),
       requirementNotes: requirementNotes?.trim(),
       competitors: competitors || [],

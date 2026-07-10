@@ -19,15 +19,29 @@ interface ClientListItem {
     phone: string;
   };
   assignedTeam: string[];
+  modules: string[];
   committed: number;
   totalScope: number;
   delivered: number;
   progressPercent: number;
 }
 
+// Scope-of-work module keys → readable labels (handles legacy aliases too).
+const MODULE_LABELS: Record<string, string> = {
+  social: "Social Media",
+  paid: "Paid Ads",
+  "paid-ads": "Paid Ads",
+  email: "Email / WhatsApp",
+  emailWhatsapp: "Email / WhatsApp",
+  seo: "SEO",
+  influencer: "Influencer",
+};
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [scopeFilter, setScopeFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,11 +63,21 @@ export default function ClientsPage() {
     }
   };
 
-  const filteredClients = clients.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.brandName.toLowerCase().includes(search.toLowerCase()) ||
-    c.industry.toLowerCase().includes(search.toLowerCase())
+  // Distinct scope modules across all clients, for the scope filter dropdown.
+  const availableModules = Array.from(
+    new Set(clients.flatMap((c) => c.modules ?? []))
   );
+
+  const filteredClients = clients.filter((c) => {
+    const q = search.toLowerCase();
+    const matchesSearch =
+      c.name.toLowerCase().includes(q) ||
+      c.brandName.toLowerCase().includes(q) ||
+      c.industry.toLowerCase().includes(q);
+    const matchesStatus = statusFilter === "all" || c.status === statusFilter;
+    const matchesScope = scopeFilter === "all" || (c.modules ?? []).includes(scopeFilter);
+    return matchesSearch && matchesStatus && matchesScope;
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -108,15 +132,36 @@ export default function ClientsPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search by brand name, company, or industry..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg placeholder-gray-400 transition-all bg-white"
-        />
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by brand name, company, or industry..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg placeholder-gray-400 transition-all bg-white"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
+          className="px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg bg-white text-gray-700 cursor-pointer"
+        >
+          <option value="all">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select
+          value={scopeFilter}
+          onChange={(e) => setScopeFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg bg-white text-gray-700 cursor-pointer"
+        >
+          <option value="all">All scopes</option>
+          {availableModules.map((m) => (
+            <option key={m} value={m}>{MODULE_LABELS[m] || m}</option>
+          ))}
+        </select>
       </div>
 
       {/* Client List */}
@@ -157,6 +202,15 @@ export default function ClientsPage() {
                       </h3>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-100/50">
                         {client.industry}
+                      </span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border capitalize ${
+                          client.status === "active"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-100/50"
+                            : "bg-gray-100 text-gray-500 border-gray-200"
+                        }`}
+                      >
+                        {client.status}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">

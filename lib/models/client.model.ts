@@ -49,6 +49,9 @@ export interface IClient extends Document {
     email: string;
     phone: string;
   };
+  // Readable copy of the client portal login password, shown in the Access
+  // Control tab. Kept in sync with the linked client User's hashed password.
+  clientPortalPassword?: string;
   aboutBrand?: string;
   requirementNotes?: string;
   competitors: ICompetitor[];
@@ -126,6 +129,7 @@ const clientSchema = new Schema<IClient>(
       email: { type: String, required: true, lowercase: true, trim: true },
       phone: { type: String, required: true, trim: true },
     },
+    clientPortalPassword: { type: String },
     aboutBrand: { type: String },
     requirementNotes: { type: String },
     competitors: { type: [competitorSchema], default: [] },

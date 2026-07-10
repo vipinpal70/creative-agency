@@ -206,6 +206,8 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
   const [caption,        setCaption]        = useState(initialData?.caption ?? "");
   const [hashtags,       setHashtags]       = useState(initialData?.hashtags ?? "");
   const [publishDate,    setPublishDate]    = useState(initialData?.publishDate ?? "");
+  // Local YYYY-MM-DD; used to block scheduling copies in the past on create.
+  const today = new Date().toLocaleDateString("en-CA");
   const [publishTime,    setPublishTime]    = useState(initialData?.publishTime ?? "");
   const [contentBucket,  setContentBucket]  = useState(initialData?.contentBucket ?? "");
   const [selPlatforms,   setSelPlatforms]   = useState<string[]>(initialData?.platforms ?? []);
@@ -632,7 +634,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className={LABEL}>Publish Date *</label>
-              <Input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} />
+              <Input type="date" min={mode === "create" ? today : undefined} value={publishDate} onChange={(e) => setPublishDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <label className={LABEL}>Publish Time</label>

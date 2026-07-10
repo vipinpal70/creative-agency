@@ -177,7 +177,21 @@ export default function CreativeUploadPage() {
         toast.success("File uploaded successfully");
         fetchRecentUploads();
       } else {
-        const msg = xhr.status === 401 ? "Session expired — please refresh" : "Upload failed";
+        let msg = "Upload failed";
+        if (xhr.status === 401) {
+          msg = "Session expired — please refresh";
+        } else if (xhr.status === 413) {
+          // Prefer the server's detailed message; fall back to a generic size error.
+          try {
+            msg = JSON.parse(xhr.responseText)?.error || "File is too large (max 50MB)";
+          } catch {
+            msg = "File is too large (max 50MB)";
+          }
+        } else {
+          try {
+            msg = JSON.parse(xhr.responseText)?.error || msg;
+          } catch { /* keep default */ }
+        }
         setUploadState((s) => s && { ...s, error: msg });
         toast.error(msg);
       }

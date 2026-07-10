@@ -239,6 +239,7 @@ export function PaidMediaWizard({ taskTitle, client, onCancel, onComplete }: Pro
                 <Input
                   type="date"
                   className="mt-1.5"
+                  min={new Date().toLocaleDateString("en-CA")}
                   value={launchDate}
                   onChange={(e) => setLaunchDate(e.target.value)}
                 />
