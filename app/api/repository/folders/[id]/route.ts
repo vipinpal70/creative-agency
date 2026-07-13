@@ -11,6 +11,7 @@ import {
   collectDescendantFolderIds,
   deleteRepoFile,
   serializeFolder,
+  canAccessRepoItem,
 } from "@/lib/storage/repository";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -34,6 +35,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     const folder = await RepoFolder.findById(id);
     if (!folder) return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    // A client may only touch folders in their own scope.
+    if (!(await canAccessRepoItem(session, folder.clientId))) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
+
+    // Track a scope change so the whole subtree can be re-tagged after save.
+    let rescopeTo: mongoose.Types.ObjectId | null | undefined;
 
     // Rename
     if (body.name !== undefined) {
@@ -48,12 +56,16 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     // Move
     if (body.parentId !== undefined) {
       const target = normalizeFolderId(body.parentId);
+      let targetClientId: mongoose.Types.ObjectId | null = null;
       if (target) {
         if (!mongoose.Types.ObjectId.isValid(target)) {
           return NextResponse.json({ error: "Invalid target folder" }, { status: 400 });
         }
-        const parent = await RepoFolder.findById(target).select("_id").lean();
+        const parent = await RepoFolder.findById(target).select("_id clientId").lean();
         if (!parent) return NextResponse.json({ error: "Target folder not found" }, { status: 404 });
+        if (!(await canAccessRepoItem(session, (parent as any).clientId))) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
         // A folder can't be moved into itself or any of its descendants.
         if (await isDescendantOrSelf(id, target)) {
           return NextResponse.json(
@@ -61,8 +73,17 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
             { status: 400 }
           );
         }
+        targetClientId = (parent as any).clientId
+          ? new mongoose.Types.ObjectId(String((parent as any).clientId))
+          : null;
       }
       folder.parentId = target ? new mongoose.Types.ObjectId(target) : null;
+      // Staff moves re-scope the folder (and its whole subtree) to the
+      // destination's client; a client's folders stay in their own scope.
+      if (session.role !== "client" && String(folder.clientId ?? "") !== String(targetClientId ?? "")) {
+        folder.clientId = targetClientId;
+        rescopeTo = targetClientId;
+      }
     }
 
     try {
@@ -75,6 +96,16 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         );
       }
       throw err;
+    }
+
+    // Cascade the new scope to every descendant folder and file so a client's
+    // visibility stays consistent across the whole moved subtree.
+    if (rescopeTo !== undefined) {
+      const descendantIds = await collectDescendantFolderIds(id);
+      await Promise.all([
+        RepoFolder.updateMany({ _id: { $in: descendantIds } }, { clientId: rescopeTo }),
+        RepoFile.updateMany({ folderId: { $in: descendantIds } }, { clientId: rescopeTo }),
+      ]);
     }
 
     return NextResponse.json(serializeFolder(folder.toObject()));
@@ -105,6 +136,9 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
     const folder = await RepoFolder.findById(id).lean();
     if (!folder) return NextResponse.json({ message: "Already deleted", deleted: false });
+    if (!(await canAccessRepoItem(session, (folder as any).clientId))) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
 
     const [subfolderCount, fileCount] = await Promise.all([
       RepoFolder.countDocuments({ parentId: id }),

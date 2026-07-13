@@ -14,6 +14,8 @@ import {
   mimeForFile,
   serializeFile,
   MAX_REPO_FILE_BYTES,
+  canAccessRepoItem,
+  resolveNewItemClientId,
 } from "@/lib/storage/repository";
 
 // Larger multipart bodies than Next's default are expected here.
@@ -44,14 +46,28 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
+    let folder: { clientId?: unknown } | null = null;
     if (folderId) {
-      const folder = await RepoFolder.findById(folderId).select("_id").lean();
+      folder = await RepoFolder.findById(folderId).select("_id clientId").lean();
       if (!folder) return NextResponse.json({ error: "Target folder not found" }, { status: 404 });
+      // A client may only upload into a folder they own.
+      if (!(await canAccessRepoItem(session, folder.clientId))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
+    const clientId = await resolveNewItemClientId({
+      session,
+      parent: folder,
+      explicitClientId: (form.get("clientId") as string | null) ?? null,
+    });
+    if (session.role === "client" && !clientId) {
+      return NextResponse.json({ error: "No client workspace linked to this account" }, { status: 403 });
     }
 
     const name = file.name.trim();
     // Reject up front for a clear message (the unique index is the real guard).
-    const existing = await RepoFile.findOne({ folderId, name }).select("_id").lean();
+    const existing = await RepoFile.findOne({ folderId, clientId, name }).select("_id").lean();
     if (existing) {
       return NextResponse.json(
         { error: `A file named "${name}" already exists in this folder` },
@@ -67,6 +83,7 @@ export async function POST(req: NextRequest) {
       const doc = await RepoFile.create({
         name,
         folderId,
+        clientId,
         mimeType: mimeForFile(name, file.type),
         ext: extensionOf(name),
         size,

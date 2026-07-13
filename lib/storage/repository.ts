@@ -7,6 +7,7 @@ import RepoFolder from "@/lib/models/repo-folder.model";
 import type { IRepoActor } from "@/lib/models/repo-folder.model";
 import type { RepoFileCategory } from "@/lib/models/repo-file.model";
 import type { JWTPayload } from "@/lib/auth";
+import { resolveClientId } from "@/lib/authz";
 
 // Max upload size accepted by the repository (100 MB).
 export const MAX_REPO_FILE_BYTES = 100 * 1024 * 1024;
@@ -206,6 +207,67 @@ export function normalizeFolderId(raw: string | null): string | null {
   return mongoose.Types.ObjectId.isValid(raw) ? raw : null;
 }
 
+// ── Per-client visibility & ownership ──────────────────────────────────────────
+// Staff (admin/member/sub-user) see the whole repository. A client user only
+// ever sees items tagged with their own clientId — both the folders/files they
+// created and anything staff placed inside their space. Agency-internal items
+// (clientId = null) are staff-only.
+
+/**
+ * Mongo filter fragment scoping repo queries to what `session` may see.
+ * Returns `{}` for staff (no restriction), `{ clientId }` for a client, or
+ * `null` when a client has no linked Client record (i.e. they see nothing).
+ * Staff may optionally narrow to one client via `staffClientId`.
+ */
+export async function repoVisibilityFilter(
+  session: JWTPayload,
+  staffClientId?: string | null
+): Promise<Record<string, any> | null> {
+  if (session.role !== "client") {
+    if (staffClientId && mongoose.Types.ObjectId.isValid(staffClientId)) {
+      return { clientId: new mongoose.Types.ObjectId(staffClientId) };
+    }
+    return {};
+  }
+  const own = await resolveClientId(session);
+  if (!own) return null;
+  return { clientId: new mongoose.Types.ObjectId(own) };
+}
+
+/** True if `session` may read/mutate an item with the given `itemClientId`. */
+export async function canAccessRepoItem(
+  session: JWTPayload,
+  itemClientId: unknown
+): Promise<boolean> {
+  if (session.role !== "client") return true;
+  const own = await resolveClientId(session);
+  return !!own && !!itemClientId && String(itemClientId) === own;
+}
+
+/**
+ * clientId to stamp on a newly created folder/file. Items inherit their parent
+ * folder's scope; at the root a client tags with their own clientId while staff
+ * may target a client via `explicitClientId` (otherwise agency-internal / null).
+ */
+export async function resolveNewItemClientId(params: {
+  session: JWTPayload;
+  parent?: { clientId?: unknown } | null;
+  explicitClientId?: string | null;
+}): Promise<mongoose.Types.ObjectId | null> {
+  const { session, parent, explicitClientId } = params;
+  if (parent) {
+    return parent.clientId ? new mongoose.Types.ObjectId(String(parent.clientId)) : null;
+  }
+  if (session.role === "client") {
+    const own = await resolveClientId(session);
+    return own ? new mongoose.Types.ObjectId(own) : null;
+  }
+  if (explicitClientId && mongoose.Types.ObjectId.isValid(explicitClientId)) {
+    return new mongoose.Types.ObjectId(explicitClientId);
+  }
+  return null;
+}
+
 // ── Serializers (flat shapes for the client) ───────────────────────────────────
 
 export function serializeFolder(folder: any) {
@@ -214,6 +276,7 @@ export function serializeFolder(folder: any) {
     kind: "folder" as const,
     name: folder.name,
     parentId: folder.parentId ? folder.parentId.toString() : null,
+    clientId: folder.clientId ? folder.clientId.toString() : null,
     createdBy: folder.createdBy ?? null,
     createdAt: folder.createdAt,
     updatedAt: folder.updatedAt,
@@ -226,6 +289,7 @@ export function serializeFile(file: any) {
     kind: "file" as const,
     name: file.name,
     folderId: file.folderId ? file.folderId.toString() : null,
+    clientId: file.clientId ? file.clientId.toString() : null,
     mimeType: file.mimeType,
     ext: file.ext,
     size: file.size,

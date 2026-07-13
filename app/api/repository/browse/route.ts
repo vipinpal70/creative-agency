@@ -9,6 +9,8 @@ import {
   serializeFolder,
   serializeFile,
   canManageRepository,
+  repoVisibilityFilter,
+  canAccessRepoItem,
 } from "@/lib/storage/repository";
 
 type SortKey = "name" | "created" | "modified" | "size";
@@ -29,10 +31,29 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get("q") || "").trim();
-    const folderId = normalizeFolderId(searchParams.get("folderId"));
+    let folderId = normalizeFolderId(searchParams.get("folderId"));
     const type = (searchParams.get("type") || "").trim();
     const sort = (searchParams.get("sort") || "name") as SortKey;
     const dir = searchParams.get("dir") === "desc" ? -1 : 1;
+
+    // Per-client visibility. `null` means a client with no linked Client record,
+    // so they see an empty repository.
+    const scope = await repoVisibilityFilter(session, searchParams.get("clientId"));
+    if (scope === null) {
+      return NextResponse.json({
+        folderId: null, breadcrumbs: [], folders: [], files: [],
+        canManage: canManageRepository(session.role), searching: false,
+      });
+    }
+
+    // A client opening a folder they don't own is bounced to their own root
+    // (prevents enumerating another client's folder names via breadcrumbs).
+    if (folderId) {
+      const current = await RepoFolder.findById(folderId).select("clientId").lean();
+      if (!current || !(await canAccessRepoItem(session, (current as any).clientId))) {
+        folderId = null;
+      }
+    }
 
     const searching = q.length > 0;
 
@@ -47,8 +68,8 @@ export async function GET(req: NextRequest) {
       sort === "size" ? { size: dir } :
       { name: dir };
 
-    const folderFilter: Record<string, any> = {};
-    const fileFilter: Record<string, any> = {};
+    const folderFilter: Record<string, any> = { ...scope };
+    const fileFilter: Record<string, any> = { ...scope };
 
     if (searching) {
       const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");

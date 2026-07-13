@@ -7,6 +7,8 @@ import {
   resolveActor,
   normalizeFolderId,
   serializeFolder,
+  canAccessRepoItem,
+  resolveNewItemClientId,
 } from "@/lib/storage/repository";
 
 // POST /api/repository/folders  { name, parentId? }
@@ -32,15 +34,30 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
+    let parent: { clientId?: unknown } | null = null;
     if (parentId) {
-      const parent = await RepoFolder.findById(parentId).select("_id").lean();
+      parent = await RepoFolder.findById(parentId).select("_id clientId").lean();
       if (!parent) return NextResponse.json({ error: "Parent folder not found" }, { status: 404 });
+      // A client may only create inside a folder they own.
+      if (!(await canAccessRepoItem(session, parent.clientId))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
+    const clientId = await resolveNewItemClientId({
+      session,
+      parent,
+      explicitClientId: body.clientId ?? null,
+    });
+    // A client account with no linked Client record cannot own repository items.
+    if (session.role === "client" && !clientId) {
+      return NextResponse.json({ error: "No client workspace linked to this account" }, { status: 403 });
     }
 
     const actor = await resolveActor(session);
 
     try {
-      const folder = await RepoFolder.create({ name, parentId, createdBy: actor });
+      const folder = await RepoFolder.create({ name, parentId, clientId, createdBy: actor });
       return NextResponse.json(serializeFolder(folder.toObject()), { status: 201 });
     } catch (err: any) {
       if (err?.code === 11000) {

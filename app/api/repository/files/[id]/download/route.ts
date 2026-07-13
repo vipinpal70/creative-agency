@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import { getSession } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import RepoFile from "@/lib/models/repo-file.model";
-import { resolveRepoFilePath, mimeForFile } from "@/lib/storage/repository";
+import { resolveRepoFilePath, mimeForFile, canAccessRepoItem } from "@/lib/storage/repository";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -24,6 +24,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 
     const file = await RepoFile.findById(id).lean();
     if (!file) return NextResponse.json({ error: "File not found" }, { status: 404 });
+    // A client may only download files in their own scope.
+    if (!(await canAccessRepoItem(session, (file as any).clientId))) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
 
     const abs = resolveRepoFilePath((file as any).storageKey);
     if (!abs) return NextResponse.json({ error: "Access denied" }, { status: 403 });

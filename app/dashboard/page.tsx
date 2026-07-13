@@ -1,34 +1,28 @@
-// app/dashboard/page.tsx — Server Component
+// app/dashboard/page.tsx — Admin/Member dashboard (dynamic Server Component)
 import Link from "next/link";
-import { seedClients, seedCalendarItems } from "@/lib/seed";
+import { redirect } from "next/navigation";
+import { connectDB } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import Client from "@/lib/models/client.model";
+import ScopeOfWork from "@/lib/models/scope-of-work.model";
+import Deliverable from "@/lib/models/deliverable.model";
+import Task from "@/lib/models/task.model";
+import ContentDraft from "@/lib/models/content-draft.model";
+import User from "@/lib/models/user.model";
 import { MODULES } from "@/lib/types";
-import type { ContentStatus } from "@/lib/types";
-import {Users, CheckCircle, Calendar, FileText, PieChart, Clock, User} from "lucide-react";
+import { normalizeTaskStatus } from "@/lib/task-status";
+import {
+  normalizeDraftStatus,
+  normalizeDeliverableStatus,
+  STATUS_LABEL,
+  STATUS_COLOR,
+} from "@/lib/status-flow";
+import { Users, CheckCircle, Clock, FileText } from "lucide-react";
 
-// helpers
-const TODAY = new Date("2026-06-15");
+// Always render with fresh data — this reads live collections on each request.
+export const dynamic = "force-dynamic";
 
-function upcoming7() {
-  return seedCalendarItems
-    .filter((i) => {
-      const d = new Date(i.date);
-      const diff = (d.getTime() - TODAY.getTime()) / 86_400_000;
-      return diff >= 0 && diff <= 7;
-    })
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 6);
-}
-
-function overdueItems() {
-  return seedCalendarItems.filter(
-    (i) =>
-      new Date(i.date) < TODAY &&
-      i.contentStatus !== "Published" &&
-      i.taskStatus !== "Approved",
-  );
-}
-
-// design tokens 
+// ── design tokens ───────────────────────────────────────────────────────────
 
 const MODULE_COLORS: Record<string, string> = {
   social: "#6366f1",
@@ -43,21 +37,220 @@ const MODULE_COLORS: Record<string, string> = {
   custom: "#64748b",
 };
 
-const STATUS_STYLES: Record<ContentStatus, { bg: string; text: string; dot: string }> = {
-  Draft: { bg: "bg-gray-100", text: "text-gray-500", dot: "bg-gray-400" },
-  Approved: { bg: "bg-emerald-50", text: "text-emerald-600", dot: "bg-emerald-500" },
-  Scheduled: { bg: "bg-indigo-50", text: "text-indigo-600", dot: "bg-indigo-500" },
-  Published: { bg: "bg-violet-50", text: "text-violet-600", dot: "bg-violet-500" },
+// Deliverable delivery is considered complete at design_approved (nothing sets
+// "delivered" automatically) — matches the clients list computation.
+const DELIVERED_STATUSES = new Set(["delivered", "design_approved"]);
+
+const moduleLabel = (key: string) => MODULES.find((m) => m.key === key)?.label ?? key;
+
+// ── data ────────────────────────────────────────────────────────────────────
+
+async function getDashboardData() {
+  await connectDB();
+
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const in7Days = new Date(startOfToday.getTime() + 7 * 86_400_000);
+
+  const [clients, scopes, deliverables, tasks, drafts, users] = await Promise.all([
+    Client.find({}, { name: 1, brandName: 1, status: 1 }).lean(),
+    ScopeOfWork.find({ isActive: true }, { clientId: 1, items: 1 }).lean(),
+    Deliverable.find({}, { clientId: 1, module: 1, status: 1, scheduledDate: 1, title: 1 }).lean(),
+    Task.find({}, { status: 1, assignedToId: 1, endDate: 1, updatedAt: 1 }).lean(),
+    ContentDraft.find({ archivedAt: null }, { status: 1 }).lean(),
+    User.find({}, { firstName: 1, lastName: 1 }).lean(),
+  ]);
+
+  const inMonth = (d?: Date | null) => !!d && d >= startOfMonth && d <= endOfMonth;
+  const isDelivered = (status: string) => DELIVERED_STATUSES.has(normalizeDeliverableStatus(status));
+
+  const clientMap = new Map(clients.map((c) => [String(c._id), c.name]));
+  const userMap = new Map(
+    users.map((u) => [String(u._id), [u.firstName, u.lastName].filter(Boolean).join(" ")])
+  );
+
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+  const totalClients = clients.length;
+  const activeClients = clients.filter((c) => c.status === "active").length;
+
+  const openTasks = tasks.filter((t) => normalizeTaskStatus(t.status) !== "CLOSED").length;
+  const dueToday = tasks.filter(
+    (t) =>
+      normalizeTaskStatus(t.status) !== "CLOSED" &&
+      t.endDate &&
+      new Date(t.endDate) >= startOfToday &&
+      new Date(t.endDate) <= endOfToday
+  ).length;
+
+  let contentReview = 0;
+  let designReview = 0;
+  let approved = 0;
+  let rejected = 0;
+  for (const d of drafts) {
+    const st = normalizeDraftStatus(d.status) ?? d.status;
+    if (st === "content_internal_review" || st === "content_client_review") contentReview++;
+    else if (st === "design_internal_review" || st === "design_client_review") designReview++;
+    if (st === "design_approved") approved++;
+    else if (st === "rejected") rejected++;
+  }
+  const pendingApprovals = contentReview + designReview;
+
+  const overdueDeliverables = deliverables.filter(
+    (d) => d.scheduledDate && new Date(d.scheduledDate) < startOfToday && !isDelivered(d.status)
+  ).length;
+
+  const kpis = [
+    {
+      label: "Active Clients",
+      value: String(activeClients),
+      change: `${totalClients} total`,
+      accent: "bg-indigo-50 text-indigo-600",
+      icon: "users" as const,
+    },
+    {
+      label: "Open Tasks",
+      value: String(openTasks),
+      change: `${dueToday} due today`,
+      accent: "bg-blue-50 text-blue-600",
+      icon: "check" as const,
+    },
+    {
+      label: "Pending Approvals",
+      value: String(pendingApprovals),
+      change: `${contentReview} content · ${designReview} design`,
+      accent: "bg-amber-50 text-amber-600",
+      icon: "clock" as const,
+    },
+    {
+      label: "Overdue",
+      value: String(overdueDeliverables),
+      change: "past scheduled date",
+      accent: "bg-rose-50 text-rose-600",
+      icon: "file" as const,
+    },
+  ];
+
+  // ── Scope delivery per active client (monthly target vs delivered) ─────────
+  const deliveredByClientModule = new Map<string, number>();
+  for (const d of deliverables) {
+    if (!isDelivered(d.status) || !inMonth(d.scheduledDate ? new Date(d.scheduledDate) : null)) continue;
+    const key = `${String(d.clientId)}|${d.module}`;
+    deliveredByClientModule.set(key, (deliveredByClientModule.get(key) ?? 0) + 1);
+  }
+
+  const committedByClient = new Map<string, Map<string, number>>();
+  for (const s of scopes) {
+    const cid = String(s.clientId);
+    let mods = committedByClient.get(cid);
+    if (!mods) {
+      mods = new Map();
+      committedByClient.set(cid, mods);
+    }
+    for (const item of s.items ?? []) {
+      const committed = parseInt(item.unit ?? "0") || 0;
+      if (committed <= 0) continue;
+      mods.set(item.module, (mods.get(item.module) ?? 0) + committed);
+    }
+  }
+
+  const scopeDelivery = clients
+    .filter((c) => c.status === "active")
+    .map((c) => {
+      const cid = String(c._id);
+      const mods = committedByClient.get(cid) ?? new Map<string, number>();
+      const modules = Array.from(mods.entries()).map(([key, committed]) => {
+        const delivered = deliveredByClientModule.get(`${cid}|${key}`) ?? 0;
+        return {
+          key,
+          committed,
+          delivered,
+          pct: committed === 0 ? 0 : Math.round((delivered / committed) * 100),
+        };
+      });
+      return { id: cid, name: c.name, modules };
+    });
+
+  // ── Productivity: tasks closed this month, per assignee ────────────────────
+  const closedByUser = new Map<string, number>();
+  for (const t of tasks) {
+    if (normalizeTaskStatus(t.status) !== "CLOSED") continue;
+    if (!t.assignedToId || !inMonth(t.updatedAt ? new Date(t.updatedAt) : null)) continue;
+    const uid = String(t.assignedToId);
+    closedByUser.set(uid, (closedByUser.get(uid) ?? 0) + 1);
+  }
+  const productivity = Array.from(closedByUser.entries())
+    .map(([uid, count]) => ({ name: (userMap.get(uid) || "Unknown").split(" ")[0], tasks: count }))
+    .sort((a, b) => b.tasks - a.tasks)
+    .slice(0, 6);
+
+  // ── Approval rate (all non-archived copies) ────────────────────────────────
+  const totalDrafts = drafts.length;
+  const inReview = totalDrafts - approved - rejected;
+  const pct = (n: number) => (totalDrafts === 0 ? 0 : Math.round((n / totalDrafts) * 100));
+  const approval = {
+    approvedPct: pct(approved),
+    data: [
+      { label: "Approved", value: pct(approved), color: "#22c55e" },
+      { label: "In Review", value: pct(inReview), color: "#f59e0b" },
+      { label: "Rejected", value: pct(rejected), color: "#f43f5e" },
+    ],
+  };
+
+  // ── Upcoming (next 7 days) & Overdue deliverables ──────────────────────────
+  const fmt = (d: Date) =>
+    new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  const upcoming = deliverables
+    .filter((d) => {
+      if (!d.scheduledDate) return false;
+      const sd = new Date(d.scheduledDate);
+      return sd >= startOfToday && sd <= in7Days && !isDelivered(d.status);
+    })
+    .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+    .slice(0, 6)
+    .map((d) => ({
+      id: String(d._id),
+      title: d.title,
+      client: clientMap.get(String(d.clientId)) ?? "",
+      module: d.module,
+      date: fmt(d.scheduledDate),
+      status: normalizeDeliverableStatus(d.status),
+    }));
+
+  const overdue = deliverables
+    .filter((d) => d.scheduledDate && new Date(d.scheduledDate) < startOfToday && !isDelivered(d.status))
+    .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+    .slice(0, 6)
+    .map((d) => ({
+      id: String(d._id),
+      title: d.title,
+      client: clientMap.get(String(d.clientId)) ?? "",
+      module: d.module,
+      date: fmt(d.scheduledDate),
+      status: normalizeDeliverableStatus(d.status),
+    }));
+
+  return { kpis, scopeDelivery, productivity, approval, upcoming, overdue };
+}
+
+// ── sub-components ──────────────────────────────────────────────────────────
+
+const KPI_ICONS = {
+  users: <Users className="w-5 h-5" />,
+  check: <CheckCircle className="w-5 h-5" />,
+  clock: <Clock className="w-5 h-5" />,
+  file: <FileText className="w-5 h-5" />,
 };
 
-// sub-components 
-
-function ContentBadge({ status }: { status: ContentStatus }) {
-  const s = STATUS_STYLES[status];
+function StatusBadge({ status }: { status: string }) {
+  const label = STATUS_LABEL[status] ?? status;
+  const color = STATUS_COLOR[status] ?? "bg-gray-100 text-gray-600";
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wide ${s.bg} ${s.text}`}>
-      <span className={`w-1 h-1 rounded-full ${s.dot}`} />
-      {status}
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap ${color}`}>
+      {label}
     </span>
   );
 }
@@ -92,33 +285,29 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
   );
 }
 
-// bar chart (pure CSS, no recharts) 
-
-const PRODUCTIVITY = [
-  { name: "Sarah", tasks: 28 },
-  { name: "James", tasks: 22 },
-  { name: "Maya", tasks: 35 },
-  { name: "Alex", tasks: 18 },
-  { name: "Chen", tasks: 31 },
-  { name: "Priya", tasks: 25 },
-];
-const MAX_TASKS = Math.max(...PRODUCTIVITY.map((p) => p.tasks));
-
-function ProductivityChart() {
+function ProductivityChart({ data }: { data: { name: string; tasks: number }[] }) {
+  if (data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-36 text-[10px] text-gray-400">
+        No tasks completed yet this month.
+      </div>
+    );
+  }
+  const max = Math.max(...data.map((p) => p.tasks), 1);
   return (
     <div className="flex items-end gap-2 h-36 pt-3">
-      {PRODUCTIVITY.map((p, i) => {
-        const pct = Math.round((p.tasks / MAX_TASKS) * 100);
+      {data.map((p, i) => {
+        const pct = Math.round((p.tasks / max) * 100);
         const hue = 234 + i * 10;
         return (
-          <div key={p.name} className="flex flex-col items-center gap-1 flex-1">
+          <div key={p.name + i} className="flex flex-col items-center gap-1 flex-1">
             <span className="text-[9px] font-semibold text-gray-400">{p.tasks}</span>
             <div
               className="w-full rounded-t-md hover:opacity-75 transition-opacity cursor-default"
-              style={{ height: `${pct}%`, background: `hsl(${hue}, 78%, 62%)` }}
+              style={{ height: `${Math.max(pct, 4)}%`, background: `hsl(${hue}, 78%, 62%)` }}
               title={`${p.name}: ${p.tasks} tasks`}
             />
-            <span className="text-[9px] text-gray-400">{p.name}</span>
+            <span className="text-[9px] text-gray-400 truncate max-w-full">{p.name}</span>
           </div>
         );
       })}
@@ -126,19 +315,11 @@ function ProductivityChart() {
   );
 }
 
-// ── donut chart (pure SVG) ────────────────────────────────────────────────────
-
-const APPROVAL_DATA = [
-  { label: "Approved", value: 68, color: "#22c55e" },
-  { label: "Feedback", value: 22, color: "#f59e0b" },
-  { label: "Rejected", value: 10, color: "#f43f5e" },
-];
-
-function DonutChart() {
+function DonutChart({ data, centerPct }: { data: { label: string; value: number; color: string }[]; centerPct: number }) {
   const r = 52, cx = 68, cy = 68, sw = 18;
   const circ = 2 * Math.PI * r;
   let offset = 0;
-  const slices = APPROVAL_DATA.map((d) => {
+  const slices = data.map((d) => {
     const dash = (d.value / 100) * circ;
     const gap = circ - dash;
     const el = (
@@ -161,11 +342,11 @@ function DonutChart() {
       <svg width="136" height="136" viewBox="0 0 136 136">
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={sw} />
         {slices}
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="18" fontWeight="800" fill="#1e293b">68%</text>
+        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="18" fontWeight="800" fill="#1e293b">{centerPct}%</text>
         <text x={cx} y={cy + 13} textAnchor="middle" fontSize="9" fill="#94a3b8">Approved</text>
       </svg>
       <div className="flex flex-col gap-1.5 w-full px-1">
-        {APPROVAL_DATA.map((d) => (
+        {data.map((d) => (
           <div key={d.label} className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-sm" style={{ background: d.color }} />
@@ -179,87 +360,86 @@ function DonutChart() {
   );
 }
 
-// ── page ──────────────────────────────────────────────────────────────────────
+// ── page ────────────────────────────────────────────────────────────────────
 
-export default function DashboardPage() {
-  const upcomingList = upcoming7();
-  const overdueList = overdueItems();
+export default async function DashboardPage() {
+  const session = await getSession();
+  if (!session) redirect("/sign-in");
 
-  const kpis = [
-    { label: "Active Clients", value: String(seedClients.length), change: "+1 this month", icon: <Users className="w-5 h-5" />, accent: "bg-indigo-50 text-indigo-600" },
-    { label: "Open Tasks", value: "67", change: "12 due today", icon: <CheckCircle className="w-5 h-5" />, accent: "bg-blue-50 text-blue-600" },
-    { label: "Pending Approvals", value: "18", change: "5 overdue", icon: <Clock className="w-5 h-5" />, accent: "bg-amber-50 text-amber-600" },
-    { label: "Delayed Projects", value: "4", change: "-2 from last week", icon: <FileText className="w-5 h-5" />, accent: "bg-rose-50 text-rose-600" },
-  ];
+  await connectDB();
+  const me = await User.findById(session.userId, { firstName: 1 }).lean();
+  const firstName = (me as { firstName?: string } | null)?.firstName ?? "";
+
+  const { kpis, scopeDelivery, productivity, approval, upcoming, overdue } = await getDashboardData();
 
   return (
     <div className="max-w-7xl space-y-5">
-
       {/* Page header */}
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-gray-900">Dashboard</h1>
-        <p className="text-[11px] text-gray-400 mt-0.5">Welcome back, here&apos;s what&apos;s happening today.</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">
+          Welcome back{firstName ? `, ${firstName}` : ""} — here&apos;s what&apos;s happening today.
+        </p>
       </div>
 
       {/* ── KPI cards ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {kpis.map((kpi) => <KpiCard key={kpi.label} {...kpi} />)}
+        {kpis.map((kpi) => (
+          <KpiCard key={kpi.label} label={kpi.label} value={kpi.value} change={kpi.change} accent={kpi.accent} icon={KPI_ICONS[kpi.icon]} />
+        ))}
       </div>
 
       {/* ── Scope delivery ────────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-50">
           <div>
-            <h2 className="text-[12px] font-semibold text-gray-900">Scope delivery — target vs delivered</h2>
+            <h2 className="text-[12px] font-semibold text-gray-900">Scope delivery — target vs delivered (this month)</h2>
           </div>
           <Link href="/dashboard/clients" className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition-colors">
             All clients →
           </Link>
         </div>
         <div className="divide-y divide-gray-50">
-          {seedClients.map((c) => (
+          {scopeDelivery.length === 0 && (
+            <p className="px-5 py-6 text-[10px] text-gray-400 text-center">No active clients yet.</p>
+          )}
+          {scopeDelivery.map((c) => (
             <div key={c.id} className="px-5 py-3.5 hover:bg-gray-50/40 transition-colors">
               <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[10px] font-semibold shadow-sm">
                     {c.name.charAt(0)}
                   </div>
-                  <span className="text-[12px] font-semibold text-gray-900">{c.name}</span>
+                  <Link href={`/dashboard/clients/${c.id}`} className="text-[12px] font-semibold text-gray-900 hover:text-indigo-600 transition-colors">
+                    {c.name}
+                  </Link>
                 </div>
                 <div className="flex flex-wrap gap-1 justify-end">
-                  {c.activeModules.map((k) => {
-                    const m = MODULES.find((x) => x.key === k)!;
-                    const items = c.scope.filter((s) => s.module === k);
-                    const com = items.reduce((a, s) => a + (parseInt(s.unit || "0") || 0), 0);
-                    const del = items.reduce((a, s) => a + s.delivered, 0);
-                    const p = com === 0 ? 0 : Math.round((del / com) * 100);
-                    const color = MODULE_COLORS[k] ?? "#6366f1";
+                  {c.modules.map((m) => {
+                    const color = MODULE_COLORS[m.key] ?? "#6366f1";
                     return (
-                      <span key={k} className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: `${color}18`, color }}>
-                        {m.label} · {p}%
+                      <span key={m.key} className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: `${color}18`, color }}>
+                        {moduleLabel(m.key)} · {m.pct}%
                       </span>
                     );
                   })}
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                {c.activeModules.map((k) => {
-                  const m = MODULES.find((x) => x.key === k)!;
-                  const items = c.scope.filter((s) => s.module === k);
-                  const com = items.reduce((a, s) => a + (parseInt(s.unit || "0") || 0), 0);
-                  const del = items.reduce((a, s) => a + s.delivered, 0);
-                  const p = com === 0 ? 0 : Math.round((del / com) * 100);
-                  return (
-                    <div key={k}>
+              {c.modules.length === 0 ? (
+                <p className="text-[10px] text-gray-400 italic">No active scope of work.</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                  {c.modules.map((m) => (
+                    <div key={m.key}>
                       <div className="flex justify-between text-[9px] text-gray-400 mb-1">
-                        <span className="font-medium">{m.label}</span>
-                        <span>{del}/{com}</span>
+                        <span className="font-medium">{moduleLabel(m.key)}</span>
+                        <span>{m.delivered}/{m.committed}</span>
                       </div>
-                      <ProgressBar value={p} color={MODULE_COLORS[k] ?? "#6366f1"} />
+                      <ProgressBar value={m.pct} color={MODULE_COLORS[m.key] ?? "#6366f1"} />
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -270,18 +450,17 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-[12px] font-semibold text-gray-900">Productivity per Team Member</h2>
           <p className="text-[10px] text-gray-400 mt-0.5 mb-1">Tasks completed this month</p>
-          <ProductivityChart />
+          <ProductivityChart data={productivity} />
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-[12px] font-semibold text-gray-900">Approval Rate</h2>
           <p className="text-[10px] text-gray-400 mt-0.5 mb-3">Across all client content</p>
-          <DonutChart />
+          <DonutChart data={approval.data} centerPct={approval.approvedPct} />
         </div>
       </div>
 
       {/* ── Upcoming & Overdue ───────────────────────────────────────── */}
       <div className="grid md:grid-cols-2 gap-3">
-
         {/* Upcoming */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-50">
@@ -294,18 +473,20 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-gray-50">
-            {upcomingList.length === 0 && (
+            {upcoming.length === 0 && (
               <p className="px-5 py-6 text-[10px] text-gray-400 text-center">Nothing in the next 7 days ✨</p>
             )}
-            {upcomingList.map((i) => {
-              const m = MODULES.find((x) => x.key === i.module)!;
-              const color = MODULE_COLORS[m.key] ?? "#6366f1";
+            {upcoming.map((i) => {
+              const color = MODULE_COLORS[i.module] ?? "#6366f1";
               return (
                 <div key={i.id} className="flex items-center gap-2.5 px-5 py-2.5 hover:bg-gray-50/50 transition-colors group">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
-                  <span className="text-[9px] text-gray-400 w-14 shrink-0">{i.date}</span>
-                  <p className="text-[11px] text-gray-700 flex-1 truncate group-hover:text-indigo-600 transition-colors">{i.title}</p>
-                  <ContentBadge status={i.contentStatus} />
+                  <span className="text-[9px] text-gray-400 w-12 shrink-0">{i.date}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-gray-700 truncate group-hover:text-indigo-600 transition-colors">{i.title}</p>
+                    {i.client && <p className="text-[9px] text-gray-400 truncate">{i.client}</p>}
+                  </div>
+                  <StatusBadge status={i.status} />
                 </div>
               );
             })}
@@ -319,18 +500,20 @@ export default function DashboardPage() {
             <h2 className="text-[12px] font-semibold text-rose-500">Overdue</h2>
           </div>
           <div className="divide-y divide-gray-50">
-            {overdueList.length === 0 && (
+            {overdue.length === 0 && (
               <p className="px-5 py-6 text-[10px] text-gray-400 text-center">All clear ✨</p>
             )}
-            {overdueList.map((i) => {
-              const m = MODULES.find((x) => x.key === i.module)!;
-              const color = MODULE_COLORS[m.key] ?? "#6366f1";
+            {overdue.map((i) => {
+              const color = MODULE_COLORS[i.module] ?? "#6366f1";
               return (
                 <div key={i.id} className="flex items-center gap-2.5 px-5 py-2.5 hover:bg-rose-50/30 transition-colors">
                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
-                  <span className="text-[9px] text-rose-400 w-14 shrink-0">{i.date}</span>
-                  <p className="text-[11px] text-gray-700 flex-1 truncate">{i.title}</p>
-                  <ContentBadge status={i.contentStatus} />
+                  <span className="text-[9px] text-rose-400 w-12 shrink-0">{i.date}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-gray-700 truncate">{i.title}</p>
+                    {i.client && <p className="text-[9px] text-gray-400 truncate">{i.client}</p>}
+                  </div>
+                  <StatusBadge status={i.status} />
                 </div>
               );
             })}
@@ -346,8 +529,8 @@ export default function DashboardPage() {
           <div>
             <h3 className="text-sm font-semibold tracking-tight">Everything under control?</h3>
             <p className="text-[11px] text-indigo-100 mt-0.5">
-              {overdueList.length > 0
-                ? `${overdueList.length} overdue item${overdueList.length > 1 ? "s" : ""} need attention.`
+              {overdue.length > 0
+                ? `${overdue.length} overdue item${overdue.length > 1 ? "s" : ""} need attention.`
                 : "No overdue items — great work! 🎉"}
             </p>
           </div>

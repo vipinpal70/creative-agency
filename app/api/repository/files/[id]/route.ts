@@ -12,6 +12,7 @@ import {
   mimeForFile,
   categoryFor,
   serializeFile,
+  canAccessRepoItem,
 } from "@/lib/storage/repository";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -35,6 +36,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     const file = await RepoFile.findById(id);
     if (!file) return NextResponse.json({ error: "File not found" }, { status: 404 });
+    // A client may only touch files in their own scope.
+    if (!(await canAccessRepoItem(session, file.clientId))) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
 
     if (body.name !== undefined) {
       const name = (body.name || "").trim();
@@ -52,11 +57,23 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     if (body.folderId !== undefined) {
       const target = normalizeFolderId(body.folderId);
+      let targetClientId: mongoose.Types.ObjectId | null = null;
       if (target) {
-        const folder = await RepoFolder.findById(target).select("_id").lean();
+        const folder = await RepoFolder.findById(target).select("_id clientId").lean();
         if (!folder) return NextResponse.json({ error: "Target folder not found" }, { status: 404 });
+        if (!(await canAccessRepoItem(session, (folder as any).clientId))) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        targetClientId = (folder as any).clientId
+          ? new mongoose.Types.ObjectId(String((folder as any).clientId))
+          : null;
       }
       file.folderId = target ? new mongoose.Types.ObjectId(target) : null;
+      // Staff moves re-scope the file to its destination (e.g. into a client's
+      // space); a client's files always stay in their own scope.
+      if (session.role !== "client") {
+        file.clientId = targetClientId;
+      }
     }
 
     try {
@@ -96,6 +113,9 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
     const file = await RepoFile.findById(id).lean();
     if (!file) return NextResponse.json({ message: "Already deleted", deleted: false });
+    if (!(await canAccessRepoItem(session, (file as any).clientId))) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
 
     await deleteRepoFile((file as any).storageKey);
     await RepoFile.deleteOne({ _id: id });
