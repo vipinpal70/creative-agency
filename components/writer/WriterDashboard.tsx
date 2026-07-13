@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
   ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck, ChevronDown,
+  Pen,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -360,7 +361,9 @@ export default function WriterDashboard() {
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Writer's Workspace</h1>
+          <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+            <Pen className="w-5 h-5"/> Writer's Workspace
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Multi-channel production hub — social, email, paid, SEO.
           </p>

@@ -46,13 +46,12 @@ echo "🚀 Step 4: Starting/Reloading PM2..."
 
 if pm2 describe "$PM2_APP_NAME" >/dev/null 2>&1; then
     echo "Reloading existing PM2 process..."
-    pm2 reload "$PM2_APP_NAME" --update-env
+    pm2 reload "$PM2_APP_NAME"
 else
     echo "Starting new PM2 process..."
     pm2 start npm \
         --name "$PM2_APP_NAME" \
         --cwd "$PROJECT_DIR" \
-        --update-env \
         -- start
 fi
 

@@ -5,6 +5,7 @@ import ContentDraft from "@/lib/models/content-draft.model";
 import CreativeUpload from "@/lib/models/creative-uploads";
 import Client from "@/lib/models/client.model";
 import DraftHistory from "@/lib/models/draft-history.model";
+import Deliverable from "@/lib/models/deliverable.model";
 
 // How long an archived copy is retained before it is permanently deleted.
 export const ARCHIVE_RETENTION_DAYS = 14;
@@ -133,6 +134,23 @@ export async function purgeDraft(
   await DraftHistory.deleteMany({ draftId: (draft as any)._id });
 
   const res = await ContentDraft.deleteOne({ _id: (draft as any)._id });
+
+  // Delete the associated Deliverable to remove it from the content calendar.
+  if (draft.deliverableId) {
+    await Deliverable.deleteOne({ _id: draft.deliverableId });
+
+    // Also clean up any other drafts (versions) of this same deliverable.
+    const otherDrafts = await ContentDraft.find({
+      deliverableId: draft.deliverableId,
+      _id: { $ne: (draft as any)._id }
+    }).lean();
+
+    for (const d of otherDrafts) {
+      await deleteDraftFiles(d as any);
+      await DraftHistory.deleteMany({ draftId: d._id });
+      await ContentDraft.deleteOne({ _id: d._id });
+    }
+  }
 
   return { deleted: res.deletedCount > 0, filesRemoved };
 }

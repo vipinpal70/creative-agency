@@ -54,15 +54,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             {/* Divider */}
             <div className="w-px h-5 bg-gray-100" />
 
-            {/* User info */}
-            <div className="hidden sm:flex flex-col items-end">
-              <span className="text-[11px] font-semibold text-gray-700 leading-none">{session.email}</span>
-              <span className="text-[9px] text-gray-400 capitalize mt-0.5">{session.role}</span>
-            </div>
-
             {/* Avatar */}
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold text-[11px] cursor-pointer">
               {initials}
+            </div>
+
+            {/* User info */}
+            <div className="hidden sm:flex flex-col items-start">
+              <span className="text-[11px] font-semibold text-gray-700 leading-none">{session.email}</span>
+              <span className="text-[9px] text-gray-400 capitalize mt-0.5">{session.role}</span>
             </div>
           </div>
         </header>

@@ -96,7 +96,7 @@ export default function ActivityLogsPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-xl font-extrabold tracking-tight text-gray-900">Activity Logs</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-gray-900">Activity Logs</h1>
           <p className="text-[11px] text-gray-400 mt-0.5">
             Audit trail of request payloads, actions, timestamps, and user information across the application.
           </p>
@@ -109,7 +109,7 @@ export default function ActivityLogsPage() {
       {/* Filter Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm">
         <div>
-          <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Search Logs</label>
+          <label className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">Search Logs</label>
           <input
             type="text"
             placeholder="Search by email, name, path, description..."
@@ -120,7 +120,7 @@ export default function ActivityLogsPage() {
         </div>
 
         <div>
-          <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Action Type</label>
+          <label className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">Action Type</label>
           <select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
@@ -139,7 +139,7 @@ export default function ActivityLogsPage() {
         </div>
 
         <div>
-          <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mb-1">HTTP Method</label>
+          <label className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">HTTP Method</label>
           <select
             value={methodFilter}
             onChange={(e) => setMethodFilter(e.target.value)}
@@ -157,7 +157,7 @@ export default function ActivityLogsPage() {
 
       {/* Logs Table */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="grid grid-cols-[1.5fr_1.8fr_1fr_2.5fr_0.8fr] gap-4 px-5 py-2.5 bg-gray-50 border-b border-gray-100 text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+        <div className="grid grid-cols-[1.5fr_1.8fr_1fr_2.5fr_0.8fr] gap-4 px-5 py-2.5 bg-gray-50 border-b border-gray-100 text-[9px] font-semibold text-gray-400 uppercase tracking-wider">
           <span>Timestamp</span>
           <span>User Info</span>
           <span>Method / Path</span>
@@ -199,7 +199,7 @@ export default function ActivityLogsPage() {
 
                 {/* Method / Path */}
                 <div className="space-y-1">
-                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${getMethodBadge(log.method)}`}>
+                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-semibold uppercase border ${getMethodBadge(log.method)}`}>
                     {log.method}
                   </span>
                   <p className="text-[9px] text-gray-400 truncate font-mono mt-0.5" title={log.url}>{log.url}</p>
@@ -207,7 +207,7 @@ export default function ActivityLogsPage() {
 
                 {/* Action & Details */}
                 <div className="min-w-0 pr-2 space-y-1">
-                  <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-bold border ${getActionBadge(log.action)}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-semibold border ${getActionBadge(log.action)}`}>
                     {log.action}
                   </span>
                   <p className="text-gray-600 truncate text-[10px] mt-0.5" title={log.details}>{log.details}</p>
@@ -217,7 +217,7 @@ export default function ActivityLogsPage() {
                 <div>
                   <button
                     onClick={() => setSelectedLog(log)}
-                    className="px-2.5 py-1 text-indigo-600 border border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50 rounded-lg text-[9px] font-bold transition-all"
+                    className="px-2.5 py-1 text-indigo-600 border border-indigo-100 bg-indigo-50/50 hover:bg-indigo-50 rounded-lg text-[9px] font-semibold transition-all"
                   >
                     Inspect
                   </button>
@@ -232,20 +232,20 @@ export default function ActivityLogsPage() {
       {!loading && pages > 1 && (
         <div className="flex items-center justify-between px-1">
           <p className="text-[10px] text-gray-400">
-            Showing page <span className="font-bold text-gray-700">{page}</span> of <span className="font-bold text-gray-700">{pages}</span> ({total} logs total)
+            Showing page <span className="font-semibold text-gray-700">{page}</span> of <span className="font-semibold text-gray-700">{pages}</span> ({total} logs total)
           </p>
           <div className="flex gap-1">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-2.5 py-1.5 text-[10px] font-bold border border-gray-200 hover:bg-gray-50 rounded-lg disabled:opacity-50 disabled:pointer-events-none transition-all"
+              className="px-2.5 py-1.5 text-[10px] font-semibold border border-gray-200 hover:bg-gray-50 rounded-lg disabled:opacity-50 disabled:pointer-events-none transition-all"
             >
               Previous
             </button>
             <button
               onClick={() => setPage((p) => Math.min(pages, p + 1))}
               disabled={page === pages}
-              className="px-2.5 py-1.5 text-[10px] font-bold border border-gray-200 hover:bg-gray-50 rounded-lg disabled:opacity-50 disabled:pointer-events-none transition-all"
+              className="px-2.5 py-1.5 text-[10px] font-semibold border border-gray-200 hover:bg-gray-50 rounded-lg disabled:opacity-50 disabled:pointer-events-none transition-all"
             >
               Next
             </button>
@@ -260,7 +260,7 @@ export default function ActivityLogsPage() {
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[85vh] flex flex-col">
             <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100 shrink-0">
               <div>
-                <h2 className="text-sm font-bold text-gray-900">Log Inspector</h2>
+                <h2 className="text-sm font-semibold text-gray-900">Log Inspector</h2>
                 <p className="text-[10px] text-gray-400 mt-0.5">ID: {selectedLog._id}</p>
               </div>
               <button onClick={() => setSelectedLog(null)} className="text-gray-300 hover:text-gray-600 text-lg leading-none">×</button>
@@ -269,48 +269,48 @@ export default function ActivityLogsPage() {
             <div className="p-5 overflow-y-auto space-y-4 text-[11px] flex-1">
               <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
                 <div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">Timestamp</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">Timestamp</p>
                   <p className="font-semibold text-gray-800 mt-0.5">{new Date(selectedLog.createdAt).toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">Action</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">Action</p>
                   <p className="font-semibold text-indigo-600 mt-0.5">{selectedLog.action}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">User Account</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">User Account</p>
                   <p className="font-semibold text-gray-800 mt-0.5">{selectedLog.userEmail || "Anonymous"}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">IP Address</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">IP Address</p>
                   <p className="font-semibold text-gray-800 mt-0.5">{selectedLog.ip || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">URL Path</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">URL Path</p>
                   <p className="font-semibold text-gray-800 mt-0.5 font-mono">{selectedLog.method} {selectedLog.url}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">Status Code</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">Status Code</p>
                   <p className="font-semibold text-gray-800 mt-0.5">{selectedLog.status || "—"}</p>
                 </div>
               </div>
 
               {selectedLog.details && (
                 <div className="space-y-1">
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">Description</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">Description</p>
                   <p className="bg-gray-50 p-3 rounded-lg text-gray-700 font-medium">{selectedLog.details}</p>
                 </div>
               )}
 
               {selectedLog.userAgent && (
                 <div className="space-y-1">
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">User Agent</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">User Agent</p>
                   <p className="bg-gray-50 p-2.5 rounded-lg text-gray-600 font-mono text-[10px] break-all">{selectedLog.userAgent}</p>
                 </div>
               )}
 
               {selectedLog.requestData && (
                 <div className="space-y-1">
-                  <p className="text-[9px] text-gray-400 font-bold uppercase">Request Data (Sanitized)</p>
+                  <p className="text-[9px] text-gray-400 font-semibold uppercase">Request Data (Sanitized)</p>
                   <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-[10px] font-mono overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
                     {JSON.stringify(selectedLog.requestData, null, 2)}
                   </pre>
@@ -321,7 +321,7 @@ export default function ActivityLogsPage() {
             <div className="p-4 border-t border-gray-50 bg-gray-50/50 shrink-0">
               <button
                 onClick={() => setSelectedLog(null)}
-                className="w-full py-2 rounded-lg text-gray-600 hover:bg-gray-100 border border-gray-200 text-[11px] font-bold transition-all"
+                className="w-full py-2 rounded-lg text-gray-600 hover:bg-gray-100 border border-gray-200 text-[11px] font-semibold transition-all"
               >
                 Close Inspector
               </button>

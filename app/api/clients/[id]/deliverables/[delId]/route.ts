@@ -6,6 +6,8 @@ import Deliverable from "@/lib/models/deliverable.model";
 import type { DeliverableStatus, TimelineStatus } from "@/lib/models/deliverable.model";
 import User from "@/lib/models/user.model";
 import { normalizeDeliverableStatus } from "@/lib/status-flow";
+import { purgeDraft } from "@/lib/copy-cleanup";
+import ContentDraft from "@/lib/models/content-draft.model";
 
 type Ctx = { params: Promise<{ id: string; delId: string }> };
 
@@ -164,6 +166,12 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     const deliverable = await Deliverable.findOneAndDelete({ _id: delId, clientId: id });
     if (!deliverable) {
       return NextResponse.json({ error: "Deliverable not found" }, { status: 404 });
+    }
+
+    // Also clean up any drafts (and their files/history) for this deliverable
+    const drafts = await ContentDraft.find({ deliverableId: delId }).lean();
+    for (const d of drafts) {
+      await purgeDraft(d);
     }
 
     return NextResponse.json({ message: "Deliverable deleted" });

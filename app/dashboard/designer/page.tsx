@@ -54,8 +54,6 @@ function isCarousel(copy: ApprovalCopy) {
   return copy.mediaType.toLowerCase() === "carousel" || (copy.frames?.length ?? 0) > 1;
 }
 
-// ─── Design activity trail (lazy-loaded from draft history) ──────────────────
-
 interface HistoryEntry {
   id: string;
   action: "created" | "edited" | "submitted" | "approved" | "rejected";
@@ -132,8 +130,6 @@ function ActivityTrail({ copy }: { copy: ApprovalCopy }) {
     </div>
   );
 }
-
-// ─── Copy card ────────────────────────────────────────────────────────────────
 
 const CopyCard = memo(function CopyCard({
   copy,
@@ -480,7 +476,7 @@ const CopyCard = memo(function CopyCard({
                     variant="outline"
                     size="sm"
                     className="w-full h-7 text-[11px]"
-                    disabled={uploadingFrame !== null}
+                    disabled={uploadingFrame !== null || (!!claimer && !isMine)}
                     onClick={() => pickFile(frame.frameNo)}
                   >
                     {uploadingFrame === frame.frameNo ? (
@@ -528,7 +524,7 @@ const CopyCard = memo(function CopyCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={uploadingFrame !== null}
+                  disabled={uploadingFrame !== null || (!!claimer && !isMine)}
                   onClick={() => pickFile(null)}
                 >
                   {uploadingFrame !== null ? (
@@ -541,7 +537,7 @@ const CopyCard = memo(function CopyCard({
               )}
               <Button
                 size="sm"
-                disabled={submitting || uploadingFrame !== null || !canSubmit}
+                disabled={submitting || uploadingFrame !== null || !canSubmit || (!!claimer && !isMine)}
                 onClick={handleSubmit}
               >
                 {submitting ? (
@@ -631,7 +627,6 @@ const CopyCard = memo(function CopyCard({
   );
 });
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DesignerPage() {
   const { user } = useAuth();

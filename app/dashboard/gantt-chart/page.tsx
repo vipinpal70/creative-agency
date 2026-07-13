@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import type { IApi } from "@svar-ui/react-gantt";
-import { Building2, ChevronDown, Copy } from "lucide-react";
+import { Building2, ChartBarStacked, ChevronDown, Copy, ListTodo } from "lucide-react";
 import { toast } from "sonner";
 
 import GanttChart from "@/components/GanttChart";
@@ -53,7 +53,10 @@ export default function GanttPage() {
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex items-start justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Gantt Chart</h1>
+          <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+            <ChartBarStacked className="w-5 h-5" />
+            Gantt Chart
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">Strategic planning and phase tracking</p>
         </div>
 

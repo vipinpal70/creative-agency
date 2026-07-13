@@ -387,7 +387,9 @@ export default function ContentCalendar({
     <div className="space-y-5">
       {/* Page header */}
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Content Calendar</h1>
+        <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
+          <CalendarDays className="w-5 h-5" /> Content Calendar
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           All channels in one view — click any item to preview, edit, or approve.
         </p>

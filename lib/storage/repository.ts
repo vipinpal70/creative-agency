@@ -13,7 +13,7 @@ export const MAX_REPO_FILE_BYTES = 100 * 1024 * 1024;
 
 // Roles permitted to mutate the repository (create/rename/upload/move/delete).
 export function canManageRepository(role?: string): boolean {
-  return role === "admin" || role === "member";
+  return role === "admin" || role === "member" || role === "client" || role === "sub-user";
 }
 
 // Physical store lives alongside the existing private `storage/` tree.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Building2, Tag } from "lucide-react";
+import { Plus, Building2, Tag, ListChecks } from "lucide-react";
 import { NewTaskModal } from "@/components/tasks/NewTaskModal";
 import { TaskDetailModal } from "@/components/tasks/TaskDetailModal";
 import { KanbanBoard } from "@/components/tasks/KanbanBoard";
@@ -251,7 +251,10 @@ export default function TasksPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 mb-1">Task Board</h1>
+          <h1 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2">
+            <ListChecks className="w-5 h-5" />
+            Task Board
+          </h1>
           <p className="text-gray-500 text-sm">Kanban view of all tasks.</p>
         </div>
 

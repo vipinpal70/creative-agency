@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
     const module = searchParams.get("module");
     const status = searchParams.get("status");
 
-    const filter: Record<string, any> = { createdBy: session.userId };
+    const filter: Record<string, any> = {};
+    if (session.role !== "admin" && session.role !== "member") {
+      filter.createdBy = session.userId;
+    }
     if (module) filter.module = module;
     if (status) filter.status = status;
 
