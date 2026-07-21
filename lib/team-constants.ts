@@ -10,6 +10,7 @@ export type TeamMemberRole =
   | "CONTENT_WRITER"
   | "GRAPHIC_DESIGNER"
   | "VIDEO_EDITOR"
+  | "PHOTO_VIDEOGRAPHER"
   | "SEO_SPECIALIST"
   | "PERFORMANCE_MARKETING_SPECIALIST"
   | "EMAIL_MARKETING_SPECIALIST"
@@ -28,6 +29,7 @@ export const TEAM_ROLES: TeamMemberRole[] = [
   "CONTENT_WRITER",
   "GRAPHIC_DESIGNER",
   "VIDEO_EDITOR",
+  "PHOTO_VIDEOGRAPHER",
   "SEO_SPECIALIST",
   "PERFORMANCE_MARKETING_SPECIALIST",
   "EMAIL_MARKETING_SPECIALIST",
@@ -44,6 +46,7 @@ export const ROLE_DISPLAY_NAMES: Record<TeamMemberRole, string> = {
   CONTENT_WRITER: "Content Writer",
   GRAPHIC_DESIGNER: "Graphic Designer",
   VIDEO_EDITOR: "Video Editor",
+  PHOTO_VIDEOGRAPHER: "Photo / Videographer",
   SEO_SPECIALIST: "SEO Specialist",
   PERFORMANCE_MARKETING_SPECIALIST: "Performance Marketing Specialist",
   EMAIL_MARKETING_SPECIALIST: "Email Marketing Specialist",

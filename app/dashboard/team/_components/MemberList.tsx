@@ -19,6 +19,7 @@ interface Member {
   name: string;
   email: string;
   phone?: string;
+  role?: string;            // auth-level role: "admin" | "member" | …
   roles: string[];
   status: TeamMemberStatus;
   type: TeamMemberType;
@@ -83,7 +84,9 @@ function DetailsModal({ member, onClose }: { member: Member; onClose: () => void
             </div>
             <div>
               <h3 className="text-sm font-bold text-gray-900">{member.name}</h3>
-              <p className="text-[10px] text-gray-400 capitalize">{member.type} Member · {member.status}</p>
+              <p className="text-[10px] text-gray-400 capitalize">
+                {member.role === "admin" ? "Admin" : `${member.type} Member`} · {member.status}
+              </p>
             </div>
           </div>
 
@@ -98,16 +101,20 @@ function DetailsModal({ member, onClose }: { member: Member; onClose: () => void
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Member Type</span>
-              <span className="font-semibold text-gray-800 capitalize">{member.type}</span>
+              <span className="font-semibold text-gray-800 capitalize">{member.role === "admin" ? "Admin" : member.type}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Roles</span>
               <div className="flex flex-wrap gap-1 justify-end max-w-[70%]">
-                {member.roles.map(r => (
-                  <span key={r} className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-600">
-                    {ROLE_DISPLAY_NAMES[r as never] || r}
-                  </span>
-                ))}
+                {member.role === "admin" && (member.roles?.length ?? 0) === 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-violet-50 text-violet-700">Admin</span>
+                ) : (
+                  (member.roles || []).map(r => (
+                    <span key={r} className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-600">
+                      {ROLE_DISPLAY_NAMES[r as never] || r}
+                    </span>
+                  ))
+                )}
               </div>
             </div>
             <div className="flex justify-between">
@@ -416,7 +423,7 @@ export function MemberList() {
   const filtered = members.filter(m => {
     const statusMatch = filter === "all" ? true : m.status === filter;
     const typeMatch = typeFilter === "all" ? true : m.type === typeFilter;
-    const roleMatch = roleFilter === "all" ? true : m.roles.includes(roleFilter);
+    const roleMatch = roleFilter === "all" ? true : (m.roles || []).includes(roleFilter);
     return statusMatch && typeMatch && roleMatch;
   });
 
@@ -515,7 +522,9 @@ export function MemberList() {
         )}
 
         <div className="divide-y divide-gray-50">
-          {filtered.map(m => (
+          {filtered.map(m => {
+          const isAdmin = m.role === "admin";
+          return (
             <div key={m._id} className="grid grid-cols-[2.2fr_2.2fr_2.2fr_1.2fr_110px] gap-4 px-5 py-3 items-center hover:bg-gray-50/50 transition-colors">
               {/* Name + avatar */}
               <div className="flex items-center gap-2.5 min-w-0">
@@ -537,45 +546,64 @@ export function MemberList() {
 
               {/* Roles & Type */}
               <div className="flex flex-col gap-1 items-start">
-                <div className="flex flex-wrap gap-1">
-                  {m.roles.map(r => (
-                    <span key={r} className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-indigo-50/80 text-indigo-600 border border-indigo-100/30">
-                      {ROLE_DISPLAY_NAMES[r as never] || r}
+                {isAdmin ? (
+                  <span className="px-2 py-0.5 rounded-full text-[8px] font-bold uppercase bg-violet-50 text-violet-700 border border-violet-100">
+                    Admin
+                  </span>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-1">
+                      {m.roles.map(r => (
+                        <span key={r} className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-indigo-50/80 text-indigo-600 border border-indigo-100/30">
+                          {ROLE_DISPLAY_NAMES[r as never] || r}
+                        </span>
+                      ))}
+                    </div>
+                    <span className={`px-1 py-0.5 rounded text-[8px] font-bold uppercase ${m.type === "outsource" ? "bg-amber-50 text-amber-600" : "bg-teal-50 text-teal-600"}`}>
+                      {m.type}
                     </span>
-                  ))}
-                </div>
-                <span className={`px-1 py-0.5 rounded text-[8px] font-bold uppercase ${m.type === "outsource" ? "bg-amber-50 text-amber-600" : "bg-teal-50 text-teal-600"}`}>
-                  {m.type}
-                </span>
+                  </>
+                )}
               </div>
 
-              {/* Status toggle */}
-              <button onClick={() => toggleStatus(m)} disabled={togglingId === m._id} title="Toggle status"
-                className={`w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${m.status === "active" ? "bg-emerald-500 justify-end" : "bg-gray-200 justify-start"} ${togglingId === m._id ? "opacity-50" : ""}`}>
-                <span className="w-4 h-4 rounded-full bg-white shadow transition-all duration-200" />
-              </button>
+              {/* Status toggle — admins are read-only, shown as a static badge */}
+              {isAdmin ? (
+                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase shrink-0 ${m.status === "active" ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-400"}`}>
+                  {m.status}
+                </span>
+              ) : (
+                <button onClick={() => toggleStatus(m)} disabled={togglingId === m._id} title="Toggle status"
+                  className={`w-9 h-5 rounded-full p-0.5 transition-colors shrink-0 flex items-center ${m.status === "active" ? "bg-emerald-500 justify-end" : "bg-gray-200 justify-start"} ${togglingId === m._id ? "opacity-50" : ""}`}>
+                  <span className="w-4 h-4 rounded-full bg-white shadow transition-all duration-200" />
+                </button>
+              )}
 
-              {/* Actions */}
+              {/* Actions — admins are view-only (no edit/credentials/delete) */}
               <div className="flex items-center gap-1 shrink-0 justify-end">
                 <button onClick={() => setDetailsMember(m)} title="View Details"
                   className="p-1.5 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
                   <EyeIcon />
                 </button>
-                <button onClick={() => setEditMember(m)} title="Edit details"
-                  className="p-1.5 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
-                  <PencilIcon />
-                </button>
-                <button onClick={() => setCredsMember(m)} title="Credentials"
-                  className="p-1.5 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
-                  <KeyIcon />
-                </button>
-                <button onClick={() => setDeleteTarget(m)} title="Delete member"
-                  className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
-                  <TrashIcon />
-                </button>
+                {!isAdmin && (
+                  <>
+                    <button onClick={() => setEditMember(m)} title="Edit details"
+                      className="p-1.5 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
+                      <PencilIcon />
+                    </button>
+                    <button onClick={() => setCredsMember(m)} title="Credentials"
+                      className="p-1.5 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
+                      <KeyIcon />
+                    </button>
+                    <button onClick={() => setDeleteTarget(m)} title="Delete member"
+                      className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
+                      <TrashIcon />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
 

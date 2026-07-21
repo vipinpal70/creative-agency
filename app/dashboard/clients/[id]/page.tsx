@@ -15,6 +15,7 @@ import facebook from "@/app/assets/facebook.png";
 import linkedin from "@/app/assets/linkedin.png";
 import twitter from "@/app/assets/twitter.png";
 import youtube from "@/app/assets/youtube.png";
+import { SOCIAL_DELIVERABLE_OPTIONS } from "@/lib/scope-constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,9 +68,9 @@ interface SowScope {
 
 interface ClientDetail {
   id: string; name: string; brandName: string; industry: string; website: string;
-  status: "active" | "inactive"; contractStart: string; contractEnd: string;
+  status: "active" | "inactive"; contractStart: string; contractEnd?: string | null;
   clientPortalPassword?: string;
-  primaryContact: { name: string; email: string; phone: string };
+  primaryContact: { name: string; email: string; phone: string; altPhone?: string };
   aboutBrand?: string; requirementNotes?: string;
   competitors: Competitor[]; socialMediaPresence: SocialPresence[];
   assignedTeam: AssignedTeamUser[]; credentials: Credential[];
@@ -436,6 +437,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [expandedScopeId, setExpandedScopeId] = useState<string | null>(null);
   const [showNewScopeModal, setShowNewScopeModal] = useState(false);
   const [newScopePeriod, setNewScopePeriod] = useState("");
+  const [newScopePeriodError, setNewScopePeriodError] = useState(false);
   const [newScopeLabel, setNewScopeLabel] = useState("");
   const [newScopeModules, setNewScopeModules] = useState<Record<string, boolean>>({
     social: false,
@@ -447,6 +449,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [newScopeItems, setNewScopeItems] = useState<any[]>([]);
   const [newScopeStep, setNewScopeStep] = useState(0);
   const [newScopeSubmitting, setNewScopeSubmitting] = useState(false);
+  // When set, the scope modal edits this existing scope instead of creating one.
+  const [editScopeId, setEditScopeId] = useState<string | null>(null);
 
   const updateNewScopeItem = (id: string, updates: any) => {
     setNewScopeItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
@@ -471,7 +475,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   const handleNewScopeNext = () => {
     if (newScopeStep === 0) {
-      if (!newScopePeriod.trim()) return;
+      if (!newScopePeriod.trim()) {
+        setNewScopePeriodError(true);
+        return;
+      }
 
       // Seed default items for active modules if empty
       const nextItems = [...newScopeItems];
@@ -507,9 +514,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       if (newScopeModules.seo) {
         const hasSeo = nextItems.some((s) => s.module === "seo");
         if (!hasSeo) {
+          // Technical SEO Audits is opt-in via a checkbox, so it is NOT seeded here.
           nextItems.push(
-            { id: "seo-blogs", module: "seo", label: "SEO Blog Posts", unit: "4" },
-            { id: "seo-audits", module: "seo", label: "Technical SEO Audits", unit: "1" }
+            { id: "seo-blogs", module: "seo", label: "SEO Blog Posts", unit: "4" }
           );
         }
       }
@@ -759,6 +766,38 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     patchClient({ credentials: client.credentials.filter((c) => c.id !== id) });
   };
 
+  const resetScopeModal = () => {
+    setShowNewScopeModal(false);
+    setEditScopeId(null);
+    setNewScopePeriod("");
+    setNewScopePeriodError(false);
+    setNewScopeLabel("");
+    setNewScopeModules({ social: false, paid: false, email: false, seo: false, influencer: false });
+    setNewScopeItems([]);
+    setNewScopeStep(0);
+  };
+
+  // Open the scope modal pre-filled to edit an existing scope record.
+  const openEditScope = (sow: ScopeRecord) => {
+    const items = (sow.items || []).map((it: any, i: number) => ({
+      id: it.id || it._id || `scope-item-${i}`,
+      module: it.module === "paid-ads" ? "paid" : it.module === "emailWhatsapp" ? "email" : it.module,
+      label: it.label || "",
+      unit: it.unit || "0",
+      platforms: it.platforms || [],
+    }));
+    const mods = { social: false, paid: false, email: false, seo: false, influencer: false } as Record<string, boolean>;
+    items.forEach((it) => { if (it.module in mods) mods[it.module] = true; });
+    setEditScopeId(sow.id);
+    setNewScopePeriod(sow.period || "");
+    setNewScopePeriodError(false);
+    setNewScopeLabel(sow.label || "");
+    setNewScopeModules(mods);
+    setNewScopeItems(items);
+    setNewScopeStep(0);
+    setShowNewScopeModal(true);
+  };
+
   const handleCreateNewScope = async () => {
     setNewScopeSubmitting(true);
     try {
@@ -772,18 +811,19 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           platforms: item.platforms || [],
         })),
       };
-      const res = await fetch(`/api/clients/${clientId}/scope`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        editScopeId
+          ? `/api/clients/${clientId}/scope/${editScopeId}`
+          : `/api/clients/${clientId}/scope`,
+        {
+          method: editScopeId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
       if (res.ok) {
         fetchAllScopes(); fetchClientData();
-        setShowNewScopeModal(false);
-        setNewScopePeriod("");
-        setNewScopeLabel("");
-        setNewScopeModules({ social: false, paid: false, email: false, seo: false, influencer: false });
-        setNewScopeItems([]);
-        setNewScopeStep(0);
+        resetScopeModal();
       }
     } catch (err) { console.error(err); }
     finally { setNewScopeSubmitting(false); }
@@ -861,7 +901,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Contract: {new Date(client.contractStart).toLocaleDateString()} → {new Date(client.contractEnd).toLocaleDateString()}</p>
+              <p className="text-xs text-gray-500 mt-1">Contract: {new Date(client.contractStart).toLocaleDateString()} → {client.contractEnd ? new Date(client.contractEnd).toLocaleDateString() : "Ongoing"}</p>
             </div>
           </div>
         </div>
@@ -1014,6 +1054,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <p><span className="font-semibold text-gray-900">Name:</span> {client.primaryContact.name}</p>
                 <p><span className="font-semibold text-gray-900">Email:</span> {client.primaryContact.email}</p>
                 <p><span className="font-semibold text-gray-900">Phone:</span> {client.primaryContact.phone}</p>
+                {client.primaryContact.altPhone && <p><span className="font-semibold text-gray-900">Alt Phone:</span> {client.primaryContact.altPhone}</p>}
               </div>
             </div>
             <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-3">
@@ -1021,7 +1062,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <div className="text-xs space-y-2 text-gray-600">
                 <p><span className="font-semibold text-gray-900">Industry:</span> {client.industry}</p>
                 <p><span className="font-semibold text-gray-900">Status:</span> <span className={`font-semibold capitalize ${client.status === "active" ? "text-emerald-600" : "text-gray-400"}`}>{client.status}</span></p>
-                <p><span className="font-semibold text-gray-900">Contract:</span> {new Date(client.contractStart).toLocaleDateString()} → {new Date(client.contractEnd).toLocaleDateString()}</p>
+                <p><span className="font-semibold text-gray-900">Contract:</span> {new Date(client.contractStart).toLocaleDateString()} → {client.contractEnd ? new Date(client.contractEnd).toLocaleDateString() : "Ongoing"}</p>
                 {client.website && <p><span className="font-semibold text-gray-900">Website:</span> <a href={client.website} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline inline-flex items-center gap-0.5">{client.website} <ExternalLink className="w-3 h-3" /></a></p>}
               </div>
             </div>
@@ -1130,7 +1171,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Scope of Work</h2>
               <p className="text-xs text-gray-500 mt-0.5">All contract periods — historical and current</p>
             </div>
-            <button onClick={() => { setShowNewScopeModal(true); setNewScopeStep(0); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm">
+            <button onClick={() => { setEditScopeId(null); setNewScopePeriod(""); setNewScopeLabel(""); setNewScopeModules({ social: false, paid: false, email: false, seo: false, influencer: false }); setNewScopeItems([]); setNewScopeStep(0); setShowNewScopeModal(true); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold rounded-lg shadow-sm">
               <Plus className="w-3.5 h-3.5" /> New Scope of Work
             </button>
           </div>
@@ -1184,6 +1225,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   {/* Expanded details */}
                   {isExpanded && (
                     <div className="border-t border-gray-100 p-5 bg-white">
+                      <div className="flex justify-end mb-3">
+                        <button
+                          onClick={() => openEditScope(sow)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-[11px] font-semibold text-gray-600 hover:bg-gray-50 hover:text-emerald-600 hover:border-emerald-300 transition-all"
+                        >
+                          <Settings className="w-3 h-3" /> Edit Scope
+                        </button>
+                      </div>
                       {(() => {
                         if (!sow.items || sow.items.length === 0) {
                           return <p className="text-xs text-gray-400 italic">No scope items configured.</p>;
@@ -1796,7 +1845,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             {/* Modal header */}
             <div className="flex items-center justify-between p-5 border-b">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">New Scope of Work</h2>
+                <h2 className="text-sm font-semibold text-gray-900">{editScopeId ? "Edit Scope of Work" : "New Scope of Work"}</h2>
                 <p className="text-xs text-gray-500 mt-0.5">Step {newScopeStep + 1} of 3</p>
               </div>
               {/* Step indicators */}
@@ -1816,8 +1865,20 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-gray-500 uppercase">Period *</label>
                       <input type="text" placeholder="e.g. July 2026 / Q3 2026" value={newScopePeriod}
-                        onChange={(e) => setNewScopePeriod(e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500" />
+                        onChange={(e) => {
+                          setNewScopePeriod(e.target.value);
+                          if (e.target.value.trim()) {
+                            setNewScopePeriodError(false);
+                          }
+                        }}
+                        className={`w-full px-3 py-1.5 border rounded-lg text-xs outline-none transition-all ${
+                          newScopePeriodError
+                            ? "border-red-300 focus:border-red-500 bg-red-50/10"
+                            : "border-gray-200 focus:border-emerald-500"
+                        }`} />
+                      {newScopePeriodError && (
+                        <p className="text-[10px] text-red-500 font-medium mt-0.5">Period is required</p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-gray-500 uppercase">Label (optional)</label>
@@ -1885,24 +1946,46 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                             <span className={`h-2.5 w-2.5 rounded-full bg-${meta.color}-500`} />
                             <h3 className="text-xs font-semibold text-gray-800">{meta.label}</h3>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewScopeItems((prev) => [
-                                ...prev,
-                                {
-                                  id: `${modKey}-${crypto.randomUUID().slice(0, 6)}`,
-                                  module: modKey,
-                                  label: modKey === "social" ? "reel" : "",
-                                  unit: "1",
-                                  platforms: modKey === "social" ? ["instagram"] : [],
-                                },
-                              ]);
-                            }}
-                            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Add Item
-                          </button>
+                          <div className="flex items-center gap-3">
+                            {modKey === "seo" && (
+                              <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={items.some((s) => s.id === "seo-audits" || s.label === "Technical SEO Audits")}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setNewScopeItems((prev) => [
+                                        ...prev,
+                                        { id: "seo-audits", module: "seo", label: "Technical SEO Audits", unit: "1", platforms: [] },
+                                      ]);
+                                    } else {
+                                      setNewScopeItems((prev) => prev.filter((s) => !(s.id === "seo-audits" || s.label === "Technical SEO Audits")));
+                                    }
+                                  }}
+                                  className="w-3.5 h-3.5 accent-emerald-600"
+                                />
+                                Technical SEO Audits
+                              </label>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewScopeItems((prev) => [
+                                  ...prev,
+                                  {
+                                    id: `${modKey}-${crypto.randomUUID().slice(0, 6)}`,
+                                    module: modKey,
+                                    label: modKey === "social" ? "reel" : "",
+                                    unit: "1",
+                                    platforms: modKey === "social" ? ["instagram"] : [],
+                                  },
+                                ]);
+                              }}
+                              className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Add Item
+                            </button>
+                          </div>
                         </div>
 
                         {items.length === 0 && (
@@ -1922,12 +2005,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                       className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg bg-white"
                                     >
                                       <option value="">Select...</option>
-                                      <option value="reel">Reel</option>
-                                      <option value="story">Story</option>
-                                      <option value="article/copy">Article / Copy</option>
-                                      <option value="static/image">Static / Image</option>
-                                      <option value="carousel">Carousel</option>
-                                      <option value="video long form">Video Long Form</option>
+                                      {SOCIAL_DELIVERABLE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
                                     </select>
                                   </div>
 
@@ -2087,11 +2167,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <button
                 onClick={() => {
                   if (newScopeStep === 0) {
-                    setShowNewScopeModal(false);
-                    setNewScopePeriod("");
-                    setNewScopeLabel("");
-                    setNewScopeModules({ social: false, paid: false, email: false, seo: false, influencer: false });
-                    setNewScopeItems([]);
+                    resetScopeModal();
                   } else {
                     setNewScopeStep((s) => s - 1);
                   }
@@ -2113,7 +2189,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   disabled={newScopeSubmitting}
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold disabled:opacity-70"
                 >
-                  {newScopeSubmitting ? "Creating..." : "Create Scope of Work"}
+                  {newScopeSubmitting
+                    ? (editScopeId ? "Saving..." : "Creating...")
+                    : (editScopeId ? "Save Changes" : "Create Scope of Work")}
                 </button>
               )}
             </div>

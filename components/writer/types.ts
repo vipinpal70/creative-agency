@@ -115,6 +115,8 @@ export interface WriterCalendar {
   status: string;
   plannedItems: PlannedItem[];
   progress: { totalPlanned: number; totalCreated: number; totalDelivered: number };
+  // Populated creator — used to decide who may edit/delete the calendar.
+  createdBy?: { _id: string; firstName?: string; lastName?: string; email?: string } | string;
 }
 
 // Legacy: kept so ObjectiveStep / BucketsStep still compile unchanged

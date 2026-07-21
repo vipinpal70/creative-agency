@@ -18,7 +18,10 @@ export async function GET(req: NextRequest) {
     // the client profile's Assigned Team tab needs member names.
 
     await connectDB();
-    const members = await User.find({ role: "member" }).sort({ createdAt: -1 }).lean();
+    // Include admin accounts alongside members so the directory lists them too.
+    const members = await User.find({ role: { $in: ["member", "admin"] } })
+      .sort({ createdAt: -1 })
+      .lean();
 
     // Map database properties (firstName/lastName) to a computed 'name' for the frontend
     const safe = members.map(({ password: _pwd, firstName, lastName, ...rest }) => ({

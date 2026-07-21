@@ -160,8 +160,11 @@ export async function POST(req: NextRequest) {
       scope, // Contains ScopeOfWork structure
     } = body;
 
-    if (!name?.trim() || !brandName?.trim() || !industry?.trim() || !contractStart || !contractEnd || !primaryContact?.email) {
+    if (!name?.trim() || !brandName?.trim() || !industry?.trim() || !contractStart || !primaryContact?.email) {
       return NextResponse.json({ error: "Required fields are missing" }, { status: 400 });
+    }
+    if (!primaryContact?.phone?.trim()) {
+      return NextResponse.json({ error: "Contact phone is required" }, { status: 400 });
     }
 
     await connectDB();
@@ -182,11 +185,12 @@ export async function POST(req: NextRequest) {
       website: website?.trim(),
       status: "active",
       contractStart: new Date(contractStart),
-      contractEnd: new Date(contractEnd),
+      contractEnd: contractEnd ? new Date(contractEnd) : null,
       primaryContact: {
         name: primaryContact.name?.trim(),
         email: primaryContact.email.toLowerCase().trim(),
         phone: primaryContact.phone?.trim(),
+        altPhone: primaryContact.altPhone?.trim() || undefined,
       },
       // Stored readable so it can be shown later in the Access Control tab.
       clientPortalPassword: body.clientUser?.password || undefined,

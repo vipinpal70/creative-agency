@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
   ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck, ChevronDown,
-  Pen,
+  Pen, Pencil, Trash2,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -26,6 +26,8 @@ import { CopyList } from "@/components/writer/CopyList";
 import { CopyModal } from "@/components/writer/CopyModal";
 import type { CopyModalInitialData } from "@/components/writer/CopyModal";
 import { CalendarCreateView } from "@/components/writer/CalendarCreateView";
+import { CalendarEditDialog } from "@/components/writer/CalendarEditDialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmailCampaignWizard } from "@/components/writer/EmailCampaignWizard";
 import { PaidMediaWizard } from "@/components/writer/PaidMediaWizard";
 import { SeoWizard } from "@/components/writer/SeoWizard";
@@ -83,6 +85,14 @@ export default function WriterDashboard() {
   const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
   const [clientFilter, setClientFilter] = useState<string>("");
 
+  // ── Current user (for edit/delete permissions) ──
+  const [me, setMe] = useState<{ id: string; role: string } | null>(null);
+
+  // ── Calendar edit / delete state ──
+  const [editingCalendar, setEditingCalendar]   = useState<WriterCalendar | null>(null);
+  const [deletingCalendar, setDeletingCalendar] = useState<WriterCalendar | null>(null);
+  const [deletingBusy, setDeletingBusy]         = useState(false);
+
   // ── Load calendars ──
   const loadCalendars = useCallback(async () => {
     setLoading(true);
@@ -95,6 +105,27 @@ export default function WriterDashboard() {
   }, []);
 
   useEffect(() => { loadCalendars(); }, [loadCalendars]);
+
+  // ── Load current user ──
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) setMe({ id: data.user.id, role: data.user.role });
+      })
+      .catch(console.error);
+  }, []);
+
+  // Admins, and the user who created the calendar, may edit/delete it.
+  const canManage = useCallback(
+    (cal: WriterCalendar) => {
+      if (!me) return false;
+      if (me.role === "admin") return true;
+      const creatorId = typeof cal.createdBy === "string" ? cal.createdBy : cal.createdBy?._id;
+      return !!creatorId && creatorId === me.id;
+    },
+    [me]
+  );
 
   // ── Load clients ──
   useEffect(() => {
@@ -352,6 +383,33 @@ export default function WriterDashboard() {
     toast({ title: "Copy removed" });
   };
 
+  // ── Delete a calendar (cascades to all its copies on the server) ──
+  const confirmDeleteCalendar = async () => {
+    if (!deletingCalendar) return;
+    setDeletingBusy(true);
+    try {
+      const res = await fetch(
+        `/api/clients/${deletingCalendar.clientId}/calendars/${deletingCalendar.id}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: data.error || "Failed to delete calendar" });
+        return;
+      }
+      setCalendars((prev) => prev.filter((c) => c.id !== deletingCalendar.id));
+      // If the deleted calendar was open in the workspace, close it.
+      if (activeCalendar?.id === deletingCalendar.id) exitWork();
+      const n = data.deletedCopies ?? 0;
+      toast({
+        title: n > 0 ? `Calendar and ${n} ${n === 1 ? "copy" : "copies"} deleted` : "Calendar deleted",
+      });
+      setDeletingCalendar(null);
+    } finally {
+      setDeletingBusy(false);
+    }
+  };
+
   const filtered = (filter === "all" ? calendars : calendars.filter((c) => c.module === filter))
     .filter((c) => !clientFilter || c.clientId === clientFilter);
 
@@ -536,6 +594,29 @@ export default function WriterDashboard() {
                             </div>
                           )}
                         </div>
+
+                        {canManage(cal) && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              title="Edit calendar"
+                              aria-label="Edit calendar"
+                              className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                              onClick={(e) => { e.stopPropagation(); setEditingCalendar(cal); }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete calendar"
+                              aria-label="Delete calendar"
+                              className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); setDeletingCalendar(cal); }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
 
                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       </CardContent>
@@ -801,6 +882,50 @@ export default function WriterDashboard() {
           onSave={handleModalSave}
         />
       )}
+
+      {/* ── Edit calendar dialog ── */}
+      {editingCalendar && (
+        <CalendarEditDialog
+          calendar={editingCalendar}
+          onClose={() => setEditingCalendar(null)}
+          onSaved={(patch) => {
+            setCalendars((prev) =>
+              prev.map((c) => (c.id === editingCalendar.id ? { ...c, ...patch } : c))
+            );
+            if (activeCalendar?.id === editingCalendar.id) {
+              setActiveCalendar((c) => (c ? { ...c, ...patch } : c));
+            }
+          }}
+        />
+      )}
+
+      {/* ── Delete calendar confirmation (warns when copies exist) ── */}
+      <ConfirmDialog
+        open={!!deletingCalendar}
+        destructive
+        busy={deletingBusy}
+        title="Delete calendar?"
+        confirmLabel="Delete"
+        description={
+          deletingCalendar ? (
+            (deletingCalendar.progress?.totalCreated ?? 0) > 0 ? (
+              <>
+                <span className="font-medium text-red-600">
+                  This calendar contains {deletingCalendar.progress.totalCreated}{" "}
+                  {deletingCalendar.progress.totalCreated === 1 ? "copy" : "copies"}.
+                </span>{" "}
+                Deleting “{deletingCalendar.name}” will permanently delete the calendar
+                and all {deletingCalendar.progress.totalCreated === 1 ? "its copy" : "its copies"},
+                including every draft, file and history. This cannot be undone.
+              </>
+            ) : (
+              <>Deleting “{deletingCalendar.name}” cannot be undone.</>
+            )
+          ) : null
+        }
+        onConfirm={confirmDeleteCalendar}
+        onCancel={() => { if (!deletingBusy) setDeletingCalendar(null); }}
+      />
     </div>
   );
 }

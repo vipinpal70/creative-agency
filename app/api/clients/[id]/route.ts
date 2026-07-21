@@ -76,13 +76,19 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (body.aboutBrand !== undefined) client.aboutBrand = body.aboutBrand;
     if (body.requirementNotes !== undefined) client.requirementNotes = body.requirementNotes;
     if (body.contractStart !== undefined) client.contractStart = new Date(body.contractStart);
-    if (body.contractEnd !== undefined) client.contractEnd = new Date(body.contractEnd);
+    if (body.contractEnd !== undefined) {
+      // Empty / null clears the end date (open-ended contract).
+      client.contractEnd = body.contractEnd ? new Date(body.contractEnd) : null;
+    }
 
     if (body.primaryContact !== undefined) {
       client.primaryContact = {
         name: body.primaryContact.name?.trim() || client.primaryContact.name,
         email: body.primaryContact.email?.toLowerCase().trim() || client.primaryContact.email,
         phone: body.primaryContact.phone?.trim() || client.primaryContact.phone,
+        altPhone: body.primaryContact.altPhone !== undefined
+          ? (body.primaryContact.altPhone?.trim() || undefined)
+          : client.primaryContact.altPhone,
       };
     }
 

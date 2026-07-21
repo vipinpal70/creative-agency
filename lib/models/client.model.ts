@@ -43,11 +43,12 @@ export interface IClient extends Document {
   website: string;
   status: "active" | "inactive";
   contractStart: Date;
-  contractEnd: Date;
+  contractEnd?: Date | null;   // optional — a contract may be open-ended / ongoing
   primaryContact: {
     name: string;
     email: string;
     phone: string;
+    altPhone?: string;         // optional alternative contact number
   };
   // Readable copy of the client portal login password, shown in the Access
   // Control tab. Kept in sync with the linked client User's hashed password.
@@ -123,11 +124,12 @@ const clientSchema = new Schema<IClient>(
     website: { type: String, trim: true },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     contractStart: { type: Date, required: true },
-    contractEnd: { type: Date, required: true },
+    contractEnd: { type: Date, required: false, default: null },
     primaryContact: {
       name: { type: String, required: true, trim: true },
       email: { type: String, required: true, lowercase: true, trim: true },
       phone: { type: String, required: true, trim: true },
+      altPhone: { type: String, trim: true },
     },
     clientPortalPassword: { type: String },
     aboutBrand: { type: String },
