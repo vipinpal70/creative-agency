@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Image as ImageIcon, Film,
   Send, Upload, ShieldCheck, Palette, User, MessageSquare, Play,
-  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2,
+  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
@@ -628,6 +628,174 @@ const CopyCard = memo(function CopyCard({
 });
 
 
+function getTodayString(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+interface MultiSelectOption {
+  label: string;
+  value: string;
+}
+
+interface MultiSelectDropdownProps {
+  icon?: React.ReactNode;
+  label: string;
+  options: MultiSelectOption[];
+  selectedValues: string[];
+  onChange: (selected: string[]) => void;
+}
+
+function MultiSelectDropdown({
+  icon,
+  label,
+  options,
+  selectedValues,
+  onChange,
+}: MultiSelectDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, search]);
+
+  const toggleValue = (value: string) => {
+    if (selectedValues.includes(value)) {
+      onChange(selectedValues.filter((v) => v !== value));
+    } else {
+      onChange([...selectedValues, value]);
+    }
+  };
+
+  const selectAll = () => {
+    onChange(options.map((o) => o.value));
+  };
+
+  const clearAll = () => {
+    onChange([]);
+  };
+
+  const getDisplayText = () => {
+    if (selectedValues.length === 0) {
+      return `All ${label}s`;
+    }
+    if (selectedValues.length === options.length && options.length > 0) {
+      return `All ${label}s (${options.length})`;
+    }
+    if (selectedValues.length === 1) {
+      const match = options.find((o) => o.value === selectedValues[0]);
+      return match ? match.label : `1 ${label}`;
+    }
+    return `${selectedValues.length} ${label}s selected`;
+  };
+
+  const hasSelection = selectedValues.length > 0;
+
+  return (
+    <div className="relative inline-block text-left" ref={dropdownRef}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`h-9 text-xs justify-between gap-2 border-gray-200 bg-white font-normal hover:bg-gray-50 transition-colors ${
+          hasSelection ? "border-primary/50 ring-1 ring-primary/20 text-primary font-medium" : "text-gray-700"
+        }`}
+      >
+        <span className="flex items-center gap-1.5 truncate max-w-[160px]">
+          {icon}
+          <span className="truncate">{getDisplayText()}</span>
+        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          {hasSelection && (
+            <span className="bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.2 font-semibold">
+              {selectedValues.length}
+            </span>
+          )}
+          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </Button>
+
+      {open && (
+        <div className="absolute left-0 mt-1 w-64 rounded-xl border border-gray-200 bg-white p-2 shadow-lg z-50 animate-in fade-in-50 zoom-in-95 duration-100">
+          {options.length > 5 && (
+            <div className="mb-2">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}s...`}
+                className="w-full px-2.5 py-1.5 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 bg-white"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between px-1 py-1 mb-1 border-b border-gray-100 text-[11px]">
+            <button
+              type="button"
+              onClick={selectAll}
+              className="text-primary hover:underline font-medium"
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-gray-500 hover:text-gray-800 hover:underline"
+            >
+              Clear
+            </button>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+            {filteredOptions.length === 0 ? (
+              <p className="text-xs text-gray-400 py-3 text-center">No options found</p>
+            ) : (
+              filteredOptions.map((opt) => {
+                const checked = selectedValues.includes(opt.value);
+                return (
+                  <label
+                    key={opt.value}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs cursor-pointer select-none transition-colors ${
+                      checked ? "bg-primary/5 text-primary font-medium" : "hover:bg-gray-50 text-gray-700"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleValue(opt.value)}
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                    />
+                    <span className="truncate">{opt.label}</span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DesignerPage() {
   const { user } = useAuth();
   const [stage, setStage] = useState<StageKey>("content_approved");
@@ -636,7 +804,10 @@ export default function DesignerPage() {
   const [loading, setLoading] = useState(true);
   const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
   const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
-  const [clientFilter, setClientFilter] = useState<string>("");
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState<string>(getTodayString);
+  const [endDate, setEndDate] = useState<string>("");
 
   const isAdmin = user?.role === "admin";
   const canArchive = user?.role === "admin" || user?.role === "member";
@@ -737,10 +908,72 @@ export default function DesignerPage() {
     setPreviewCopy((prev) => (prev && prev.draftId === draftId ? null : prev));
   }, []);
 
-  const filteredCopies = useMemo(
-    () => copies.filter((c) => !clientFilter || c.clientId === clientFilter),
-    [copies, clientFilter]
+  const clientOptions = useMemo(
+    () => clients.map((c) => ({ label: c.companyName, value: c.id })),
+    [clients]
   );
+
+  const availableMediaTypes = useMemo(() => {
+    const defaultTypes = ["Image", "Video", "Carousel", "Reel", "GIF", "Story", "Article"];
+    const fromCopies = copies.map((c) => c.mediaType).filter(Boolean);
+    const set = new Set<string>();
+
+    defaultTypes.forEach((t) => set.add(t));
+    fromCopies.forEach((t) => {
+      const formatted = t.charAt(0).toUpperCase() + t.slice(1);
+      set.add(formatted);
+    });
+
+    return Array.from(set).map((t) => ({ label: t, value: t }));
+  }, [copies]);
+
+  const filteredCopies = useMemo(() => {
+    return copies.filter((copy) => {
+      // 1. Multi-select Client filter
+      if (selectedClients.length > 0 && !selectedClients.includes(copy.clientId)) {
+        return false;
+      }
+
+      // 2. Multi-select Media Type filter
+      if (selectedMediaTypes.length > 0) {
+        const copyMedia = (copy.mediaType || "").toLowerCase();
+        const match = selectedMediaTypes.some(
+          (m) => m.toLowerCase() === copyMedia
+        );
+        if (!match) return false;
+      }
+
+      // 3. Date range filter (Start Date default current date, End Date picker)
+      const rawDate = copy.publishDate || copy.scheduledDate || copy.updatedAt;
+      if (rawDate) {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          const copyYMD = `${y}-${m}-${day}`;
+
+          if (startDate && copyYMD < startDate) return false;
+          if (endDate && copyYMD > endDate) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [copies, selectedClients, selectedMediaTypes, startDate, endDate]);
+
+  const hasActiveFilters =
+    selectedClients.length > 0 ||
+    selectedMediaTypes.length > 0 ||
+    startDate !== getTodayString() ||
+    endDate !== "";
+
+  const handleResetFilters = () => {
+    setSelectedClients([]);
+    setSelectedMediaTypes([]);
+    setStartDate(getTodayString());
+    setEndDate("");
+  };
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -760,45 +993,102 @@ export default function DesignerPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full md:w-auto">
-          <Tabs value={stage} onValueChange={(v) => setStage(v as StageKey)}>
-            <TabsList>
-              {STAGES.map((s) => (
-                <TabsTrigger key={s.key} value={s.key}>
-                  {s.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-
-          {stage === "history" && (
-            <Tabs value={historySub} onValueChange={(v) => setHistorySub(v as HistorySub)}>
+      <div className="space-y-3 bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
+            <Tabs value={stage} onValueChange={(v) => setStage(v as StageKey)}>
               <TabsList>
-                {HISTORY_SUBS.map((s) => (
+                {STAGES.map((s) => (
                   <TabsTrigger key={s.key} value={s.key}>
                     {s.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
-          )}
+
+            {stage === "history" && (
+              <Tabs value={historySub} onValueChange={(v) => setHistorySub(v as HistorySub)}>
+                <TabsList>
+                  {HISTORY_SUBS.map((s) => (
+                    <TabsTrigger key={s.key} value={s.key}>
+                      {s.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
+          </div>
         </div>
 
-        <div className="relative">
-          <Building2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <select
-            className="pl-8 pr-7 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white text-gray-900 min-w-[180px] appearance-none"
-            value={clientFilter}
-            onChange={(e) => setClientFilter(e.target.value)}
-            aria-label="Filter by client"
-          >
-            <option value="">All Clients</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.companyName}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+        <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-gray-100">
+          {/* Multi-Select Client Filter */}
+          <MultiSelectDropdown
+            icon={<Building2 className="w-3.5 h-3.5 text-gray-400" />}
+            label="Client"
+            options={clientOptions}
+            selectedValues={selectedClients}
+            onChange={setSelectedClients}
+          />
+
+          {/* Multi-Select Media Type Filter */}
+          <MultiSelectDropdown
+            icon={<Film className="w-3.5 h-3.5 text-gray-400" />}
+            label="Media Type"
+            options={availableMediaTypes}
+            selectedValues={selectedMediaTypes}
+            onChange={setSelectedMediaTypes}
+          />
+
+          {/* Date Range Filter (Start Date default current date, End Date picker) */}
+          <div className="flex items-center gap-1.5 bg-gray-50/80 border border-gray-200 rounded-lg px-2.5 py-1">
+            <Calendar className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-medium text-gray-500">From:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-xs bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-800 font-medium p-0"
+                title="Start Date"
+              />
+            </div>
+            <span className="text-gray-300 text-xs px-0.5">-</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-medium text-gray-500">To:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="text-xs bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-800 font-medium p-0"
+                title="End Date"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                className="ml-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 p-0.5 transition-colors"
+                title="Clear dates"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Reset Filters button when active */}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResetFilters}
+              className="h-8 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3 mr-1" /> Reset filters
+            </Button>
+          )}
         </div>
       </div>
 
@@ -811,7 +1101,9 @@ export default function DesignerPage() {
           <CardContent className="p-10 text-center space-y-3">
             <ImageIcon className="h-10 w-10 text-muted-foreground/30 mx-auto" />
             <p className="text-sm text-muted-foreground">
-              {activeStatus === "content_approved"
+              {hasActiveFilters
+                ? "No copies match the selected filters."
+                : activeStatus === "content_approved"
                 ? "No approved copies waiting for design."
                 : activeStatus === "design_approved"
                 ? "No approved copies yet."
@@ -819,6 +1111,11 @@ export default function DesignerPage() {
                 ? "No rejected copies."
                 : `No copies in ${STAGES.find((s) => s.key === stage)?.label.toLowerCase()}.`}
             </p>
+            {hasActiveFilters && (
+              <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                Clear Filters
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
