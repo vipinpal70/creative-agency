@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Check, ChevronLeft, ChevronRight, X, Plus, Save, History, ChevronDown } from "lucide-react";
+import { isArticleType } from "@/lib/status-flow";
 import type { CopyFormData, CarouselFrame, PlannedItem, HistoryEntry } from "./types";
 
 // ── Platform icons ────────────────────────────────────────────────────────────
@@ -200,7 +201,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
   const [creativeCopy,   setCreativeCopy]   = useState(initialData?.creativeCopy ?? "");
   const [articleMode,    setArticleMode]    = useState(
     initialData?.articleMode ||
-    (initialData?.mediaType?.toLowerCase() === "article/copy" ? "without-creative" : "")
+    (isArticleType(initialData?.mediaType) ? "without-creative" : "")
   );
   const [articleCopy,    setArticleCopy]    = useState(initialData?.articleCopy ?? "");
   const [caption,        setCaption]        = useState(initialData?.caption ?? "");
@@ -248,7 +249,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
   // ── Derived ────────────────────────────────────────────────────────────────
   const isCarousel       = mediaType.toLowerCase() === "carousel";
   const isVideoLongForm  = mediaType.toLowerCase() === "video long form";
-  const isArticleCopy    = mediaType.toLowerCase() === "article/copy";
+  const isArticleCopy    = isArticleType(mediaType);
 
   const updateFrame = (frameNo: number, patch: Partial<CarouselFrame>) => {
     setFrames((prev) => {
@@ -281,7 +282,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
       setVideoNotes("");
       setArticleCopy("");
       // Default article/copy to "without-creative" so the copy field shows immediately
-      setArticleMode(val.toLowerCase() === "article/copy" ? "without-creative" : "");
+      setArticleMode(isArticleType(val) ? "without-creative" : "");
       setFrames(Array.from({ length: 3 }, (_, i) => ({ frameNo: i + 1, copy: "", imageUrl: "" })));
       setFrameCount(3);
       setCurrentFrame(1);

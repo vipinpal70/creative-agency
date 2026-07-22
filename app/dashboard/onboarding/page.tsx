@@ -16,7 +16,8 @@ const steps = ["Client Info", "Service Modules", "Scope of Work", "Assign Team",
 const MODULE_OPTIONS = [
   { key: "socialMedia", label: "Social Media Marketing", desc: "Manage organic posts, reels, and stories across networks" },
   { key: "paidMedia", label: "Paid Performance Ads", desc: "Meta, Google, and LinkedIn ad campaign spend and creative" },
-  { key: "emailWhatsapp", label: "Email / WhatsApp Marketing", desc: "Newsletter campaigns, transactional notifications, and automations" },
+  { key: "email", label: "Email Marketing", desc: "Newsletter campaigns, email flows, and automated drips" },
+  { key: "whatsapp", label: "WhatsApp Marketing", desc: "WhatsApp broadcasts, promotional messages, and chat automations" },
   { key: "seo", label: "Search Engine Optimization (SEO)", desc: "Keyword research, technical audits, Google Search Console setups" },
   { key: "influencer", label: "Influencer Marketing", desc: "End-to-end influencer collaborations, budgets, and reporting" },
 ];
@@ -237,12 +238,21 @@ export default function OnboardingPage() {
           );
         }
       }
-      if (selectedModules.emailWhatsapp) {
+      if (selectedModules.email) {
         const hasEmail = nextItems.some((s) => s.module === "email");
         if (!hasEmail) {
           nextItems.push(
             { id: "email-promo", module: "email", label: "Promotional Campaigns", unit: "4" },
             { id: "email-trans", module: "email", label: "Transactional Flows", unit: "1" }
+          );
+        }
+      }
+      if (selectedModules.whatsapp) {
+        const hasWhatsapp = nextItems.some((s) => s.module === "whatsapp");
+        if (!hasWhatsapp) {
+          nextItems.push(
+            { id: "whatsapp-broadcast", module: "whatsapp", label: "WhatsApp Broadcasts", unit: "4" },
+            { id: "whatsapp-flows", module: "whatsapp", label: "WhatsApp Automations", unit: "1" }
           );
         }
       }
@@ -745,7 +755,8 @@ export default function OnboardingPage() {
               const meta = [
                 { key: "social", label: "Social Media Marketing", color: "emerald" },
                 { key: "paid", label: "Paid Performance Ads", color: "blue" },
-                { key: "email", label: "Email / WhatsApp Marketing", color: "purple" },
+                { key: "email", label: "Email Marketing", color: "purple" },
+                { key: "whatsapp", label: "WhatsApp Marketing", color: "teal" },
                 { key: "seo", label: "Search Engine Optimization (SEO)", color: "indigo" },
                 { key: "influencer", label: "Influencer Marketing", color: "amber" },
               ].find((m) => m.key === dbModule) || { key: dbModule, label: modKey, color: "gray" };
@@ -827,7 +838,7 @@ export default function OnboardingPage() {
 
                             {/* Unit Input */}
                             <div className="col-span-4 sm:col-span-2 space-y-1">
-                              <label className="text-[10px] font-semibold text-gray-400 uppercase">Unit</label>
+                              <label className="text-[10px] font-semibold text-gray-400 uppercase">Qty / mo</label>
                               <input
                                 type="number"
                                 min="0"
@@ -839,7 +850,7 @@ export default function OnboardingPage() {
                             </div>
 
                             {/* Platforms */}
-                            <div className="col-span-12 sm:col-span-4 space-y-1">
+                            <div className="col-span-12 sm:col-span-6 space-y-1">
                               <label className="text-[10px] font-semibold text-gray-400 uppercase">Platforms</label>
                               <div className="flex gap-1.5 flex-wrap">
                                 {[
@@ -876,7 +887,7 @@ export default function OnboardingPage() {
                         ) : (
                           <>
                             {/* Deliverable Input */}
-                            <div className="col-span-12 sm:col-span-6 space-y-1">
+                            <div className={`col-span-12 ${dbModule === "paid" || dbModule === "paidMedia" || dbModule === "influencer" ? "sm:col-span-5" : "sm:col-span-6"} space-y-1`}>
                               <label className="text-[10px] font-semibold text-gray-400 uppercase">Deliverable</label>
                               <input
                                 type="text"
@@ -888,7 +899,7 @@ export default function OnboardingPage() {
                             </div>
 
                             {/* Unit / Qty */}
-                            <div className="col-span-6 sm:col-span-3 space-y-1">
+                            <div className={`col-span-6 ${dbModule === "paid" || dbModule === "paidMedia" || dbModule === "influencer" ? "sm:col-span-3" : "sm:col-span-5"} space-y-1`}>
                               <label className="text-[10px] font-semibold text-gray-400 uppercase">Qty / mo</label>
                               <input
                                 type="number"
@@ -899,6 +910,20 @@ export default function OnboardingPage() {
                                 className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
                               />
                             </div>
+
+                            {/* Allocated Budget Input (Only for Paid Media and Influencer) */}
+                            {(dbModule === "paid" || dbModule === "paidMedia" || dbModule === "influencer") && (
+                              <div className="col-span-6 sm:col-span-3 space-y-1">
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Allocated Budget</label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. $5,000"
+                                  value={s.allocatedBudget || ""}
+                                  onChange={(e) => updateScopeItem(s.id, { allocatedBudget: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg"
+                                />
+                              </div>
+                            )}
                           </>
                         )}
 
@@ -1018,7 +1043,8 @@ export default function OnboardingPage() {
               const meta = [
                 { key: "social", label: "Social Media Marketing" },
                 { key: "paid", label: "Paid Performance Ads" },
-                { key: "email", label: "Email / WhatsApp Marketing" },
+                { key: "email", label: "Email Marketing" },
+                { key: "whatsapp", label: "WhatsApp Marketing" },
                 { key: "seo", label: "Search Engine Optimization (SEO)" },
                 { key: "influencer", label: "Influencer Marketing" },
               ].find((x) => x.key === dbModule);
@@ -1037,8 +1063,10 @@ export default function OnboardingPage() {
                             </span>
                           )}
                         </div>
-                        <span className="text-gray-600 font-medium">
-                          {item.unit || "0"} / mo
+                        <span className="text-gray-900 font-semibold">
+                          {item.allocatedBudget && item.allocatedBudget.trim() !== ""
+                            ? `${item.allocatedBudget}${item.unit && item.unit !== "0" ? ` · ${item.unit} / mo` : ""}`
+                            : `${item.unit || "0"} / mo`}
                         </span>
                       </div>
                     ))}

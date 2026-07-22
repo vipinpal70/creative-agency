@@ -308,7 +308,7 @@ const norm = (s?: string) => (s || "").toLowerCase().trim();
 const tokens = (s?: string) => norm(s).split(/[^a-z0-9]+/).filter(Boolean);
 
 // Scope item labels and deliverable types share the same vocabulary
-// ("reel", "carousel", "article/copy", …). Exact match first, then token
+// ("reel", "carousel", "article/blog", …). Exact match first, then token
 // overlap for compound labels ("reel/story" ↔ "reel", "static/image" ↔ "static").
 function typeMatches(itemLabel: string, delType: string): boolean {
   if (norm(itemLabel) === norm(delType)) return true;
@@ -372,6 +372,7 @@ function deriveScopeItems(
       module: item.module,
       label: item.label,
       qty: parseInt(item.unit) || 0,
+      allocatedBudget: item.allocatedBudget || "",
       delivered,
     };
   });
@@ -784,6 +785,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       module: it.module === "paid-ads" ? "paid" : it.module === "emailWhatsapp" ? "email" : it.module,
       label: it.label || "",
       unit: it.unit || "0",
+      allocatedBudget: it.allocatedBudget || "",
       platforms: it.platforms || [],
     }));
     const mods = { social: false, paid: false, email: false, seo: false, influencer: false } as Record<string, boolean>;
@@ -808,6 +810,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           module: item.module,
           label: item.label,
           unit: item.unit || "0",
+          allocatedBudget: item.allocatedBudget || "",
           platforms: item.platforms || [],
         })),
       };
@@ -1242,7 +1245,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         const modulesMap: Record<string, { label: string; icon: any; color: string }> = {
                           social: { label: "Social Media", icon: Globe, color: "text-emerald-600" },
                           paid: { label: "Paid Advertising", icon: Award, color: "text-indigo-600" },
-                          email: { label: "Email & WhatsApp", icon: MessageSquare, color: "text-amber-600" },
+                          email: { label: "Email Marketing", icon: MessageSquare, color: "text-amber-600" },
+                          whatsapp: { label: "WhatsApp Marketing", icon: MessageSquare, color: "text-teal-600" },
                           seo: { label: "SEO", icon: Globe, color: "text-sky-600" },
                           influencer: { label: "Influencer Marketing", icon: Users, color: "text-pink-600" },
                         };
@@ -1275,7 +1279,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                             </span>
                                           )}
                                         </div>
-                                        <span className="font-semibold">{item.unit || "0"} / mo</span>
+                                        <span className="font-semibold text-gray-900">
+                                          {item.allocatedBudget && item.allocatedBudget.trim() !== ""
+                                            ? `${item.allocatedBudget}${item.unit && item.unit !== "0" ? ` · ${item.unit} / mo` : ""}`
+                                            : `${item.unit || "0"} / mo`}
+                                        </span>
                                       </div>
                                     ))}
                                   </div>
@@ -1894,7 +1902,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       {[
                         { key: "social", label: "Social Media Marketing", desc: "Instagram, FB, LinkedIn, YT, X" },
                         { key: "paid", label: "Paid Performance Ads", desc: "Meta, Google, LinkedIn Ads" },
-                        { key: "email", label: "Email / WhatsApp Marketing", desc: "Newsletters & flows" },
+                        { key: "email", label: "Email Marketing", desc: "Newsletters, campaigns & email flows" },
+                        { key: "whatsapp", label: "WhatsApp Marketing", desc: "Broadcasts, promotional messages & chat flows" },
                         { key: "seo", label: "Search Engine Optimization (SEO)", desc: "Blog posts & audits" },
                         { key: "influencer", label: "Influencer Marketing", desc: "Campaigns & budgets" },
                       ].map((m) => {
@@ -1932,7 +1941,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     const meta = [
                       { key: "social", label: "Social Media Marketing", color: "emerald" },
                       { key: "paid", label: "Paid Performance Ads", color: "blue" },
-                      { key: "email", label: "Email / WhatsApp Marketing", color: "purple" },
+                      { key: "email", label: "Email Marketing", color: "purple" },
+                      { key: "whatsapp", label: "WhatsApp Marketing", color: "teal" },
                       { key: "seo", label: "Search Engine Optimization (SEO)", color: "indigo" },
                       { key: "influencer", label: "Influencer Marketing", color: "amber" },
                     ].find((m) => m.key === modKey) || { key: modKey, label: modKey, color: "gray" };
@@ -1977,6 +1987,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                     module: modKey,
                                     label: modKey === "social" ? "reel" : "",
                                     unit: "1",
+                                    allocatedBudget: "",
                                     platforms: modKey === "social" ? ["instagram"] : [],
                                   },
                                 ]);
@@ -2011,7 +2022,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                     </select>
                                   </div>
 
-                                  <div className="col-span-4 sm:col-span-2 space-y-1">
+                                  <div className="col-span-6 sm:col-span-2 space-y-1">
                                     <label className="text-[10px] font-semibold text-gray-400 uppercase">Qty / mo</label>
                                     <input
                                       type="number"
@@ -2023,7 +2034,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                     />
                                   </div>
 
-                                  <div className="col-span-12 sm:col-span-4 space-y-1">
+                                  <div className="col-span-12 sm:col-span-6 space-y-1">
                                     <label className="text-[10px] font-semibold text-gray-400 uppercase">Platforms</label>
                                     <div className="flex gap-1.5 flex-wrap">
                                       {[
@@ -2059,7 +2070,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                 </>
                               ) : (
                                 <>
-                                  <div className="col-span-12 sm:col-span-6 space-y-1">
+                                  <div className={`col-span-12 ${modKey === "paid" || modKey === "paid-ads" || modKey === "influencer" ? "sm:col-span-5" : "sm:col-span-6"} space-y-1`}>
                                     <label className="text-[10px] font-semibold text-gray-400 uppercase">Deliverable</label>
                                     <input
                                       type="text"
@@ -2070,7 +2081,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                     />
                                   </div>
 
-                                  <div className="col-span-6 sm:col-span-3 space-y-1">
+                                  <div className={`col-span-6 ${modKey === "paid" || modKey === "paid-ads" || modKey === "influencer" ? "sm:col-span-3" : "sm:col-span-5"} space-y-1`}>
                                     <label className="text-[10px] font-semibold text-gray-400 uppercase">Qty / mo</label>
                                     <input
                                       type="number"
@@ -2081,6 +2092,19 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                       className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
                                     />
                                   </div>
+
+                                  {(modKey === "paid" || modKey === "paid-ads" || modKey === "influencer") && (
+                                    <div className="col-span-6 sm:col-span-3 space-y-1">
+                                      <label className="text-[10px] font-semibold text-gray-400 uppercase">Allocated Budget</label>
+                                      <input
+                                        type="text"
+                                        placeholder="e.g. $5,000"
+                                        value={s.allocatedBudget || ""}
+                                        onChange={(e) => updateNewScopeItem(s.id, { allocatedBudget: e.target.value })}
+                                        className="w-full px-2 py-1.5 border border-gray-200 text-xs rounded-lg"
+                                      />
+                                    </div>
+                                  )}
                                 </>
                               )}
 
@@ -2125,7 +2149,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       const modulesMap: Record<string, string> = {
                         social: "Social Media Marketing",
                         paid: "Paid Performance Ads",
-                        email: "Email / WhatsApp Marketing",
+                        email: "Email Marketing",
+                        whatsapp: "WhatsApp Marketing",
                         seo: "Search Engine Optimization (SEO)",
                         influencer: "Influencer Marketing",
                       };
@@ -2147,7 +2172,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                                         </span>
                                       )}
                                     </div>
-                                    <span className="font-semibold text-gray-900">{item.unit || "0"} / mo</span>
+                                    <span className="font-semibold text-gray-900">
+                                      {item.allocatedBudget && item.allocatedBudget.trim() !== ""
+                                        ? `${item.allocatedBudget}${item.unit && item.unit !== "0" ? ` · ${item.unit} / mo` : ""}`
+                                        : `${item.unit || "0"} / mo`}
+                                    </span>
                                   </div>
                                 </div>
                               ))}

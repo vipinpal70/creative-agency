@@ -62,7 +62,18 @@ export const REJECT_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
   design_client_review: "design_in_progress",
 };
 
-// Exceptional case: "article/copy" submitted without a creative has nothing
+export function isArticleType(mediaType?: string): boolean {
+  if (!mediaType) return false;
+  const mt = mediaType.toLowerCase().trim();
+  return (
+    mt === "article/copy" ||
+    mt === "article/blog" ||
+    mt === "article" ||
+    mt.startsWith("article/")
+  );
+}
+
+// Exceptional case: "article/copy" or "article/blog" submitted without a creative has nothing
 // to design, so it skips the design phase entirely — client approval of the
 // content takes it straight to design_approved (final).
 export function skipsDesignPhase(draft: {
@@ -70,7 +81,7 @@ export function skipsDesignPhase(draft: {
   articleMode?: string;
 }): boolean {
   return (
-    (draft.mediaType || "").toLowerCase().trim() === "article/copy" &&
+    isArticleType(draft.mediaType) &&
     draft.articleMode === "without-creative"
   );
 }

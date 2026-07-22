@@ -6,6 +6,7 @@ export type ModuleKey =
   | "paid"
   | "seo"
   | "email"
+  | "whatsapp"
   | "website"
   | "orm"
   | "influencer"
@@ -25,7 +26,8 @@ export const MODULES: ModuleMeta[] = [
   { key: "social", label: "Social Media", tone: "social", description: "Posts, reels, stories, community" },
   { key: "paid", label: "Paid Media", tone: "paid", description: "Ads on Meta, Google, LinkedIn" },
   { key: "seo", label: "SEO", tone: "seo", description: "Blogs, landing pages, backlinks" },
-  { key: "email", label: "Email", tone: "email", description: "Campaigns, newsletters, drips" },
+  { key: "email", label: "Email Marketing", tone: "email", description: "Campaigns, newsletters, drips" },
+  { key: "whatsapp", label: "WhatsApp Marketing", tone: "email", description: "Broadcasts, flows, automations" },
   { key: "website", label: "Website", tone: "website", description: "Pages, updates, hosting" },
   { key: "orm", label: "ORM", tone: "orm", description: "Reviews & reputation management" },
   { key: "influencer", label: "Influencer", tone: "influencer", description: "Creator partnerships" },
@@ -43,6 +45,7 @@ export interface ScopeItem {
   module: ModuleKey;
   label: string;
   unit?: string;
+  allocatedBudget?: string;
   delivered: number;
 }
 
@@ -65,6 +68,11 @@ export const DEFAULT_SCOPE_TEMPLATES: Record<ModuleKey, { label: string; unit?: 
     { label: "Newsletters", unit: "2" },
     { label: "Automation flows", unit: "1" },
     { label: "Drip sequences", unit: "1" },
+  ],
+  whatsapp: [
+    { label: "Broadcasts per month", unit: "4" },
+    { label: "Promotional messages", unit: "2" },
+    { label: "Automation flows", unit: "1" },
   ],
   paid: [
     { label: "Campaigns", unit: "3" },

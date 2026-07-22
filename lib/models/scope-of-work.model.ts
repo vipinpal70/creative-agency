@@ -5,6 +5,7 @@ export interface IScopeItem {
   module: string;      // e.g. "social", "paid", "seo", "email", "website", "influencer", "custom"
   label: string;       // e.g. "reel", "carousel", "video long form", "Blogs", "Ad Spend"
   unit?: string;       // Quantity per month as a numeric string (e.g. "12", "4")
+  allocatedBudget?: string; // Allocated budget (e.g. "$5,000" or "5000")
   delivered: number;   // Default 0
   platforms?: string[]; // E.g. ["instagram", "facebook", "linkedin", "youtube", "x"] (only for social module)
 }
@@ -25,6 +26,7 @@ const scopeItemSchema = new Schema<IScopeItem>(
     module: { type: String, required: true },
     label: { type: String, required: true },
     unit: { type: String, default: "0" },
+    allocatedBudget: { type: String, default: "" },
     delivered: { type: Number, required: true, default: 0 },
     platforms: { type: [String], default: [] },
   },

@@ -43,6 +43,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
           module: item.module,
           label: item.label,
           unit: item.unit ?? "0",
+          allocatedBudget: item.allocatedBudget ?? "",
           platforms: item.platforms || [],
           delivered: item.delivered ?? prev?.delivered ?? 0,
         };

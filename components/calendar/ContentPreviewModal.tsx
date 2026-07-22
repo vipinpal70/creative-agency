@@ -28,6 +28,7 @@ import { MODULES } from "@/lib/types";
 import {
   STATUS_LABEL,
   STATUS_COLOR,
+  isArticleType,
   normalizeDraftStatus,
   approveTargetFor,
   skipsDesignPhase,
@@ -375,7 +376,7 @@ function SocialMockup({
             alt="Preview"
             className="w-full h-full object-cover"
           />
-        ) : (draft?.articleMode === "with-creative" || (draft?.mediaType || item.type).toLowerCase() === "article/copy") && draft?.creativeCopy ? (
+        ) : (draft?.articleMode === "with-creative" || isArticleType(draft?.mediaType || item.type)) && draft?.creativeCopy ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 to-muted p-4">
             <p className="text-xs text-foreground text-center font-medium leading-relaxed line-clamp-6">
               {draft.creativeCopy}
@@ -456,7 +457,7 @@ function ArticlePreview({ draft, title }: { draft: CalendarDraft | null; title: 
 function MediaPreviewPane({ item }: { item: CalendarCopy }) {
   const draft = item.draft;
   const mediaCategory = getMediaCategory(draft?.mediaType || "", item.type);
-  const isArticleCopy = (draft?.mediaType || item.type).toLowerCase() === "article/copy";
+  const isArticleCopy = isArticleType(draft?.mediaType || item.type);
   const isSocial =
     item.module === "social" ||
     item.module === "paid" ||
@@ -934,7 +935,7 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                   )}
 
                   {/* Article/Copy fields */}
-                  {(draft.mediaType || item.type).toLowerCase() === "article/copy" ? (
+                  {isArticleType(draft.mediaType || item.type) ? (
                     <>
                       {form.articleMode === "with-creative" && (
                         <div>
