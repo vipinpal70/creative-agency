@@ -13,11 +13,14 @@ import { isClient, resolveClientId, unauthorized, forbidden, notFound } from "@/
 const TAB_STATUSES: Record<string, string[]> = {
   content: dbStatusesFor("content_client_review"),
   design: dbStatusesFor("design_client_review"),
-  // History = everything the client has already actioned: approved or rejected
-  // copies/designs (design rejections land in design_in_progress).
+  // History = everything the client has already actioned: approved copies/
+  // designs, or items sent back with a change request (content_req_change /
+  // design_req_change). Legacy rejected / design_in_progress are kept too.
   history: [
     ...dbStatusesFor("content_approved"),
     ...dbStatusesFor("design_approved"),
+    ...dbStatusesFor("content_req_change"),
+    ...dbStatusesFor("design_req_change"),
     ...dbStatusesFor("rejected"),
     ...dbStatusesFor("design_in_progress"),
   ],

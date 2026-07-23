@@ -37,10 +37,12 @@ const DELIVERABLE_STATUSES = [
   { key: "content_internal_review", label: "Content Internal Review", color: "bg-amber-500/10 border-amber-200" },
   { key: "content_client_review",   label: "Content Client Review",   color: "bg-purple-500/10 border-purple-200" },
   { key: "content_approved",        label: "Content Approved",        color: "bg-green-500/10 border-green-200" },
+  { key: "content_req_change",      label: "Content Changes Requested", color: "bg-rose-500/10 border-rose-200" },
   { key: "design_in_progress",      label: "Design In Progress",      color: "bg-sky-500/10 border-sky-200" },
   { key: "design_internal_review",  label: "Design Internal Review",  color: "bg-orange-500/10 border-orange-200" },
   { key: "design_client_review",    label: "Design Client Review",    color: "bg-violet-500/10 border-violet-200" },
   { key: "design_approved",         label: "Design Approved",         color: "bg-emerald-500/10 border-emerald-200" },
+  { key: "design_req_change",       label: "Design Changes Requested", color: "bg-rose-500/10 border-rose-200" },
   { key: "delivered",               label: "Delivered",               color: "bg-emerald-500/10 border-emerald-200" },
 ];
 
@@ -49,10 +51,12 @@ const DRAFT_DOT: Record<string, string> = {
   content_internal_review: "bg-amber-500",
   content_client_review:   "bg-purple-500",
   content_approved:        "bg-green-500",
+  content_req_change:      "bg-rose-500",
   design_in_progress:      "bg-sky-500",
   design_internal_review:  "bg-orange-500",
   design_client_review:    "bg-violet-500",
   design_approved:         "bg-emerald-500",
+  design_req_change:       "bg-rose-500",
   rejected:                "bg-red-500",
   // legacy
   submitted: "bg-amber-500",

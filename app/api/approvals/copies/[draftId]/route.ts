@@ -11,6 +11,7 @@ import User from "@/lib/models/user.model";
 import {
   normalizeDraftStatus,
   approveTargetFor,
+  REJECT_TRANSITIONS,
   DELIVERABLE_STATUS_FOR_DRAFT,
   timelineForStatus,
   historyActionForStatus,
@@ -22,13 +23,15 @@ import { isClient, resolveClientId, forbidden, notFound } from "@/lib/authz";
 type Ctx = { params: Promise<{ draftId: string }> };
 
 // PATCH /api/approvals/copies/[draftId]
-// Body: { action: "approve" | "reject", note?: string }
+// Body: { action: "approve" | "reject" | "request_change", note?: string }
 // approve advances the copy one review step:
 //   content_internal_review → content_client_review → content_approved
 //   design_internal_review  → design_client_review  → design_approved
-// reject during the content phase → "rejected" (back to the writer);
-// reject during the design phase  → "design_in_progress" (back to the
-// designer who claimed it — the copy itself stays approved).
+// request_change sends the item back for revision with feedback:
+//   content phase → "content_req_change" (back to the writer);
+//   design phase  → "design_req_change" (back to the claiming designer).
+// reject is a hard rejection → "rejected" for either phase.
+// For request_change / reject the feedback note is stored on the copy.
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
@@ -40,8 +43,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     const { action, note } = await req.json();
-    if (action !== "approve" && action !== "reject") {
-      return NextResponse.json({ error: 'action must be "approve" or "reject"' }, { status: 400 });
+    if (action !== "approve" && action !== "reject" && action !== "request_change") {
+      return NextResponse.json(
+        { error: 'action must be "approve", "reject", or "request_change"' },
+        { status: 400 }
+      );
     }
 
     await connectDB();
@@ -89,8 +95,18 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       timelineStatus = next;
       historyAction = historyActionForStatus(next) ?? "edited";
     } else {
-      next = current.startsWith("design_") ? ("design_in_progress" as const) : ("rejected" as const);
-      timelineStatus = "rejected" as const;
+      // reject / request_change are only valid from a review stage.
+      const reworkTarget = REJECT_TRANSITIONS[current];
+      if (!reworkTarget) {
+        return NextResponse.json(
+          { error: `Copy in status "${current}" is not awaiting review` },
+          { status: 409 }
+        );
+      }
+      // request_change → phase rework status (content/design_req_change);
+      // reject → hard "rejected".
+      next = action === "request_change" ? reworkTarget : ("rejected" as const);
+      timelineStatus = next;
       historyAction = "rejected";
       draft.rejectionNote = note?.trim() || "";
     }
@@ -105,10 +121,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     draft.lastChangedBy = { userId: session.userId, name: reviewerName, email: session.email, changedAt: now };
     await draft.save();
 
-    // Cascade to deliverable + timeline. Rejections are recorded on the
-    // timeline of the phase being left (writer for content_*, designer for design_*).
+    // Cascade to deliverable + timeline. Rejections / change requests are
+    // recorded on the timeline of the phase being left (writer for content_*,
+    // designer for design_*); approvals on the phase being entered.
     const timelineKey =
-      action === "reject" ? timelineForStatus(current) : timelineForStatus(next);
+      action === "approve" ? timelineForStatus(next) : timelineForStatus(current);
     await Deliverable.updateOne(
       { _id: draft.deliverableId },
       {

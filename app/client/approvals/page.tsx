@@ -6,6 +6,7 @@ import { toast, Toaster } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
+import { FeedbackModal } from "@/components/ui/feedback-modal";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 
@@ -16,28 +17,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "design", label: "🎨 Design Review" },
   { key: "history", label: "🗂 History" },
 ];
-
-// Inline "request changes" note form.
-function RejectForm({ onCancel, onConfirm, busy }: { onCancel: () => void; onConfirm: (note: string) => void; busy: boolean }) {
-  const [note, setNote] = useState("");
-  return (
-    <div className="space-y-2 pt-2 border-t border-gray-100 mt-2">
-      <textarea
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        rows={2}
-        placeholder="What changes would you like? (optional)"
-        className="w-full text-xs border border-gray-200 rounded-lg p-2 outline-none focus:border-rose-400"
-      />
-      <div className="flex gap-2 justify-end">
-        <button onClick={onCancel} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Cancel</button>
-        <button onClick={() => onConfirm(note)} disabled={busy} className="text-xs px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-60 inline-flex items-center gap-1">
-          {busy && <Loader2 className="h-3 w-3 animate-spin" />} Send request
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // Client portal Approvals — mirrors the staff approvals layout with three tabs
 // (content client review, design client review, history). All data is
@@ -66,7 +45,7 @@ export default function ClientApprovalsPage() {
 
   useEffect(() => { load(tab); }, [tab, load]);
 
-  const act = async (draftId: string, action: "approve" | "reject", note?: string) => {
+  const act = async (draftId: string, action: "approve" | "request_change", note?: string) => {
     setBusyId(draftId);
     try {
       const res = await fetch(`/api/approvals/copies/${draftId}`, {
@@ -155,30 +134,22 @@ export default function ClientApprovalsPage() {
                 </div>
 
                 {showActions && (
-                  rejectingId === copy.draftId ? (
-                    <RejectForm
-                      busy={busy}
-                      onCancel={() => setRejectingId(null)}
-                      onConfirm={(note) => act(copy.draftId, "reject", note)}
-                    />
-                  ) : (
-                    <div className="flex gap-2 justify-end mt-3">
-                      <button
-                        onClick={() => setRejectingId(copy.draftId)}
-                        disabled={busy}
-                        className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 inline-flex items-center gap-1 disabled:opacity-60"
-                      >
-                        <X className="h-3.5 w-3.5" /> Request changes
-                      </button>
-                      <button
-                        onClick={() => act(copy.draftId, "approve")}
-                        disabled={busy}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center gap-1 disabled:opacity-60"
-                      >
-                        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
-                      </button>
-                    </div>
-                  )
+                  <div className="flex gap-2 justify-end mt-3">
+                    <button
+                      onClick={() => setRejectingId(copy.draftId)}
+                      disabled={busy}
+                      className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 inline-flex items-center gap-1 disabled:opacity-60"
+                    >
+                      <X className="h-3.5 w-3.5" /> Request changes
+                    </button>
+                    <button
+                      onClick={() => act(copy.draftId, "approve")}
+                      disabled={busy}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center gap-1 disabled:opacity-60"
+                    >
+                      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+                    </button>
+                  </div>
                 )}
               </div>
             );
@@ -192,6 +163,21 @@ export default function ClientApprovalsPage() {
         open={!!preview}
         onClose={() => setPreview(null)}
         onUpdate={() => {}}
+      />
+
+      {/* Request-changes feedback modal (feedback required) */}
+      <FeedbackModal
+        open={!!rejectingId}
+        busy={busyId === rejectingId}
+        title={tab === "design" ? "Request design changes" : "Request content changes"}
+        description={
+          tab === "design"
+            ? "Your feedback is sent to the designer, who will rework and resubmit the creative."
+            : "Your feedback is sent to the writer, who will revise and resubmit the copy."
+        }
+        placeholder="What changes would you like?"
+        onCancel={() => setRejectingId(null)}
+        onConfirm={(feedback) => rejectingId && act(rejectingId, "request_change", feedback)}
       />
     </div>
   );

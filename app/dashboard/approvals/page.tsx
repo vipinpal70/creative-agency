@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
+import { FeedbackModal } from "@/components/ui/feedback-modal";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 
@@ -116,7 +117,7 @@ function CopyApprovalCard({
   onPreview: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [rejecting, setRejecting] = useState(false);
+  const [rejectMode, setRejectMode] = useState<"reject" | "request_changes" | null>(null);
 
   const isDesignStage = copy.status.startsWith("design_");
   const attachedUrl = copy.imageUrl || copy.videoUrl || "";
@@ -127,7 +128,7 @@ function CopyApprovalCard({
     copy.title ||
     "—";
 
-  const act = async (action: "approve" | "reject", note?: string) => {
+  const act = async (action: "approve" | "reject" | "request_change", note?: string) => {
     setBusy(true);
     try {
       const res = await fetch(`/api/approvals/copies/${copy.draftId}`, {
@@ -137,13 +138,19 @@ function CopyApprovalCard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Action failed");
-      toast.success(action === "approve" ? "Copy approved" : "Copy rejected");
+      toast.success(
+        action === "approve"
+          ? "Copy approved"
+          : action === "reject"
+          ? "Copy rejected"
+          : "Change request sent"
+      );
       onDone();
     } catch (err: any) {
       toast.error(err.message || "Action failed");
     } finally {
       setBusy(false);
-      setRejecting(false);
+      setRejectMode(null);
     }
   };
 
@@ -229,35 +236,70 @@ function CopyApprovalCard({
 
         {/* Action area — clicks here must not open the preview modal */}
         <div onClick={(e) => e.stopPropagation()}>
-          {!rejecting ? (
-            <div className="flex items-center gap-2 pt-1">
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                disabled={busy}
-                onClick={() => act("approve")}
-              >
-                {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
-                {approveLabel}
-              </Button>
-              <Button variant="outline" size="sm" disabled={busy} onClick={() => setRejecting(true)}>
-                <X className="h-3 w-3 mr-1" /> Reject
-              </Button>
-            </div>
-          ) : (
-            <RejectNoteForm
-              busy={busy}
-              onCancel={() => setRejecting(false)}
-              onConfirm={(note) => act("reject", note)}
-              placeholder={
-                isDesignStage
-                  ? "Explain what needs to change in the design…"
-                  : "Explain why this copy is being rejected…"
-              }
-            />
-          )}
+          <div className="flex items-center gap-2 pt-1 flex-wrap">
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={busy}
+              onClick={() => act("approve")}
+            >
+              {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+              {approveLabel}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              disabled={busy}
+              onClick={() => setRejectMode("reject")}
+            >
+              <X className="h-3 w-3 mr-1" /> Reject
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => setRejectMode("request_changes")}
+            >
+              <MessageSquare className="h-3 w-3 mr-1" /> Request Changes
+            </Button>
+          </div>
         </div>
       </CardContent>
+
+      <FeedbackModal
+        open={!!rejectMode}
+        busy={busy}
+        title={
+          rejectMode === "reject"
+            ? isDesignStage
+              ? "Reject design"
+              : "Reject copy"
+            : isDesignStage
+            ? "Request design changes"
+            : "Request content changes"
+        }
+        description={
+          rejectMode === "reject"
+            ? isDesignStage
+              ? "Explain why this design is being rejected…"
+              : "Explain why this copy is being rejected…"
+            : isDesignStage
+            ? "Your feedback is sent to the designer, who will rework and resubmit the creative."
+            : "Your feedback is sent to the writer, who will revise and resubmit the copy."
+        }
+        placeholder={
+          rejectMode === "reject"
+            ? isDesignStage
+              ? "Reason for rejecting this design…"
+              : "Reason for rejecting this copy…"
+            : isDesignStage
+            ? "Explain what needs to change in the design…"
+            : "Explain what needs to change in the copy…"
+        }
+        onCancel={() => setRejectMode(null)}
+        onConfirm={(feedback) => act(rejectMode === "reject" ? "reject" : "request_change", feedback)}
+      />
     </Card>
   );
 }
@@ -366,6 +408,174 @@ function TaskApprovalCard({ task, onDone }: { task: ApprovalTask; onDone: () => 
   );
 }
 
+function getTodayString(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+interface MultiSelectOption {
+  label: string;
+  value: string;
+}
+
+interface MultiSelectDropdownProps {
+  icon?: React.ReactNode;
+  label: string;
+  options: MultiSelectOption[];
+  selectedValues: string[];
+  onChange: (selected: string[]) => void;
+}
+
+function MultiSelectDropdown({
+  icon,
+  label,
+  options,
+  selectedValues,
+  onChange,
+}: MultiSelectDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, search]);
+
+  const toggleValue = (value: string) => {
+    if (selectedValues.includes(value)) {
+      onChange(selectedValues.filter((v) => v !== value));
+    } else {
+      onChange([...selectedValues, value]);
+    }
+  };
+
+  const selectAll = () => {
+    onChange(options.map((o) => o.value));
+  };
+
+  const clearAll = () => {
+    onChange([]);
+  };
+
+  const getDisplayText = () => {
+    if (selectedValues.length === 0) {
+      return `All ${label}s`;
+    }
+    if (selectedValues.length === options.length && options.length > 0) {
+      return `All ${label}s (${options.length})`;
+    }
+    if (selectedValues.length === 1) {
+      const match = options.find((o) => o.value === selectedValues[0]);
+      return match ? match.label : `1 ${label}`;
+    }
+    return `${selectedValues.length} ${label}s selected`;
+  };
+
+  const hasSelection = selectedValues.length > 0;
+
+  return (
+    <div className="relative inline-block text-left" ref={dropdownRef}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen((prev) => !prev)}
+        className={`h-9 text-xs justify-between gap-2 border-gray-200 bg-white font-normal hover:bg-gray-50 transition-colors ${
+          hasSelection ? "border-primary/50 ring-1 ring-primary/20 text-primary font-medium" : "text-gray-700"
+        }`}
+      >
+        <span className="flex items-center gap-1.5 truncate max-w-[160px]">
+          {icon}
+          <span className="truncate">{getDisplayText()}</span>
+        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          {hasSelection && (
+            <span className="bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.2 font-semibold">
+              {selectedValues.length}
+            </span>
+          )}
+          <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </Button>
+
+      {open && (
+        <div className="absolute left-0 mt-1 w-64 rounded-xl border border-gray-200 bg-white p-2 shadow-lg z-50 animate-in fade-in-50 zoom-in-95 duration-100">
+          {options.length > 5 && (
+            <div className="mb-2">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}s...`}
+                className="w-full px-2.5 py-1.5 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 bg-white"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between px-1 py-1 mb-1 border-b border-gray-100 text-[11px]">
+            <button
+              type="button"
+              onClick={selectAll}
+              className="text-primary hover:underline font-medium"
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              onClick={clearAll}
+              className="text-gray-500 hover:text-gray-800 hover:underline"
+            >
+              Clear
+            </button>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+            {filteredOptions.length === 0 ? (
+              <p className="text-xs text-gray-400 py-3 text-center">No options found</p>
+            ) : (
+              filteredOptions.map((opt: MultiSelectOption) => {
+                const checked = selectedValues.includes(opt.value);
+                return (
+                  <label
+                    key={opt.value}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs cursor-pointer select-none transition-colors ${
+                      checked ? "bg-primary/5 text-primary font-medium" : "hover:bg-gray-50 text-gray-700"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleValue(opt.value)}
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                    />
+                    <span className="truncate">{opt.label}</span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Page
 
 export default function ApprovalsPage() {
@@ -377,6 +587,9 @@ export default function ApprovalsPage() {
   const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
   const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
   const [clientFilter, setClientFilter] = useState<string>("");
+  const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState<string>(getTodayString);
+  const [endDate, setEndDate] = useState<string>("");
 
   const loadCopies = useCallback(async (stage: CopyStageKey) => {
     setLoading(true);
@@ -436,9 +649,66 @@ export default function ApprovalsPage() {
       .catch(console.error);
   }, []);
 
+  const availableMediaTypes = useMemo(() => {
+    const defaultTypes = ["Image", "Video", "Carousel", "Reel", "GIF", "Story", "Article"];
+    const fromCopies = copies.map((c) => c.mediaType).filter(Boolean);
+    const set = new Set<string>();
+
+    defaultTypes.forEach((t) => set.add(t));
+    fromCopies.forEach((t) => {
+      const formatted = t.charAt(0).toUpperCase() + t.slice(1);
+      set.add(formatted);
+    });
+
+    return Array.from(set).map((t) => ({ label: t, value: t }));
+  }, [copies]);
+
   const activeStage = COPY_STAGES.find((s) => s.key === copyStage)!;
-  const filteredCopies = copies.filter((c) => !clientFilter || c.clientId === clientFilter);
+
+  const filteredCopies = useMemo(() => {
+    return copies.filter((copy) => {
+      if (clientFilter && copy.clientId !== clientFilter) return false;
+
+      if (selectedMediaTypes.length > 0) {
+        const copyMedia = (copy.mediaType || "").toLowerCase();
+        const match = selectedMediaTypes.some(
+          (m) => m.toLowerCase() === copyMedia
+        );
+        if (!match) return false;
+      }
+
+      const rawDate = copy.publishDate || copy.scheduledDate || copy.updatedAt;
+      if (rawDate) {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          const copyYMD = `${y}-${m}-${day}`;
+
+          if (startDate && copyYMD < startDate) return false;
+          if (endDate && copyYMD > endDate) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [copies, clientFilter, selectedMediaTypes, startDate, endDate]);
+
   const filteredTasks = tasks.filter((t) => !clientFilter || t.clientId === clientFilter);
+
+  const hasActiveFilters =
+    clientFilter !== "" ||
+    selectedMediaTypes.length > 0 ||
+    startDate !== getTodayString() ||
+    endDate !== "";
+
+  const handleResetFilters = () => {
+    setClientFilter("");
+    setSelectedMediaTypes([]);
+    setStartDate(getTodayString());
+    setEndDate("");
+  };
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -464,8 +734,8 @@ export default function ApprovalsPage() {
 
       {tab === "copies" && (
         <>
-          {/* Review-stage filter + Client filter */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+          {/* Review-stage filter + Client, Media Type, Date Range filters */}
+          <div className="space-y-3 bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
               {COPY_STAGES.map((s) => {
                 const on = copyStage === s.key;
@@ -485,20 +755,83 @@ export default function ApprovalsPage() {
               })}
             </div>
 
-            <div className="relative">
-              <Building2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-              <select
-                className="pl-8 pr-7 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white text-gray-900 min-w-[180px] appearance-none"
-                value={clientFilter}
-                onChange={(e) => setClientFilter(e.target.value)}
-                aria-label="Filter by client"
-              >
-                <option value="">All Clients</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-gray-100">
+              {/* Client filter */}
+              <div className="relative">
+                <Building2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <select
+                  className="pl-8 pr-7 py-1.5 rounded-lg border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white text-gray-900 min-w-[180px] appearance-none"
+                  value={clientFilter}
+                  onChange={(e) => setClientFilter(e.target.value)}
+                  aria-label="Filter by client"
+                >
+                  <option value="">All Clients</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.companyName}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              </div>
+
+              {/* Multi-Select Media Type Filter */}
+              <MultiSelectDropdown
+                icon={<Film className="w-3.5 h-3.5 text-gray-400" />}
+                label="Media Type"
+                options={availableMediaTypes}
+                selectedValues={selectedMediaTypes}
+                onChange={setSelectedMediaTypes}
+              />
+
+              {/* Date Range Filter */}
+              <div className="flex items-center gap-1.5 bg-gray-50/80 border border-gray-200 rounded-lg px-2.5 py-1">
+                <Calendar className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-medium text-gray-500">From:</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="text-xs bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-800 font-medium p-0"
+                    title="Start Date"
+                  />
+                </div>
+                <span className="text-gray-300 text-xs px-0.5">-</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-medium text-gray-500">To:</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="text-xs bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-800 font-medium p-0"
+                    title="End Date"
+                  />
+                </div>
+                {(startDate || endDate) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartDate("");
+                      setEndDate("");
+                    }}
+                    className="ml-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 p-0.5 transition-colors"
+                    title="Clear dates"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Reset Filters button */}
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetFilters}
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3 mr-1" /> Reset filters
+                </Button>
+              )}
             </div>
           </div>
 
@@ -529,7 +862,7 @@ export default function ApprovalsPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filteredCopies.map((copy) => (
+              {filteredCopies.map((copy: ApprovalCopy) => (
                 <CopyApprovalCard
                   key={copy.draftId}
                   copy={copy}

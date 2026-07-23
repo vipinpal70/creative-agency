@@ -33,8 +33,10 @@ import {
   approveTargetFor,
   skipsDesignPhase,
   REJECT_TRANSITIONS,
+  RESUBMIT_TRANSITIONS,
 } from "@/lib/status-flow";
 import type { DraftStatus } from "@/lib/status-flow";
+import { FeedbackModal } from "@/components/ui/feedback-modal";
 import type { CalendarCopy, CalendarDraft } from "./types";
 
 interface HistoryChange {
@@ -118,7 +120,7 @@ function CarouselSlider({
         <img
           src={frame.imageUrl}
           alt={`Frame ${frame.frameNo}`}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-fit"
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-muted p-4">
@@ -183,7 +185,7 @@ function VideoPreview({
         src={videoUrl}
         controls
         autoPlay
-        className="w-full h-full object-cover"
+        className="w-full h-full object-fit"
       />
     );
   }
@@ -200,7 +202,7 @@ function VideoPreview({
         <img
           src={thumbnailUrl}
           alt="Video thumbnail"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-fit"
         />
       ) : videoUrl ? (
         <video
@@ -208,7 +210,7 @@ function VideoPreview({
           preload="metadata"
           muted
           playsInline
-          className="w-full h-full object-cover"
+          className="w-full h-full object-fit"
         />
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
@@ -374,7 +376,7 @@ function SocialMockup({
           <img
             src={draft.imageUrl}
             alt="Preview"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-fit"
           />
         ) : (draft?.articleMode === "with-creative" || isArticleType(draft?.mediaType || item.type)) && draft?.creativeCopy ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 to-muted p-4">
@@ -683,7 +685,7 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
   const [form, setForm] = useState<Partial<CalendarDraft>>({});
   const [saving, setSaving]     = useState(false);
   const [actioning, setActioning] = useState(false);
-  const [note, setNote]         = useState("");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
 
   // Reset form when item changes
@@ -709,7 +711,7 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
         referenceUrl: d.referenceUrl,
       });
     }
-    setNote("");
+    setFeedbackOpen(false);
     setActiveTab("details");
   }, [item?.deliverableId, item?.draft?.id]);
 
@@ -764,12 +766,12 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
     }
   };
 
-  const handleAction = async (newStatus: DraftStatus, isRejection = false) => {
+  const handleAction = async (newStatus: DraftStatus, feedback?: string) => {
     if (!item?.draft) return;
     setActioning(true);
     try {
       const body: Record<string, unknown> = { status: newStatus };
-      if (note && isRejection) body.rejectionNote = note;
+      if (feedback) body.rejectionNote = feedback;
       const updated = await patchDraft(body);
       if (updated) {
         onUpdate(item.deliverableId, {
@@ -777,7 +779,7 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
           ...updated,
           id: item.draft.id,
         });
-        setNote("");
+        setFeedbackOpen(false);
       }
     } finally {
       setActioning(false);
@@ -791,7 +793,13 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
   const draftStatusColor = DRAFT_STATUS_COLOR[draft?.status ?? "draft"] ?? "bg-muted text-muted-foreground";
   const mediaCategory = getMediaCategory(draft?.mediaType || "", item.type);
 
+  // Target rework status when requesting changes on the current draft.
+  const normDraftStatus = draft ? normalizeDraftStatus(draft.status) : null;
+  const rejectTarget = normDraftStatus ? REJECT_TRANSITIONS[normDraftStatus] : undefined;
+  const isDesignReject = normDraftStatus?.startsWith("design_") ?? false;
+
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
         {/* Header */}
@@ -1119,16 +1127,6 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                     )}
                   </div>
 
-                  <div>
-                    <Label className="text-xs">Note (optional)</Label>
-                    <Textarea
-                      className="mt-1.5 text-sm"
-                      placeholder="Add a note or feedback…"
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                    />
-                  </div>
-
                   <div className="grid grid-cols-1 gap-2">
                     {(() => {
                       const normStatus = normalizeDraftStatus(draft.status) ?? "draft";
@@ -1171,20 +1169,16 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                                 )}
                                 {approveLabel}
                               </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() =>
-                                  handleAction(nextOnReject ?? "rejected", true)
-                                }
-                                disabled={actioning}
-                              >
-                                {actioning ? (
-                                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                                ) : (
+                              {nextOnReject && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setFeedbackOpen(true)}
+                                  disabled={actioning}
+                                >
                                   <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-                                )}
-                                Request Changes
-                              </Button>
+                                  Request Changes
+                                </Button>
+                              )}
                             </>
                           )}
                           {normStatus === "content_approved" && (
@@ -1207,20 +1201,31 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                                 : "Design approved."}
                             </div>
                           )}
-                          {normStatus === "rejected" && (
+                          {(normStatus === "content_req_change" ||
+                            normStatus === "design_req_change" ||
+                            normStatus === "rejected") && (
                             <>
-                              <div className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
+                              <div className="text-xs text-rose-700 bg-rose-50 rounded-lg p-3">
                                 {draft.rejectionNote
                                   ? `Feedback: ${draft.rejectionNote}`
                                   : "Changes were requested."}
                               </div>
-                              <Button
-                                onClick={() => handleAction("content_internal_review")}
-                                disabled={actioning}
-                                variant="outline"
-                              >
-                                Re-submit for Review
-                              </Button>
+                              {RESUBMIT_TRANSITIONS[normStatus] && (
+                                <Button
+                                  onClick={() =>
+                                    handleAction(RESUBMIT_TRANSITIONS[normStatus]!)
+                                  }
+                                  disabled={actioning}
+                                  variant="outline"
+                                >
+                                  {actioning ? (
+                                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                  ) : (
+                                    <Send className="h-3.5 w-3.5 mr-1.5" />
+                                  )}
+                                  Re-submit for Review
+                                </Button>
+                              )}
                             </>
                           )}
                         </>
@@ -1234,5 +1239,24 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
         </div>
       </div>
     </div>
+
+    <FeedbackModal
+      open={feedbackOpen}
+      busy={actioning}
+      title={isDesignReject ? "Request design changes" : "Request content changes"}
+      description={
+        isDesignReject
+          ? "Your feedback is sent to the designer, who will rework and resubmit the creative."
+          : "Your feedback is sent to the writer, who will revise and resubmit the copy."
+      }
+      placeholder={
+        isDesignReject
+          ? "Explain what needs to change in the design…"
+          : "Explain what needs to change in the copy…"
+      }
+      onCancel={() => setFeedbackOpen(false)}
+      onConfirm={(feedback) => rejectTarget && handleAction(rejectTarget, feedback)}
+    />
+    </>
   );
 }

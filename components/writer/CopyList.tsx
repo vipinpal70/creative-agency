@@ -66,7 +66,9 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
           // (e.g. a rejected draft rolls up to "in_progress").
           const draftStatus = draft ? normalizeDraftStatus(draft.status) : null;
           const isDraft = draftStatus === "draft";
-          const isRejected = draftStatus === "rejected";
+          // Changes-requested and legacy rejected copies both return to the
+          // writer to rework and re-submit into the content review cycle.
+          const isRejected = draftStatus === "content_req_change" || draftStatus === "rejected";
           const displayStatus = draft ? draft.status : copy.status;
           const label = STATUS_LABEL[displayStatus] || displayStatus;
           const colorClass = STATUS_COLOR[displayStatus] || "bg-muted text-muted-foreground";

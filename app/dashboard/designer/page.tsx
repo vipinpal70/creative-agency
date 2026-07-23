@@ -168,7 +168,9 @@ const CopyCard = memo(function CopyCard({
 
   const isArchived = !!copy.archivedAt;
   const isQueue = copy.status === "content_approved" && !isArchived;
-  const isWorking = copy.status === "design_in_progress" && !isArchived;
+  // A design in progress or sent back for changes is workable by the claimer.
+  const isWorking =
+    (copy.status === "design_in_progress" || copy.status === "design_req_change") && !isArchived;
   const carousel = isCarousel(copy);
 
   const claimer = copy.designStartedBy;
@@ -836,8 +838,14 @@ export default function DesignerPage() {
     }
     reqRef.current = s;
     try {
-      // The rejected bucket additionally includes archived copies.
-      const qs = s === "rejected" ? `status=${s}&includeArchived=1` : `status=${s}`;
+      // The rejected bucket additionally includes archived copies. The In
+      // Progress tab also surfaces designs sent back with change requests.
+      const qs =
+        s === "rejected"
+          ? `status=${s}&includeArchived=1`
+          : s === "design_in_progress"
+          ? `status=design_in_progress,design_req_change`
+          : `status=${s}`;
       const data = await fetch(`/api/approvals/copies?${qs}`).then((r) => r.json());
       const list: ApprovalCopy[] = Array.isArray(data) ? data : [];
       cacheRef.current[s] = list;

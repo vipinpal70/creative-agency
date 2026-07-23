@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Search, Plus, ExternalLink, Mail, Phone, Users, CheckCircle, Clock } from "lucide-react";
+
+interface TeamMember {
+  id: string;
+  _id?: string;
+  name: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  roles?: string[];
+}
 
 interface ClientListItem {
   id: string;
@@ -18,7 +28,7 @@ interface ClientListItem {
     email: string;
     phone: string;
   };
-  assignedTeam: string[];
+  assignedTeam: (TeamMember | string)[];
   modules: string[];
   committed: number;
   totalScope: number;
@@ -40,13 +50,16 @@ const MODULE_LABELS: Record<string, string> = {
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<ClientListItem[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [scopeFilter, setScopeFilter] = useState<string>("all");
+  const [managerFilter, setManagerFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchClients();
+    fetchTeam();
   }, []);
 
   const fetchClients = async () => {
@@ -64,10 +77,54 @@ export default function ClientsPage() {
     }
   };
 
+  const fetchTeam = async () => {
+    try {
+      const res = await fetch("/api/team");
+      if (res.ok) {
+        const data = await res.json();
+        setTeamMembers(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch team members", err);
+    }
+  };
+
   // Distinct scope modules across all clients, for the scope filter dropdown.
   const availableModules = Array.from(
     new Set(clients.flatMap((c) => c.modules ?? []))
   );
+
+  // Account managers list (ONLY users with role === "account_manager")
+  const accountManagers = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+
+    teamMembers.forEach((m) => {
+      const id = m._id || m.id;
+      const primaryRole = (m as any).role ? String((m as any).role).toLowerCase() : "";
+      const roles = (m.roles ?? []).map((r) => String(r).toLowerCase().replace(/-/g, "_"));
+
+      if (id && (primaryRole === "account_manager" || roles.includes("account_manager"))) {
+        map.set(id, { id, name: m.name || `${m.firstName || ""} ${m.lastName || ""}`.trim() });
+      }
+    });
+
+    clients.forEach((c) => {
+      (c.assignedTeam ?? []).forEach((m: any) => {
+        if (typeof m === "object" && m !== null) {
+          const id = m._id || m.id;
+          const primaryRole = m.role ? String(m.role).toLowerCase() : "";
+          const roles = (m.roles ?? []).map((r: any) => String(r).toLowerCase().replace(/-/g, "_"));
+          const name = m.name || `${m.firstName || ""} ${m.lastName || ""}`.trim();
+
+          if (id && name && (primaryRole === "account_manager" || roles.includes("account_manager"))) {
+            map.set(id, { id, name });
+          }
+        }
+      });
+    });
+
+    return Array.from(map.values());
+  }, [teamMembers, clients]);
 
   const filteredClients = clients.filter((c) => {
     const q = search.toLowerCase();
@@ -77,7 +134,15 @@ export default function ClientsPage() {
       c.industry.toLowerCase().includes(q);
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
     const matchesScope = scopeFilter === "all" || (c.modules ?? []).includes(scopeFilter);
-    return matchesSearch && matchesStatus && matchesScope;
+    const matchesManager =
+      managerFilter === "all" ||
+      (c.assignedTeam ?? []).some((m: any) => {
+        if (typeof m === "string") return m === managerFilter;
+        const memberId = m._id || m.id;
+        return memberId === managerFilter;
+      });
+
+    return matchesSearch && matchesStatus && matchesScope && matchesManager;
   });
 
   return (
@@ -161,6 +226,18 @@ export default function ClientsPage() {
           <option value="all">All scopes</option>
           {availableModules.map((m) => (
             <option key={m} value={m}>{MODULE_LABELS[m] || m}</option>
+          ))}
+        </select>
+        <select
+          value={managerFilter}
+          onChange={(e) => setManagerFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-xs rounded-lg bg-white text-gray-700 cursor-pointer"
+        >
+          <option value="all">All account managers</option>
+          {accountManagers.map((am) => (
+            <option key={am.id} value={am.id}>
+              {am.name}
+            </option>
           ))}
         </select>
       </div>

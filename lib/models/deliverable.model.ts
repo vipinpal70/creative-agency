@@ -6,10 +6,12 @@ export type TimelineStatus =
   | "content_internal_review"
   | "content_client_review"
   | "content_approved"
+  | "content_req_change"
   | "design_in_progress"
   | "design_internal_review"
   | "design_client_review"
   | "design_approved"
+  | "design_req_change"
   | "rejected"
   | "publish"
   // legacy values from before the content/design split
@@ -62,10 +64,12 @@ export type DeliverableStatus =
   | "content_internal_review"
   | "content_client_review"
   | "content_approved"
+  | "content_req_change"
   | "design_in_progress"
   | "design_internal_review"
   | "design_client_review"
   | "design_approved"
+  | "design_req_change"
   | "delivered"
   // legacy values from before the content/design split
   | "internal_review"
@@ -111,8 +115,8 @@ const timelineEntrySchema = new Schema<ITimelineEntry>(
       type: String,
       enum: [
         "created", "draft",
-        "content_internal_review", "content_client_review", "content_approved",
-        "design_in_progress", "design_internal_review", "design_client_review", "design_approved",
+        "content_internal_review", "content_client_review", "content_approved", "content_req_change",
+        "design_in_progress", "design_internal_review", "design_client_review", "design_approved", "design_req_change",
         "rejected", "publish",
         // legacy
         "internal_review", "client_review", "approved",
@@ -157,8 +161,8 @@ const deliverableSchema = new Schema<IDeliverable>(
       type: String,
       enum: [
         "pending", "in_progress",
-        "content_internal_review", "content_client_review", "content_approved",
-        "design_in_progress", "design_internal_review", "design_client_review", "design_approved",
+        "content_internal_review", "content_client_review", "content_approved", "content_req_change",
+        "design_in_progress", "design_internal_review", "design_client_review", "design_approved", "design_req_change",
         "delivered",
         // legacy
         "internal_review", "client_review", "approved",

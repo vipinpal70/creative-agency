@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
   ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck, ChevronDown,
-  Pen, Pencil, Trash2,
+  Pen, Pencil, Trash2, Calendar, X,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -81,9 +81,19 @@ export default function WriterDashboard() {
   // ── Copy modal (create or edit) ──
   const [copyModal, setCopyModal] = useState<CopyModalState>(null);
 
+function getTodayString(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
   // ── Central Client filter state ──
   const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
   const [clientFilter, setClientFilter] = useState<string>("");
+  const [startDate, setStartDate] = useState<string>(getTodayString);
+  const [endDate, setEndDate] = useState<string>("");
 
   // ── Current user (for edit/delete permissions) ──
   const [me, setMe] = useState<{ id: string; role: string } | null>(null);
@@ -410,8 +420,35 @@ export default function WriterDashboard() {
     }
   };
 
-  const filtered = (filter === "all" ? calendars : calendars.filter((c) => c.module === filter))
-    .filter((c) => !clientFilter || c.clientId === clientFilter);
+  const filtered = calendars
+    .filter((c) => filter === "all" || c.module === filter)
+    .filter((c) => !clientFilter || c.clientId === clientFilter)
+    .filter((c) => {
+      if (!startDate && !endDate) return true;
+      const cStart = c.startDate ? c.startDate.slice(0, 10) : "";
+      const cEnd = c.endDate ? c.endDate.slice(0, 10) : cStart;
+
+      if (startDate) {
+        if (cEnd && cEnd < startDate) return false;
+      }
+      if (endDate) {
+        if (cStart && cStart > endDate) return false;
+      }
+      return true;
+    });
+
+  const hasActiveFilters =
+    filter !== "all" ||
+    clientFilter !== "" ||
+    startDate !== getTodayString() ||
+    endDate !== "";
+
+  const handleResetFilters = () => {
+    setFilter("all");
+    setClientFilter("");
+    setStartDate(getTodayString());
+    setEndDate("");
+  };
 
   const calPlannedItems = activeCalendar?.plannedItems ?? [];
 
@@ -497,6 +534,56 @@ export default function WriterDashboard() {
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                   </div>
+
+                  {/* Date Range Filter */}
+                  <div className="flex items-center gap-1.5 bg-gray-50/80 border border-gray-200 rounded-lg px-2.5 py-1">
+                    <Calendar className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] font-medium text-gray-500">From:</span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="text-xs bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-800 font-medium p-0"
+                        title="Start Date"
+                      />
+                    </div>
+                    <span className="text-gray-300 text-xs px-0.5">-</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] font-medium text-gray-500">To:</span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="text-xs bg-transparent border-0 focus:outline-none focus:ring-0 text-gray-800 font-medium p-0"
+                        title="End Date"
+                      />
+                    </div>
+                    {(startDate || endDate) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStartDate("");
+                          setEndDate("");
+                        }}
+                        className="ml-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 p-0.5 transition-colors"
+                        title="Clear dates"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResetFilters}
+                      className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3 w-3 mr-1" /> Reset filters
+                    </Button>
+                  )}
                 </div>
 
                 <Button size="sm" onClick={() => setCalendarsView("create")}>

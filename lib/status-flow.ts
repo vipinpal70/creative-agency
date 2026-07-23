@@ -5,8 +5,16 @@
 //   design phase (designer):  content_approved → design_in_progress → design_internal_review
 //                             → design_client_review → design_approved
 // "design_in_progress" is the claim step: a designer starts work, which locks
-// the item to them. Content rejections go to "rejected" (back to the writer);
-// design rejections return to "design_in_progress" (back to the claiming designer).
+// the item to them.
+//
+// Requesting changes at a review step sends the item back with feedback:
+//   content review → "content_req_change" (back to the writer), who reworks and
+//     re-enters the content cycle: content_req_change → content_internal_review
+//     → content_client_review → content_approved.
+//   design review → "design_req_change" (back to the claiming designer), who
+//     reworks and re-enters the design cycle: design_req_change →
+//     design_internal_review → design_client_review → design_approved.
+// The legacy "rejected" status is retained only for pre-existing documents.
 //
 // This module is plain TypeScript (no mongoose) so client components can import it.
 
@@ -15,10 +23,12 @@ export const DRAFT_STATUSES = [
   "content_internal_review",
   "content_client_review",
   "content_approved",
+  "content_req_change",
   "design_in_progress",
   "design_internal_review",
   "design_client_review",
   "design_approved",
+  "design_req_change",
   "rejected",
 ] as const;
 
@@ -52,14 +62,24 @@ export const APPROVE_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
   design_client_review: "design_approved",
 };
 
-// Rejecting an item at a review step: content rejections go back to the
-// writer ("rejected"); design rejections return to the claiming designer
-// ("design_in_progress" — the copy itself stays approved).
+// Requesting changes at a review step: content changes go back to the writer
+// ("content_req_change"); design changes go back to the claiming designer
+// ("design_req_change"). Feedback is attached as the copy's rejectionNote.
 export const REJECT_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
-  content_internal_review: "rejected",
-  content_client_review: "rejected",
-  design_internal_review: "design_in_progress",
-  design_client_review: "design_in_progress",
+  content_internal_review: "content_req_change",
+  content_client_review: "content_req_change",
+  design_internal_review: "design_req_change",
+  design_client_review: "design_req_change",
+};
+
+// Re-submitting a reworked item after changes were requested: the writer sends
+// a content_req_change copy back into content internal review; the designer
+// sends a design_req_change copy back into design internal review.
+export const RESUBMIT_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
+  content_req_change: "content_internal_review",
+  design_req_change: "design_internal_review",
+  // legacy rejected copies re-enter the content cycle
+  rejected: "content_internal_review",
 };
 
 export function isArticleType(mediaType?: string): boolean {
@@ -104,10 +124,12 @@ export const DELIVERABLE_STATUS_FOR_DRAFT: Record<DraftStatus, string> = {
   content_internal_review: "content_internal_review",
   content_client_review: "content_client_review",
   content_approved: "content_approved",
+  content_req_change: "content_req_change",
   design_in_progress: "design_in_progress",
   design_internal_review: "design_internal_review",
   design_client_review: "design_client_review",
   design_approved: "design_approved",
+  design_req_change: "design_req_change",
   rejected: "in_progress",
 };
 
@@ -129,6 +151,8 @@ export function historyActionForStatus(
     case "design_client_review":
     case "design_approved":
       return "approved";
+    case "content_req_change":
+    case "design_req_change":
     case "rejected":
       return "rejected";
     default:
@@ -145,10 +169,12 @@ export const STATUS_LABEL: Record<string, string> = {
   content_internal_review: "Content Internal Review",
   content_client_review: "Content Client Review",
   content_approved: "Content Approved",
+  content_req_change: "Content Changes Requested",
   design_in_progress: "Design In Progress",
   design_internal_review: "Design Internal Review",
   design_client_review: "Design Client Review",
   design_approved: "Design Approved",
+  design_req_change: "Design Changes Requested",
   rejected: "Rejected",
   delivered: "Delivered",
   // legacy
@@ -165,10 +191,12 @@ export const STATUS_COLOR: Record<string, string> = {
   content_internal_review: "bg-amber-100 text-amber-700",
   content_client_review: "bg-purple-100 text-purple-700",
   content_approved: "bg-green-100 text-green-700",
+  content_req_change: "bg-rose-100 text-rose-700",
   design_in_progress: "bg-sky-100 text-sky-700",
   design_internal_review: "bg-orange-100 text-orange-700",
   design_client_review: "bg-violet-100 text-violet-700",
   design_approved: "bg-emerald-100 text-emerald-700",
+  design_req_change: "bg-rose-100 text-rose-700",
   rejected: "bg-red-100 text-red-700",
   delivered: "bg-emerald-100 text-emerald-700",
   // legacy

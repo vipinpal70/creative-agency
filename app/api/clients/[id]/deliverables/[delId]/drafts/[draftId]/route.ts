@@ -80,10 +80,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       );
     }
 
-    // Design-phase lock: while a design is in progress, only the designer who
-    // claimed it (via Start Work) — or an admin — may modify it.
+    // Design-phase lock: while a design is in progress or in rework after
+    // changes were requested, only the designer who claimed it (via Start
+    // Work) — or an admin — may modify it.
     if (
-      draft.status === "design_in_progress" &&
+      (draft.status === "design_in_progress" || draft.status === "design_req_change") &&
       draft.designStartedBy &&
       draft.designStartedBy.userId !== session.userId.toString() &&
       session.role !== "admin"
@@ -163,9 +164,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       }
 
       // "Start Work" claim: first designer to move it to design_in_progress
-      // owns it. Only a fresh claim (from content_approved) is a claim —
-      // a rejection from design review back to design_in_progress is rework
-      // and must neither conflict nor reassign ownership.
+      // owns it. Only a fresh claim (from content_approved) is a claim. Rework
+      // after a change request happens in design_req_change and is resubmitted
+      // straight to design_internal_review, so it never re-enters this block or
+      // reassigns ownership.
       if (normalizedStatus === "design_in_progress") {
         const isClaim = normalizeDraftStatus(draft.status) === "content_approved";
         if (isClaim) {

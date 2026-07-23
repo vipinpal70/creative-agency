@@ -20,8 +20,10 @@ export async function GET(req: NextRequest) {
     // Staff-only: the full client directory must never be exposed to a client user.
     if (isClient(session)) return forbidden();
 
-    await connectDB();
-    const clients = await Client.find({}).sort({ createdAt: -1 }).lean();
+    const clients = await Client.find({})
+      .sort({ createdAt: -1 })
+      .populate("assignedTeam", "firstName lastName email roles status avatarColor phone")
+      .lean();
 
     // Determine current month range for live statistics
     const now = new Date();

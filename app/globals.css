@@ -21,6 +21,39 @@
   background: #f0fdf4;
 }
 
+/* ── Textarea Resizer Dragger (Enlarged grab target & styled handle) ──── */
+textarea {
+  resize: vertical;
+}
+
+textarea::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+textarea::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+textarea::-webkit-resizer {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cline x1='15' y1='5' x2='5' y2='15' stroke='%2316a34a' stroke-width='2.5' stroke-linecap='round'/%3E%3Cline x1='16' y1='10' x2='10' y2='16' stroke='%2316a34a' stroke-width='2.5' stroke-linecap='round'/%3E%3Cline x1='16' y1='15' x2='15' y2='16' stroke='%2316a34a' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: 16px 16px;
+  width: 22px;
+  height: 22px;
+  cursor: se-resize;
+}
+
 @theme {
   /* Customize default theme colors to map to Green System */
   --color-indigo-50: #DCFCE7;      /* Light Green */
