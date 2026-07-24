@@ -32,7 +32,7 @@ import { EmailCampaignWizard } from "@/components/writer/EmailCampaignWizard";
 import { PaidMediaWizard } from "@/components/writer/PaidMediaWizard";
 import { SeoWizard } from "@/components/writer/SeoWizard";
 import type {
-  WriterCalendar, WriterDeliverable, ContentBucket, CopyFormData,
+  WriterCalendar, WriterDeliverable, ContentBucket, CopyFormData, DraftSnapshot,
 } from "@/components/writer/types";
 import { MODULES } from "@/lib/types";
 import type { ModuleKey } from "@/lib/types";
@@ -96,7 +96,7 @@ function getTodayString(): string {
   const [endDate, setEndDate] = useState<string>("");
 
   // ── Current user (for edit/delete permissions) ──
-  const [me, setMe] = useState<{ id: string; role: string } | null>(null);
+  const [me, setMe] = useState<{ id: string; role: string; roles: string[] } | null>(null);
 
   // ── Calendar edit / delete state ──
   const [editingCalendar, setEditingCalendar]   = useState<WriterCalendar | null>(null);
@@ -121,7 +121,8 @@ function getTodayString(): string {
     fetch("/api/auth/me")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.user) setMe({ id: data.user.id, role: data.user.role });
+        if (data?.user)
+          setMe({ id: data.user.id, role: data.user.role, roles: data.user.roles ?? [] });
       })
       .catch(console.error);
   }, []);
@@ -301,6 +302,40 @@ function getTodayString(): string {
         )
       );
       toast({ title: "Copy sent for internal review" });
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  // ── Recall one copy back to the previous stage ──
+  // content_internal_review → draft; content_client_review → content_internal_review.
+  // Permissions are enforced server-side (creator for internal review; admin /
+  // account manager for client review).
+  const recallCopy = async (delId: string, draftId: string) => {
+    setSubmitting(delId);
+    try {
+      const res = await fetch(`/api/approvals/copies/${draftId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "recall" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Recall failed");
+      const newStatus = data.status as DraftSnapshot["status"];
+      setCopies((prev) =>
+        prev.map((c) =>
+          c.id === delId
+            ? {
+                ...c,
+                status: newStatus,
+                latestDraft: c.latestDraft ? { ...c.latestDraft, status: newStatus } : null,
+              }
+            : c
+        )
+      );
+      toast({ title: "Copy recalled to the previous stage" });
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to recall" });
     } finally {
       setSubmitting(null);
     }
@@ -863,6 +898,8 @@ function getTodayString(): string {
                             onSubmitSingle={submitCopy}
                             onSubmitAll={submitAll}
                             onOpenEdit={openEditModal}
+                            onRecall={recallCopy}
+                            canRecallClientReview={me?.role === "admin" || !!me?.roles?.includes("ACCOUNT_MANAGER")}
                             submitting={submitting}
                           />
                         </>
@@ -936,6 +973,8 @@ function getTodayString(): string {
                         onSubmitSingle={submitCopy}
                         onSubmitAll={submitAll}
                         onOpenEdit={openEditModal}
+                        onRecall={recallCopy}
+                        canRecallClientReview={me?.role === "admin" || !!me?.roles?.includes("ACCOUNT_MANAGER")}
                         submitting={submitting}
                       />
                     </>

@@ -100,6 +100,7 @@ const contentDraftSchema = new Schema<IContentDraft>(
         "design_client_review",
         "design_approved",
         "design_req_change",
+        "design_rejected",
         "rejected",
         // legacy values from before the content/design split
         "submitted",

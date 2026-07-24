@@ -823,6 +823,18 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                   · {item.platforms.join(", ")}
                 </span>
               )}
+              {/* Media type tag */}
+              {(draft?.mediaType || item.type) && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
+                  {draft?.mediaType || item.type}
+                </span>
+              )}
+              {/* Video type tag (reel / video long-format) */}
+              {draft?.videoType && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 capitalize">
+                  {draft.videoType}
+                </span>
+              )}
               {/* Single status badge: the draft status is the real pipeline
                   state; the deliverable status is only a coarse rollup and is
                   shown only when there is no draft yet. */}
@@ -1203,6 +1215,7 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                           )}
                           {(normStatus === "content_req_change" ||
                             normStatus === "design_req_change" ||
+                            normStatus === "design_rejected" ||
                             normStatus === "rejected") && (
                             <>
                               <div className="text-xs text-rose-700 bg-rose-50 rounded-lg p-3">

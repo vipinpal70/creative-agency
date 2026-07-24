@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Image as ImageIcon, Film,
   Send, Upload, ShieldCheck, Palette, User, MessageSquare, Play,
-  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X,
+  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X, RotateCcw,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
@@ -135,6 +135,7 @@ const CopyCard = memo(function CopyCard({
   copy,
   currentUserId,
   isAdmin,
+  isAccountManager,
   canArchive,
   inRejectedView,
   onChanged,
@@ -146,6 +147,7 @@ const CopyCard = memo(function CopyCard({
   copy: ApprovalCopy;
   currentUserId?: string;
   isAdmin: boolean;
+  isAccountManager: boolean;
   canArchive: boolean;
   inRejectedView: boolean;
   onChanged: () => void;
@@ -155,6 +157,8 @@ const CopyCard = memo(function CopyCard({
   onRemove: (draftId: string) => void;
 }) {
   const [starting, setStarting] = useState(false);
+  const [reworking, setReworking] = useState(false);
+  const [recalling, setRecalling] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null); // -1 = single upload
   const [submitting, setSubmitting] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -171,11 +175,21 @@ const CopyCard = memo(function CopyCard({
   // A design in progress or sent back for changes is workable by the claimer.
   const isWorking =
     (copy.status === "design_in_progress" || copy.status === "design_req_change") && !isArchived;
+  // A rejected design waits in the Rejected tab until the claimer re-works it.
+  const isRejectedDesign = copy.status === "design_rejected" && !isArchived;
   const carousel = isCarousel(copy);
 
   const claimer = copy.designStartedBy;
   const isMine = !!claimer && claimer.userId === currentUserId;
   const canWork = isWorking && (isMine || isAdmin || !claimer);
+
+  // Recall: pull the design back one stage. The assigned designer (or admin)
+  // may recall an internal review; only admin / account manager may recall a
+  // client review. Server enforces the same rules.
+  const canRecall =
+    !isArchived &&
+    ((copy.status === "design_internal_review" && (isMine || isAdmin)) ||
+      (copy.status === "design_client_review" && (isAdmin || isAccountManager)));
 
   const allFramesFilled = frames.length > 0 && frames.every((f) => !!f.imageUrl);
   const canSubmit = carousel ? allFramesFilled : !!attachedUrl;
@@ -211,6 +225,43 @@ const CopyCard = memo(function CopyCard({
       toast.error(err.message || "Failed to start work");
     } finally {
       setStarting(false);
+    }
+  };
+
+  // Re-work a rejected design: move it back into progress so the claiming
+  // designer can revise and resubmit. Ownership (designStartedBy) is preserved —
+  // the transition is not a fresh claim, so no reassignment happens server-side.
+  const handleRework = async () => {
+    setReworking(true);
+    try {
+      await patchDraft({ status: "design_in_progress" });
+      toast.success("Moved back to In Progress — you can rework this design");
+      onChanged();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to re-work");
+    } finally {
+      setReworking(false);
+    }
+  };
+
+  // Recall the design one stage back (design_internal_review → design_in_progress;
+  // design_client_review → design_internal_review). Enforced server-side.
+  const handleRecall = async () => {
+    setRecalling(true);
+    try {
+      const res = await fetch(`/api/approvals/copies/${copy.draftId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "recall" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Recall failed");
+      toast.success("Copy recalled to the previous stage");
+      onChanged();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to recall");
+    } finally {
+      setRecalling(false);
     }
   };
 
@@ -304,7 +355,7 @@ const CopyCard = memo(function CopyCard({
         toast.success("Copy restored");
         // A restored copy only belongs in the Rejected view if it's actually
         // rejected; one archived from an active stage leaves the view.
-        if (inRejectedView && copy.status === "rejected") {
+        if (inRejectedView && copy.status === "design_rejected") {
           onPatch(copy.draftId, { archivedAt: null, archivedBy: null });
         } else {
           onRemove(copy.draftId);
@@ -409,11 +460,14 @@ const CopyCard = memo(function CopyCard({
           </div>
         )}
 
-        {/* Design rework feedback */}
-        {copy.rejectionNote && isWorking && (
+        {/* Design rework / rejection feedback */}
+        {copy.rejectionNote && (isWorking || isRejectedDesign) && (
           <div className="flex items-start gap-2 text-xs bg-red-50 text-red-700 rounded-lg p-2.5">
             <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            <span>Design feedback: {copy.rejectionNote}</span>
+            <span>
+              {isRejectedDesign ? "Rejection reason: " : "Design feedback: "}
+              {copy.rejectionNote}
+            </span>
           </div>
         )}
 
@@ -517,6 +571,31 @@ const CopyCard = memo(function CopyCard({
                 <Play className="h-3 w-3 mr-1" />
               )}
               Start Work
+            </Button>
+          )}
+
+          {/* Re-work a rejected design: only the assigned designer (or admin)
+              can send it back into progress to restart the design cycle. */}
+          {isRejectedDesign && (isMine || isAdmin || !claimer) && (
+            <Button size="sm" disabled={reworking} onClick={handleRework}>
+              {reworking ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Play className="h-3 w-3 mr-1" />
+              )}
+              Re-work
+            </Button>
+          )}
+
+          {/* Recall: move the design back one stage. */}
+          {canRecall && (
+            <Button variant="outline" size="sm" disabled={recalling} onClick={handleRecall}>
+              {recalling ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3 w-3 mr-1" />
+              )}
+              Recall
             </Button>
           )}
 
@@ -812,6 +891,7 @@ export default function DesignerPage() {
   const [endDate, setEndDate] = useState<string>("");
 
   const isAdmin = user?.role === "admin";
+  const isAccountManager = !!user?.roles?.includes("ACCOUNT_MANAGER");
   const canArchive = user?.role === "admin" || user?.role === "member";
 
   // The tab drives which DB status we list. "history" is a UI-only tab whose
@@ -842,7 +922,7 @@ export default function DesignerPage() {
       // Progress tab also surfaces designs sent back with change requests.
       const qs =
         s === "rejected"
-          ? `status=${s}&includeArchived=1`
+          ? `status=design_rejected&includeArchived=1`
           : s === "design_in_progress"
           ? `status=design_in_progress,design_req_change`
           : `status=${s}`;
@@ -1134,6 +1214,7 @@ export default function DesignerPage() {
               copy={copy}
               currentUserId={user?.id}
               isAdmin={isAdmin}
+              isAccountManager={isAccountManager}
               canArchive={canArchive}
               inRejectedView={inRejectedView}
               onChanged={handleChanged}

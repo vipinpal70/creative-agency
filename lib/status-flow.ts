@@ -1,22 +1,28 @@
-// Shared status pipeline for copies (ContentDraft) and their parent Deliverable.
-//
-// A copy moves linearly through two review phases on a single status field:
-//   content phase (writer):   draft → content_internal_review → content_client_review → content_approved
-//   design phase (designer):  content_approved → design_in_progress → design_internal_review
-//                             → design_client_review → design_approved
-// "design_in_progress" is the claim step: a designer starts work, which locks
-// the item to them.
-//
-// Requesting changes at a review step sends the item back with feedback:
-//   content review → "content_req_change" (back to the writer), who reworks and
-//     re-enters the content cycle: content_req_change → content_internal_review
-//     → content_client_review → content_approved.
-//   design review → "design_req_change" (back to the claiming designer), who
-//     reworks and re-enters the design cycle: design_req_change →
-//     design_internal_review → design_client_review → design_approved.
-// The legacy "rejected" status is retained only for pre-existing documents.
-//
-// This module is plain TypeScript (no mongoose) so client components can import it.
+/* Shared status pipeline for copies (ContentDraft) and their parent Deliverable.
+
+A copy moves linearly through two review phases on a single status field:
+  content phase (writer):   draft → content_internal_review → content_client_review → content_approved
+  design phase (designer):  content_approved → design_in_progress → design_internal_review
+                            → design_client_review → design_approved
+"design_in_progress" is the claim step: a designer starts work, which locks
+the item to them.
+
+Requesting changes at a review step sends the item back with feedback:
+  content review → "content_req_change" (back to the writer), who reworks and
+    re-enters the content cycle: content_req_change → content_internal_review
+    → content_client_review → content_approved.
+  design review → "design_req_change" (back to the claiming designer), who
+    reworks and re-enters the design cycle: design_req_change →
+    design_internal_review → design_client_review → design_approved.
+A hard reject splits by phase: content review → "rejected" (back to the
+  writer); design review → "design_rejected" (surfaces in the designer's
+  Rejected tab, still owned by the claiming designer). "Re-work" on a
+  design_rejected copy moves it to design_in_progress to restart the cycle.
+The legacy "rejected" status is content-phase only (also used by pre-existing
+documents).
+
+This module is plain TypeScript (no mongoose) so client components can import it.
+*/
 
 export const DRAFT_STATUSES = [
   "draft",
@@ -29,6 +35,7 @@ export const DRAFT_STATUSES = [
   "design_client_review",
   "design_approved",
   "design_req_change",
+  "design_rejected",
   "rejected",
 ] as const;
 
@@ -82,6 +89,31 @@ export const RESUBMIT_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
   rejected: "content_internal_review",
 };
 
+// Recall: pull a copy back one step to the previous stage, to undo a premature
+// submission or approval. Only valid from these stages; ownership/role gating is
+// enforced in the recall route (creator for content_internal_review, assigned
+// designer for design_internal_review, admin/account-manager for the two
+// client-review stages; admin may recall from any stage).
+export const RECALL_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
+  content_internal_review: "draft",
+  content_client_review:   "content_internal_review",
+  design_internal_review:  "design_in_progress",
+  design_client_review:    "design_internal_review",
+};
+
+// The two client-review stages require elevated roles (admin / account manager)
+// to recall; the internal-review stages are gated to the item's owner.
+export function isClientReviewStage(status: DraftStatus): boolean {
+  return status === "content_client_review" || status === "design_client_review";
+}
+
+// Reel / video (long-format) media types, which offer a "video type" choice
+// (shoot based / motion graphic / stock based) in the copy forms.
+export function isReelOrVideoType(mediaType?: string): boolean {
+  if (!mediaType) return false;
+  return /reel|video|long\s*form|long\s*format/.test(mediaType.toLowerCase());
+}
+
 export function isArticleType(mediaType?: string): boolean {
   if (!mediaType) return false;
   const mt = mediaType.toLowerCase().trim();
@@ -130,6 +162,7 @@ export const DELIVERABLE_STATUS_FOR_DRAFT: Record<DraftStatus, string> = {
   design_client_review: "design_client_review",
   design_approved: "design_approved",
   design_req_change: "design_req_change",
+  design_rejected: "design_rejected",
   rejected: "in_progress",
 };
 
@@ -153,6 +186,7 @@ export function historyActionForStatus(
       return "approved";
     case "content_req_change":
     case "design_req_change":
+    case "design_rejected":
     case "rejected":
       return "rejected";
     default:
@@ -175,6 +209,7 @@ export const STATUS_LABEL: Record<string, string> = {
   design_client_review: "Design Client Review",
   design_approved: "Design Approved",
   design_req_change: "Design Changes Requested",
+  design_rejected: "Design Rejected",
   rejected: "Rejected",
   delivered: "Delivered",
   // legacy
@@ -196,7 +231,8 @@ export const STATUS_COLOR: Record<string, string> = {
   design_internal_review: "bg-orange-100 text-orange-700",
   design_client_review: "bg-violet-100 text-violet-700",
   design_approved: "bg-emerald-100 text-emerald-700",
-  design_req_change: "bg-rose-100 text-rose-700",
+  design_req_change: "bg-orange-100 text-orange-700",
+  design_rejected: "bg-red-100 text-red-700",
   rejected: "bg-red-100 text-red-700",
   delivered: "bg-emerald-100 text-emerald-700",
   // legacy

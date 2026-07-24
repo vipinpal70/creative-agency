@@ -12,6 +12,7 @@ export type TimelineStatus =
   | "design_client_review"
   | "design_approved"
   | "design_req_change"
+  | "design_rejected"
   | "rejected"
   | "publish"
   // legacy values from before the content/design split
@@ -70,6 +71,7 @@ export type DeliverableStatus =
   | "design_client_review"
   | "design_approved"
   | "design_req_change"
+  | "design_rejected"
   | "delivered"
   // legacy values from before the content/design split
   | "internal_review"
@@ -117,7 +119,7 @@ const timelineEntrySchema = new Schema<ITimelineEntry>(
         "created", "draft",
         "content_internal_review", "content_client_review", "content_approved", "content_req_change",
         "design_in_progress", "design_internal_review", "design_client_review", "design_approved", "design_req_change",
-        "rejected", "publish",
+        "design_rejected", "rejected", "publish",
         // legacy
         "internal_review", "client_review", "approved",
       ],
@@ -163,7 +165,7 @@ const deliverableSchema = new Schema<IDeliverable>(
         "pending", "in_progress",
         "content_internal_review", "content_client_review", "content_approved", "content_req_change",
         "design_in_progress", "design_internal_review", "design_client_review", "design_approved", "design_req_change",
-        "delivered",
+        "design_rejected", "delivered",
         // legacy
         "internal_review", "client_review", "approved",
       ],

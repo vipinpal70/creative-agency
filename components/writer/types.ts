@@ -126,6 +126,13 @@ export interface CalendarData {
   copies: never[];  // replaced by WriterDeliverable[]
 }
 
+// Video-type options for reel / video (long-format) media types.
+export const VIDEO_TYPE_OPTIONS = [
+  { value: "shoot based",    label: "Shoot Based" },
+  { value: "motion graphic", label: "Motion Graphic" },
+  { value: "stock based",    label: "Stock Based" },
+] as const;
+
 export const MEDIA_TYPES = [
   "Text",
   "Static",

@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock, MessageSquare } from "lucide-react";
+import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock, MessageSquare, RotateCcw } from "lucide-react";
 import type { WriterDeliverable } from "./types";
 import { STATUS_LABEL, STATUS_COLOR, normalizeDraftStatus } from "@/lib/status-flow";
 
@@ -24,10 +24,15 @@ interface Props {
   onSubmitSingle: (delId: string, draftId: string) => Promise<void>;
   onSubmitAll: () => Promise<void>;
   onOpenEdit: (copy: WriterDeliverable) => void;
+  onRecall: (delId: string, draftId: string) => Promise<void>;
+  // Whether the current user (admin / account manager) may recall a copy that
+  // is in the content_client_review stage. Internal-review recall is available
+  // to the copy's creator, which in the writer workspace is the current user.
+  canRecallClientReview: boolean;
   submitting: string | null;
 }
 
-export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, submitting }: Props) {
+export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, onRecall, canRecallClientReview, submitting }: Props) {
   const draftCopies = copies.filter(
     (c) => c.latestDraft && normalizeDraftStatus(c.latestDraft.status) === "draft"
   );
@@ -69,6 +74,14 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
           // Changes-requested and legacy rejected copies both return to the
           // writer to rework and re-submit into the content review cycle.
           const isRejected = draftStatus === "content_req_change" || draftStatus === "rejected";
+          // Recall a copy one stage back. content_internal_review → draft is
+          // available to the creator (the writer viewing their own workspace);
+          // content_client_review → content_internal_review needs admin / account
+          // manager. Server enforces the same rules.
+          const canRecall =
+            !!draft &&
+            (draftStatus === "content_internal_review" ||
+              (draftStatus === "content_client_review" && canRecallClientReview));
           const displayStatus = draft ? draft.status : copy.status;
           const label = STATUS_LABEL[displayStatus] || displayStatus;
           const colorClass = STATUS_COLOR[displayStatus] || "bg-muted text-muted-foreground";
@@ -168,6 +181,19 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                     onClick={() => onOpenEdit(copy)}
                   >
                     <Pencil className="h-3 w-3 mr-1" /> Edit
+                  </Button>
+                )}
+                {canRecall && draft && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={submitting === copy.id}
+                    onClick={() => onRecall(copy.id, draft.id)}
+                  >
+                    {submitting === copy.id
+                      ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      : <RotateCcw className="h-3 w-3 mr-1" />}
+                    Recall
                   </Button>
                 )}
                 {isDraft && (

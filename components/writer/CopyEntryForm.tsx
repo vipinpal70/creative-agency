@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, FileText, Loader2, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { isReelOrVideoType } from "@/lib/status-flow";
 import type { CopyFormData, CarouselFrame, PlannedItem } from "./types";
+import { VIDEO_TYPE_OPTIONS } from "./types";
 
 // ── Platform SVG icons ──────────────────────────────────────────────────────
 
@@ -161,7 +163,7 @@ export function CopyEntryForm({ buckets, plannedItems, onAddCopy }: Props) {
   const [frames,        setFrames]        = useState<CarouselFrame[]>([]);
   const [currentFrame,  setCurrentFrame]  = useState(1);
 
-  const isVideoLongForm = mediaType.toLowerCase() === "video long form";
+  const isReelOrVideo   = isReelOrVideoType(mediaType);
   const isCarousel      = mediaType.toLowerCase() === "carousel";
 
   const updateFrame = (frameNo: number, patch: Partial<CarouselFrame>) => {
@@ -237,8 +239,8 @@ export function CopyEntryForm({ buckets, plannedItems, onAddCopy }: Props) {
         contentBucket,
         platforms:     selPlatforms,
         referenceUrl:  referenceUrl.trim() || undefined,
-        videoType:     isVideoLongForm ? videoType  : undefined,
-        videoNotes:    isVideoLongForm ? videoNotes : undefined,
+        videoType:     isReelOrVideo ? videoType  : undefined,
+        videoNotes:    isReelOrVideo ? videoNotes : undefined,
       });
       setMediaType(""); setCreativeCopy(""); setCaption("");
       setHashtags(""); setPublishDate(""); setPublishTime("");
@@ -298,33 +300,35 @@ export function CopyEntryForm({ buckets, plannedItems, onAddCopy }: Props) {
           )}
         </div>
 
-        {/* 1b — Video Long Form extra info (conditional) */}
-        {isVideoLongForm && (
+        {/* 1b — Reel / Video (long-format) extra info (conditional) */}
+        {isReelOrVideo && (
           <div className="space-y-3 rounded-xl border border-border bg-accent/20 px-4 py-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Video Details</p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className={LABEL}>Video Type <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
-                <select
-                  value={videoType}
-                  onChange={(e) => setVideoType(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-md text-sm bg-background text-foreground outline-none focus:border-primary"
-                >
-                  <option value="">Select type…</option>
-                  <option value="shoot based">Shoot Based</option>
-                  <option value="stock footage">Stock Footage</option>
-                  <option value="motion graphics">Motion Graphics</option>
-                  <option value="influencer led">Influencer Led</option>
-                </select>
+            <div className="space-y-1.5">
+              <label className={LABEL}>Video Type <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
+              <div className="flex flex-wrap gap-4">
+                {VIDEO_TYPE_OPTIONS.map((opt) => (
+                  <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="videoType"
+                      value={opt.value}
+                      checked={videoType === opt.value}
+                      onChange={() => setVideoType(opt.value)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm text-foreground">{opt.label}</span>
+                  </label>
+                ))}
               </div>
-              <div className="space-y-1.5">
-                <label className={LABEL}>Video Notes <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
-                <Input
-                  placeholder="Any notes about the video production…"
-                  value={videoNotes}
-                  onChange={(e) => setVideoNotes(e.target.value)}
-                />
-              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className={LABEL}>Video Notes <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
+              <Input
+                placeholder="Any notes about the video production…"
+                value={videoNotes}
+                onChange={(e) => setVideoNotes(e.target.value)}
+              />
             </div>
           </div>
         )}

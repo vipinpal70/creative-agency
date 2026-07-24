@@ -80,11 +80,15 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       );
     }
 
-    // Design-phase lock: while a design is in progress or in rework after
-    // changes were requested, only the designer who claimed it (via Start
-    // Work) — or an admin — may modify it.
+    // Design-phase lock: while a design is in progress, in rework after changes
+    // were requested, or rejected (awaiting Re-work), only the designer who
+    // claimed it (via Start Work) — or an admin — may modify it. This also
+    // enforces that only the owner can trigger the Re-work transition
+    // (design_rejected → design_in_progress).
     if (
-      (draft.status === "design_in_progress" || draft.status === "design_req_change") &&
+      (draft.status === "design_in_progress" ||
+        draft.status === "design_req_change" ||
+        draft.status === "design_rejected") &&
       draft.designStartedBy &&
       draft.designStartedBy.userId !== session.userId.toString() &&
       session.role !== "admin"
