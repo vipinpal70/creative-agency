@@ -109,15 +109,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (Array.isArray(buckets))      calendar.buckets      = buckets;
 
     if (Array.isArray(plannedItems)) {
-      for (const item of plannedItems) {
-        if (item.plannedQty > item.totalInScope) {
-          return NextResponse.json(
-            { error: `plannedQty (${item.plannedQty}) for "${item.label}" exceeds totalInScope (${item.totalInScope})` },
-            { status: 400 }
-          );
-        }
-      }
-      calendar.plannedItems = plannedItems;
+      calendar.plannedItems = plannedItems.map((item) => ({
+        scopeItemId: item.scopeItemId || item.label?.toLowerCase() || "custom",
+        label:        item.label || "Custom",
+        type:         item.type || item.label || "Custom",
+        platforms:    Array.isArray(item.platforms) ? item.platforms : [],
+        plannedQty:   typeof item.plannedQty === "number" ? Math.max(0, item.plannedQty) : 0,
+        totalInScope: typeof item.totalInScope === "number" ? Math.max(0, item.totalInScope) : 0,
+      }));
     }
 
     await calendar.save();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, CalendarCog } from "lucide-react";
+import { Loader2, CalendarCog, Sliders } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,13 +15,15 @@ export interface CalendarEditDialogProps {
   onClose: () => void;
   /** Called with the patched fields after a successful save. */
   onSaved: (patch: Partial<WriterCalendar>) => void;
+  /** Optional callback to open the scope of work editor */
+  onOpenScopeEdit?: () => void;
 }
 
 /**
  * Lightweight edit modal for a calendar's core fields (name, dates, status).
  * Objective/buckets/copies are edited inside the workspace, not here.
  */
-export function CalendarEditDialog({ calendar, onClose, onSaved }: CalendarEditDialogProps) {
+export function CalendarEditDialog({ calendar, onClose, onSaved, onOpenScopeEdit }: CalendarEditDialogProps) {
   const { toast } = useToast();
   const [name, setName]           = useState(calendar.name);
   const [startDate, setStartDate] = useState(calendar.startDate.slice(0, 10));
@@ -91,14 +93,31 @@ export function CalendarEditDialog({ calendar, onClose, onSaved }: CalendarEditD
         onClick={() => !saving && onClose()}
       />
       <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-100 p-5 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <CalendarCog className="h-4.5 w-4.5" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <CalendarCog className="h-4.5 w-4.5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-gray-900">Edit calendar</h2>
+              <p className="text-xs text-gray-500">Update calendar metadata or scope of work.</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-gray-900">Edit calendar</h2>
-            <p className="text-xs text-gray-500">Update the calendar name, dates and status.</p>
-          </div>
+          {onOpenScopeEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1 text-xs text-primary border-primary/20 hover:bg-primary/5 shrink-0"
+              onClick={() => {
+                onClose();
+                onOpenScopeEdit();
+              }}
+            >
+              <Sliders className="h-3.5 w-3.5" />
+              Edit Scope
+            </Button>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -148,14 +167,29 @@ export function CalendarEditDialog({ calendar, onClose, onSaved }: CalendarEditD
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={save} disabled={saving}>
-            {saving && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-            Save changes
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+          {/* {onOpenScopeEdit ? (
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline font-medium flex items-center gap-1"
+              onClick={() => {
+                onClose();
+                onOpenScopeEdit();
+              }}
+            >
+              <Sliders className="h-3.5 w-3.5" /> Edit Scope of Work
+            </button>
+          ) : <div />} */}
+
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              Save changes
+            </Button>
+          </div>
         </div>
       </div>
     </div>

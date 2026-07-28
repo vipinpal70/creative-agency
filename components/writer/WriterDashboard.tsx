@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
   ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck, ChevronDown,
-  Pen, Pencil, Trash2, Calendar, X,
+  Pen, Pencil, Trash2, Calendar, X, Sliders,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -27,6 +27,7 @@ import { CopyModal } from "@/components/writer/CopyModal";
 import type { CopyModalInitialData } from "@/components/writer/CopyModal";
 import { CalendarCreateView } from "@/components/writer/CalendarCreateView";
 import { CalendarEditDialog } from "@/components/writer/CalendarEditDialog";
+import { CalendarScopeEditModal } from "@/components/writer/CalendarScopeEditModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmailCampaignWizard } from "@/components/writer/EmailCampaignWizard";
 import { PaidMediaWizard } from "@/components/writer/PaidMediaWizard";
@@ -99,9 +100,10 @@ function getTodayString(): string {
   const [me, setMe] = useState<{ id: string; role: string; roles: string[] } | null>(null);
 
   // ── Calendar edit / delete state ──
-  const [editingCalendar, setEditingCalendar]   = useState<WriterCalendar | null>(null);
-  const [deletingCalendar, setDeletingCalendar] = useState<WriterCalendar | null>(null);
-  const [deletingBusy, setDeletingBusy]         = useState(false);
+  const [editingCalendar, setEditingCalendar]           = useState<WriterCalendar | null>(null);
+  const [editingScopeCalendar, setEditingScopeCalendar] = useState<WriterCalendar | null>(null);
+  const [deletingCalendar, setDeletingCalendar]         = useState<WriterCalendar | null>(null);
+  const [deletingBusy, setDeletingBusy]                 = useState(false);
 
   // ── Load calendars ──
   const loadCalendars = useCallback(async () => {
@@ -721,8 +723,17 @@ function getTodayString(): string {
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
-                              title="Edit calendar"
-                              aria-label="Edit calendar"
+                              title="Edit scope of work"
+                              aria-label="Edit scope of work"
+                              className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); setEditingScopeCalendar(cal); }}
+                            >
+                              <Sliders className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Edit calendar metadata"
+                              aria-label="Edit calendar metadata"
                               className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                               onClick={(e) => { e.stopPropagation(); setEditingCalendar(cal); }}
                             >
@@ -770,34 +781,49 @@ function getTodayString(): string {
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Calendar</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">CALENDAR</p>
                       <p className="text-sm font-semibold text-foreground">{activeCalendar.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {new Date(activeCalendar.startDate).toLocaleDateString()} – {new Date(activeCalendar.endDate).toLocaleDateString()}
                         {" · "}{activeCalendar.clientName}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Progress</p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {activeCalendar.progress.totalCreated} / {activeCalendar.progress.totalPlanned} copies
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Progress</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {activeCalendar.progress.totalCreated} / {activeCalendar.progress.totalPlanned} copies
+                        </p>
+                      </div>
                     </div>
                   </div>
 
                   {/* Planned items chips */}
-                  {activeCalendar.plannedItems.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {activeCalendar.plannedItems.map((item) => (
-                        <span
-                          key={item.scopeItemId}
-                          className="text-[11px] px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium"
-                        >
-                          {item.label}: {item.plannedQty}/{item.totalInScope}
-                        </span>
-                      ))}
+                  <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {activeCalendar.plannedItems.length > 0 ? (
+                        activeCalendar.plannedItems.map((item) => (
+                          <span
+                            key={item.scopeItemId}
+                            className="text-[11px] px-3 py-1 rounded-full bg-emerald-100/90 text-emerald-800 font-medium dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200/50"
+                          >
+                            {item.label}: {item.plannedQty}/{item.totalInScope}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">No scope items defined</span>
+                      )}
                     </div>
-                  )}
+                    {canManage(activeCalendar) && (
+                      <button
+                        type="button"
+                        className="text-xs text-emerald-700 hover:text-emerald-800 dark:text-emerald-400 hover:underline font-medium flex items-center gap-1 shrink-0 ml-auto"
+                        onClick={() => setEditingScopeCalendar(activeCalendar)}
+                      >
+                        <Sliders className="h-3 w-3" /> Edit Scope
+                      </button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1014,12 +1040,37 @@ function getTodayString(): string {
         <CalendarEditDialog
           calendar={editingCalendar}
           onClose={() => setEditingCalendar(null)}
+          onOpenScopeEdit={() => setEditingScopeCalendar(editingCalendar)}
           onSaved={(patch) => {
             setCalendars((prev) =>
               prev.map((c) => (c.id === editingCalendar.id ? { ...c, ...patch } : c))
             );
             if (activeCalendar?.id === editingCalendar.id) {
               setActiveCalendar((c) => (c ? { ...c, ...patch } : c));
+            }
+          }}
+        />
+      )}
+
+      {/* ── Edit calendar scope of work modal ── */}
+      {editingScopeCalendar && (
+        <CalendarScopeEditModal
+          calendar={editingScopeCalendar}
+          onClose={() => setEditingScopeCalendar(null)}
+          onSaved={({ plannedItems, progress }) => {
+            setCalendars((prev) =>
+              prev.map((c) =>
+                c.id === editingScopeCalendar.id
+                  ? { ...c, plannedItems, progress: progress || c.progress }
+                  : c
+              )
+            );
+            if (activeCalendar?.id === editingScopeCalendar.id) {
+              setActiveCalendar((c) =>
+                c
+                  ? { ...c, plannedItems, progress: progress || c.progress }
+                  : c
+              );
             }
           }}
         />

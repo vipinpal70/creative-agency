@@ -45,7 +45,7 @@ const plannedItemSchema = new Schema<IPlannedItem>(
     label:        { type: String, required: true },
     type:         { type: String, required: true },
     platforms:    { type: [String], default: [] },
-    plannedQty:   { type: Number, required: true, min: 1 },
+    plannedQty:   { type: Number, required: true, min: 0 },
     totalInScope: { type: Number, required: true, min: 0 },
   },
   { _id: false }
