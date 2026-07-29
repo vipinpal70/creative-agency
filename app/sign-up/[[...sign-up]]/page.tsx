@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import Logo from "@/public/CO-logo.png"
 import { Eye, EyeOff } from "lucide-react";
 
 export default function SignUpPage() {
@@ -51,6 +53,9 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div className="mb-2 flex items-center justify-center">
+            <Image src={Logo} alt="Logo" width={150} height={150} />
+        </div>
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">Create account</h1>
           <p className="mt-1 text-sm text-gray-500">Sign up to get started with CreativeOS.</p>

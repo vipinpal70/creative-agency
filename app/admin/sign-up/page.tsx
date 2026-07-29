@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import Logo from "@/public/CO-logo.png"
 import { Eye, EyeOff } from "lucide-react";
 
 export default function AdminSignUpPage() {
@@ -51,9 +53,13 @@ export default function AdminSignUpPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div className="mb-2 flex items-center justify-center">
+          <Image src={Logo} alt="Logo" width={200} height={200} />
+        </div>
+
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">Create account</h1>
-          <p className="mt-1 text-sm text-gray-500">Admin user registration</p>
+          {/* <h1 className="text-xl font-semibold text-gray-900">Create account</h1> */}
+          <p className="text-sm text-gray-500 text-center">Admin user registration</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -148,7 +154,7 @@ export default function AdminSignUpPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-2.5 px-4 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "Creating account…" : "Create account"}
           </button>

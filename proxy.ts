@@ -5,7 +5,6 @@ import { JWTExpired } from "jose/errors";
 const COOKIE_NAME = "auth_token";
 
 const PUBLIC_PATHS = [
-  "/",
   "/sign-in",
   "/admin/sign-up",
   "/session-expired",
@@ -17,9 +16,24 @@ const PUBLIC_PATHS = [
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isPublic =
-    pathname === "/" ||
-    PUBLIC_PATHS.filter((p) => p !== "/").some((p) => pathname.startsWith(p));
+  if (pathname === "/") {
+    const token = req.cookies.get(COOKIE_NAME)?.value;
+    if (!token) {
+      return NextResponse.redirect(new URL("/sign-in", req.url));
+    }
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+      const { payload } = await jwtVerify(token, secret);
+      const role = payload.role as string | undefined;
+      return NextResponse.redirect(
+        new URL(role === "client" ? "/client" : "/dashboard", req.url)
+      );
+    } catch {
+      return NextResponse.redirect(new URL("/sign-in", req.url));
+    }
+  }
+
+  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 
   const token = req.cookies.get(COOKIE_NAME)?.value;
