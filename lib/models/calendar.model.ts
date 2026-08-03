@@ -81,17 +81,10 @@ calendarSchema.index({ clientId: 1, scopeId: 1 });
 calendarSchema.index({ clientId: 1, status: 1 });
 calendarSchema.index({ createdBy: 1 });
 
-// Enforce: only one non-completed calendar per (client, scope, module) at a time.
-// partialFilterExpression targets only draft/active/paused documents so completed
-// calendars don't block creation of the next period's calendar.
-calendarSchema.index(
-  { clientId: 1, scopeId: 1, module: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { status: { $in: ["draft", "active", "paused"] } },
-    name: "unique_active_calendar_per_scope_module",
-  }
-);
+// NOTE: multiple non-completed calendars per (client, scope, module) are allowed.
+// The old `unique_active_calendar_per_scope_module` unique partial index has been
+// removed; lib/db.ts drops the lingering DB index on first connect.
+calendarSchema.index({ clientId: 1, scopeId: 1, module: 1 });
 
 const Calendar: Model<ICalendar> =
   mongoose.models.Calendar || mongoose.model<ICalendar>("Calendar", calendarSchema);

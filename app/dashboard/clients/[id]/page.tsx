@@ -1871,8 +1871,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   <p className="text-xs text-gray-500">Define the scope period details and select active modules.</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500 uppercase">Period *</label>
-                      <input type="text" placeholder="e.g. July 2026 / Q3 2026" value={newScopePeriod}
+                      <label className="text-xs font-semibold text-gray-500 uppercase">Title *</label>
+                      <input type="text" placeholder="My New Calendar" value={newScopePeriod}
                         onChange={(e) => {
                           setNewScopePeriod(e.target.value);
                           if (e.target.value.trim()) {

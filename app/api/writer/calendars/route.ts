@@ -92,22 +92,8 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // Block if a non-completed calendar already exists for this client+scope+module
-    const existing = await Calendar.findOne({
-      clientId: new mongoose.Types.ObjectId(clientId),
-      scopeId:  new mongoose.Types.ObjectId(scopeId),
-      module,
-      status: { $in: ["draft", "active", "paused"] },
-    }).lean();
-    if (existing) {
-      return NextResponse.json(
-        {
-          error: `A calendar for this module already exists and is currently "${existing.status}". Complete it before creating a new one.`,
-          existingCalendarId: (existing._id as any).toString(),
-        },
-        { status: 409 }
-      );
-    }
+    // Multiple non-completed calendars for the same client+scope+module are allowed.
+    // Date-overlap conflicts are surfaced as a non-blocking warning in the UI.
 
     const scope = await ScopeOfWork.findOne({
       _id: new mongoose.Types.ObjectId(scopeId),
@@ -166,12 +152,6 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (err: any) {
-    if (err.code === 11000) {
-      return NextResponse.json(
-        { error: "A calendar for this module is already active. Complete it before creating a new one." },
-        { status: 409 }
-      );
-    }
     console.error("[writer/calendars POST]", err);
     return NextResponse.json({ error: err.message || "Internal error" }, { status: 500 });
   }

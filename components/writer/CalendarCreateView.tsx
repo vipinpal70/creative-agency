@@ -6,8 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, CalendarPlus, Loader2, Plus, Minus } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Loader2, Plus, Minus, AlertTriangle } from "lucide-react";
 import type { WriterCalendar } from "./types";
+
+interface ConflictCalendar { name: string; startDate: string; endDate: string }
+
+function fmtDate(d: string): string {
+  const parsed = new Date(d);
+  return isNaN(parsed.getTime())
+    ? d
+    : parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
 interface Client { id: string; name: string; brandName?: string }
 interface ScopeItem { id: string; module?: string; label: string; unit?: string; platforms?: string[] }
@@ -54,6 +63,10 @@ export function CalendarCreateView({ onBack, onCreated }: Props) {
   // Step 3 state: scopeItemId → plannedQty
   const [plannedQtys, setPlannedQtys] = useState<Record<string, number>>({});
 
+  // Date-overlap conflicts against existing calendars (same client+scope+module)
+  const [conflicts, setConflicts] = useState<ConflictCalendar[]>([]);
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
+
   // Load clients
   useEffect(() => {
     fetch("/api/clients")
@@ -82,6 +95,43 @@ export function CalendarCreateView({ onBack, onCreated }: Props) {
   // Reset planned qtys when module changes
   useEffect(() => { setPlannedQtys({}); }, [module]);
 
+  // Detect date overlaps with existing calendars of the same client+scope+module.
+  // Non-blocking: purely to surface a warning; the user may still create.
+  useEffect(() => {
+    if (!clientId || !scopeId || !module || !startDate || !endDate) {
+      setConflicts([]);
+      return;
+    }
+    const newStart = new Date(startDate).getTime();
+    const newEnd   = new Date(endDate).getTime();
+    if (isNaN(newStart) || isNaN(newEnd) || newStart > newEnd) {
+      setConflicts([]);
+      return;
+    }
+
+    let cancelled = false;
+    setCheckingConflicts(true);
+    fetch(`/api/clients/${clientId}/calendars?scopeId=${scopeId}&module=${module}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: any[]) => {
+        if (cancelled) return;
+        const overlapping = (Array.isArray(data) ? data : [])
+          .filter((c) => {
+            const s = new Date(c.startDate).getTime();
+            const e = new Date(c.endDate).getTime();
+            if (isNaN(s) || isNaN(e)) return false;
+            // Two ranges overlap when each starts on/before the other ends.
+            return newStart <= e && newEnd >= s;
+          })
+          .map((c) => ({ name: c.name, startDate: c.startDate, endDate: c.endDate }));
+        setConflicts(overlapping);
+      })
+      .catch(() => { if (!cancelled) setConflicts([]); })
+      .finally(() => { if (!cancelled) setCheckingConflicts(false); });
+
+    return () => { cancelled = true; };
+  }, [clientId, scopeId, module, startDate, endDate]);
+
   const selectedScope = scopes.find((s) => s.id === scopeId);
 
   // Unique modules present in the selected scope
@@ -105,6 +155,29 @@ export function CalendarCreateView({ onBack, onCreated }: Props) {
     .map(([scopeItemId, plannedQty]) => ({ scopeItemId, plannedQty }));
 
   const canSubmit = plannedItems.length > 0;
+
+  // Non-blocking bright-red warning shown when the chosen dates overlap an existing
+  // calendar of the same client + scope + module.
+  const conflictWarning = conflicts.length > 0 ? (
+    <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5">
+      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-red-600 dark:text-red-500" />
+      <div className="space-y-1">
+        <p className="text-xs font-bold text-red-600 dark:text-red-500">
+          These dates overlap {conflicts.length} existing calendar{conflicts.length > 1 ? "s" : ""} for this module:
+        </p>
+        <ul className="text-xs font-semibold text-red-600 dark:text-red-500 space-y-0.5">
+          {conflicts.map((c, i) => (
+            <li key={i}>
+              • {c.name} ({fmtDate(c.startDate)} – {fmtDate(c.endDate)})
+            </li>
+          ))}
+        </ul>
+        <p className="text-[11px] font-medium text-red-600/80 dark:text-red-500/80">
+          You can still create this calendar, but check the dates to avoid conflicts.
+        </p>
+      </div>
+    </div>
+  ) : null;
 
   const handleSubmit = async () => {
     if (!canSubmit || saving) return;
@@ -271,6 +344,8 @@ export function CalendarCreateView({ onBack, onCreated }: Props) {
                 />
               </div>
 
+              {conflictWarning}
+
               <div className="flex justify-between pt-2">
                 <Button variant="outline" onClick={() => setStep(1)}>← Back</Button>
                 <Button disabled={!module || !name.trim() || !startDate || !endDate} onClick={() => setStep(3)}>
@@ -328,6 +403,8 @@ export function CalendarCreateView({ onBack, onCreated }: Props) {
                   );
                 })}
               </div>
+
+              {conflictWarning}
 
               {error && <p className="text-xs text-destructive">{error}</p>}
 
