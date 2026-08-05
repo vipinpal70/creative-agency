@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Image as ImageIcon, Film,
   Send, Upload, ShieldCheck, Palette, User, MessageSquare, Play,
-  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X, RotateCcw,
+  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X, RotateCcw, Clock,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
@@ -32,6 +32,7 @@ const STAGES = [
   { key: "design_in_progress",     label: "In Progress" },
   { key: "design_internal_review", label: "Internal Review" },
   { key: "design_client_review",   label: "Client Review" },
+  { key: "publishing",             label: "Schedule" },
   { key: "history",                label: "History" },
 ] as const;
 
@@ -138,6 +139,7 @@ const CopyCard = memo(function CopyCard({
   isAccountManager,
   canArchive,
   inRejectedView,
+  schedulable,
   onChanged,
   onPreview,
   onUploaded,
@@ -150,6 +152,7 @@ const CopyCard = memo(function CopyCard({
   isAccountManager: boolean;
   canArchive: boolean;
   inRejectedView: boolean;
+  schedulable: boolean;
   onChanged: () => void;
   onPreview: (copy: ApprovalCopy) => void;
   onUploaded: (draftId: string, patch: Partial<ApprovalCopy>) => void;
@@ -157,6 +160,7 @@ const CopyCard = memo(function CopyCard({
   onRemove: (draftId: string) => void;
 }) {
   const [starting, setStarting] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
   const [reworking, setReworking] = useState(false);
   const [recalling, setRecalling] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null); // -1 = single upload
@@ -177,6 +181,10 @@ const CopyCard = memo(function CopyCard({
     (copy.status === "design_in_progress" || copy.status === "design_req_change") && !isArchived;
   // A rejected design waits in the Rejected tab until the claimer re-works it.
   const isRejectedDesign = copy.status === "design_rejected" && !isArchived;
+  // Schedule tab: a design_approved copy can be scheduled for publish; a
+  // scheduled copy is read-only here (only admin/AM mark it published).
+  const canSchedule = schedulable && copy.status === "design_approved" && !isArchived;
+  const isScheduled = schedulable && copy.status === "scheduled" && !isArchived;
   const carousel = isCarousel(copy);
 
   const claimer = copy.designStartedBy;
@@ -225,6 +233,22 @@ const CopyCard = memo(function CopyCard({
       toast.error(err.message || "Failed to start work");
     } finally {
       setStarting(false);
+    }
+  };
+
+  // Schedule an approved copy for publish (design_approved → scheduled). Any
+  // staff may schedule; the final publish (scheduled → published) is restricted
+  // to admin / account manager and is not done from this workspace.
+  const handleSchedule = async () => {
+    setScheduling(true);
+    try {
+      await patchDraft({ status: "scheduled" });
+      toast.success("Scheduled for publish");
+      onChanged();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to schedule");
+    } finally {
+      setScheduling(false);
     }
   };
 
@@ -572,6 +596,31 @@ const CopyCard = memo(function CopyCard({
               )}
               Start Work
             </Button>
+          )}
+
+          {/* Schedule tab: move an approved copy to "scheduled". */}
+          {canSchedule && (
+            <Button
+              size="sm"
+              disabled={scheduling}
+              onClick={handleSchedule}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white"
+            >
+              {scheduling ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Clock className="h-3 w-3 mr-1" />
+              )}
+              Schedule for Publish
+            </Button>
+          )}
+
+          {/* Schedule tab: already scheduled — publishing is admin/AM only. */}
+          {isScheduled && (
+            <div className="flex items-center gap-2 text-xs bg-cyan-50 text-cyan-700 rounded-lg p-2.5">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span>Scheduled for publish — awaiting publish by an admin / account manager.</span>
+            </div>
           )}
 
           {/* Re-work a rejected design: only the assigned designer (or admin)
@@ -925,6 +974,8 @@ export default function DesignerPage() {
           ? `status=design_rejected&includeArchived=1`
           : s === "design_in_progress"
           ? `status=design_in_progress,design_req_change`
+          : s === "publishing"
+          ? `status=design_approved,scheduled`
           : `status=${s}`;
       const data = await fetch(`/api/approvals/copies?${qs}`).then((r) => r.json());
       const list: ApprovalCopy[] = Array.isArray(data) ? data : [];
@@ -1193,6 +1244,8 @@ export default function DesignerPage() {
                 ? "No copies match the selected filters."
                 : activeStatus === "content_approved"
                 ? "No approved copies waiting for design."
+                : activeStatus === "publishing"
+                ? "No approved copies to schedule."
                 : activeStatus === "design_approved"
                 ? "No approved copies yet."
                 : activeStatus === "rejected"
@@ -1217,6 +1270,7 @@ export default function DesignerPage() {
               isAccountManager={isAccountManager}
               canArchive={canArchive}
               inRejectedView={inRejectedView}
+              schedulable={stage === "publishing"}
               onChanged={handleChanged}
               onPreview={handlePreview}
               onUploaded={handleUploaded}

@@ -102,6 +102,9 @@ const contentDraftSchema = new Schema<IContentDraft>(
         "design_req_change",
         "design_rejected",
         "rejected",
+        // post-approval publishing pipeline
+        "scheduled",
+        "published",
         // legacy values from before the content/design split
         "submitted",
         "approved",

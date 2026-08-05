@@ -57,7 +57,7 @@ export default function SignInPage() {
         </div>
         <div className="mb-8">
           {/* <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1> */}
-          <p className="mt-1 text-sm text-gray-500 text-center">Welcome back. Sign in to you account.</p>
+          <p className="mt-1 text-sm text-gray-500 text-center">Welcome back. Sign in to your account.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -122,13 +122,13 @@ export default function SignInPage() {
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
-
+{/* 
         <p className="mt-6 text-center text-sm text-gray-500">
           Need an admin account?{" "}
           <Link href="/admin/sign-up" className="font-medium text-gray-900 hover:underline">
             Create one
           </Link>
-        </p>
+        </p> */}
       </div>
     </div>
   );

@@ -39,7 +39,7 @@ const MODULE_COLORS: Record<string, string> = {
 
 // Deliverable delivery is considered complete at design_approved (nothing sets
 // "delivered" automatically) — matches the clients list computation.
-const DELIVERED_STATUSES = new Set(["delivered", "design_approved"]);
+const DELIVERED_STATUSES = new Set(["delivered", "design_approved", "scheduled", "published"]);
 
 const moduleLabel = (key: string) => MODULES.find((m) => m.key === key)?.label ?? key;
 
@@ -390,7 +390,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Scope delivery ────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-50">
           <div>
             <h2 className="text-[12px] font-semibold text-gray-900">Scope delivery — target vs delivered (this month)</h2>
@@ -443,7 +443,7 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
 
       {/* ── Charts row ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">

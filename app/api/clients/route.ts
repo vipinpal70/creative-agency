@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
     // The draft pipeline ends at design_approved — nothing sets "delivered"
     // automatically — so fully approved copies count as delivered here.
-    const DELIVERED_STATUSES = new Set(["delivered", "design_approved"]);
+    const DELIVERED_STATUSES = new Set(["delivered", "design_approved", "scheduled", "published"]);
 
     // When the delivery happened: explicit deliveredAt, else the timestamp of
     // the design_approved timeline entry. Legacy docs without either fall back

@@ -45,7 +45,7 @@ export async function GET() {
     );
     const delivered = await Deliverable.countDocuments({
       clientId,
-      status: { $in: ["delivered", "design_approved"] },
+      status: { $in: ["delivered", "design_approved", "scheduled", "published"] },
     });
 
     // Assigned team (safe fields only).

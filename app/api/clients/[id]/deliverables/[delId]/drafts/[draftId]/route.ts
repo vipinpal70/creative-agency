@@ -15,6 +15,8 @@ import {
   DELIVERABLE_STATUS_FOR_DRAFT,
   timelineForStatus,
   historyActionForStatus,
+  PUBLISH_TRANSITIONS,
+  requiresElevatedPublish,
 } from "@/lib/status-flow";
 import type { DraftStatus } from "@/lib/status-flow";
 
@@ -99,8 +101,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       );
     }
 
-    // Resolve editor name up front (needed for claim + timeline + history)
-    const editor = await User.findById(session.userId).select("firstName lastName email").lean();
+    // Resolve editor name up front (needed for claim + timeline + history).
+    // roles is needed to authorise the publish transition — the JWT only carries
+    // the account-level role, not team roles like ACCOUNT_MANAGER.
+    const editor = await User.findById(session.userId).select("firstName lastName email roles").lean();
     const editorName = editor
       ? `${editor.firstName} ${editor.lastName || ""}`.trim()
       : session.email;
@@ -165,6 +169,40 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       // instead of entering the designer queue.
       if (normalizedStatus === "content_approved" && skipsDesignPhase(draft)) {
         normalizedStatus = "design_approved";
+      }
+
+      // Post-approval publishing pipeline: design_approved → scheduled → published.
+      // These are staff-only manual moves. scheduled → published (the final
+      // stage) is further restricted to admin / account manager. We also keep
+      // the graph honest: published may only come from scheduled, scheduled only
+      // from design_approved (this route is otherwise a permissive setter).
+      if (normalizedStatus === "scheduled" || normalizedStatus === "published") {
+        if (isClient(session)) {
+          return NextResponse.json(
+            { error: "Only staff can schedule or publish copies" },
+            { status: 403 }
+          );
+        }
+        const currentNorm = normalizeDraftStatus(draft.status);
+        const expectedFrom = Object.keys(PUBLISH_TRANSITIONS).find(
+          (from) => PUBLISH_TRANSITIONS[from as DraftStatus] === normalizedStatus
+        );
+        if (currentNorm !== expectedFrom) {
+          return NextResponse.json(
+            { error: `Cannot move a copy from "${draft.status}" to "${normalizedStatus}"` },
+            { status: 409 }
+          );
+        }
+        if (requiresElevatedPublish(normalizedStatus)) {
+          const isAdmin = session.role === "admin";
+          const isAccountManager = (editor?.roles ?? []).includes("ACCOUNT_MANAGER");
+          if (!isAdmin && !isAccountManager) {
+            return NextResponse.json(
+              { error: "Only an admin or account manager can publish a copy" },
+              { status: 403 }
+            );
+          }
+        }
       }
 
       // "Start Work" claim: first designer to move it to design_in_progress

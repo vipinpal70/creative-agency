@@ -6,7 +6,7 @@ const COOKIE_NAME = "auth_token";
 
 const PUBLIC_PATHS = [
   "/sign-in",
-  "/admin/sign-up",
+  // "/admin/sign-up",
   "/session-expired",
   "/api/auth/login",
   "/api/auth/register",
@@ -15,6 +15,10 @@ const PUBLIC_PATHS = [
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (pathname.startsWith("/admin/sign-up")) {
+    return NextResponse.redirect(new URL("/sign-in", req.url));
+  }
 
   if (pathname === "/") {
     const token = req.cookies.get(COOKIE_NAME)?.value;

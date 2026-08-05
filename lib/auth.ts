@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 const JWT_SECRET = process.env.JWT_SECRET as string;
 export const COOKIE_NAME = "auth_token";
 export const SESSION_DURATION_SECONDS = 8 * 60 * 60; // 8 hours
-
+  
 export interface JWTPayload {
   userId: string;
   email: string;

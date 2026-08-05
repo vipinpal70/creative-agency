@@ -15,7 +15,7 @@ const VALID_STATUSES: DeliverableStatus[] = [
   "pending", "in_progress",
   "content_internal_review", "content_client_review", "content_approved",
   "design_internal_review", "design_client_review", "design_approved",
-  "delivered",
+  "delivered", "scheduled", "published",
 ];
 
 // GET /api/clients/[id]/deliverables/[delId]
@@ -126,7 +126,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         "created", "draft",
         "content_internal_review", "content_client_review", "content_approved",
         "design_internal_review", "design_client_review", "design_approved",
-        "rejected", "publish",
+        "rejected", "publish", "scheduled", "published",
       ];
       if (!VALID_TIMELINE_STATUSES.includes(designerStatus)) {
         return NextResponse.json(

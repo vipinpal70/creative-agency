@@ -22,6 +22,7 @@ import {
   Heart,
   MessageCircle,
   AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/lib/types";
@@ -37,6 +38,7 @@ import {
 } from "@/lib/status-flow";
 import type { DraftStatus } from "@/lib/status-flow";
 import { FeedbackModal } from "@/components/ui/feedback-modal";
+import { useAuth } from "@/hooks/useAuth";
 import type { CalendarCopy, CalendarDraft } from "./types";
 
 interface HistoryChange {
@@ -325,11 +327,25 @@ function TextPreview({ draft, title, module }: { draft: CalendarDraft | null; ti
   }
 
   return (
-    <div className="w-full rounded-xl border border-border bg-card p-5 shadow">
-      <p className="text-sm font-semibold text-foreground mb-3">{title}</p>
+    <div className="w-full rounded-xl border border-border bg-card p-5 shadow space-y-3">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
       <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-10">
         {text || <span className="text-muted-foreground">No content yet…</span>}
       </p>
+      {draft?.referenceUrl && (
+        <div className="pt-2 border-t border-border flex items-center gap-1.5 text-xs">
+          <span className="font-medium text-muted-foreground">Reference:</span>
+          <a
+            href={draft.referenceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline truncate flex items-center gap-1"
+          >
+            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+            {draft.referenceUrl}
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -400,9 +416,9 @@ function SocialMockup({
         <Bookmark className="h-4 w-4 ml-auto" />
       </div>
 
-      {/* Caption */}
-      {(draft?.caption || draft?.hashtags?.length) && (
-        <div className="px-3 pb-3">
+      {/* Caption & Reference URL */}
+      {(draft?.caption || draft?.hashtags?.length || draft?.referenceUrl) && (
+        <div className="px-3 pb-3 space-y-1">
           {draft?.caption && (
             <p className="text-xs text-foreground line-clamp-3">
               <span className="font-semibold">brand.handle</span>{" "}
@@ -413,6 +429,17 @@ function SocialMockup({
             <p className="text-[10px] text-[hsl(var(--mod-social))] mt-0.5">
               {draft.hashtags.slice(0, 5).join(" ")}
             </p>
+          )}
+          {draft?.referenceUrl && (
+            <a
+              href={draft.referenceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[10px] text-primary hover:underline flex items-center gap-1 truncate"
+            >
+              <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />
+              {draft.referenceUrl}
+            </a>
           )}
         </div>
       )}
@@ -449,6 +476,20 @@ function ArticlePreview({ draft, title }: { draft: CalendarDraft | null; title: 
         <div className="rounded-xl border border-border bg-card p-3 shadow">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Caption</p>
           <p className="text-xs text-foreground">{draft.caption}</p>
+        </div>
+      )}
+      {draft?.referenceUrl && (
+        <div className="rounded-xl border border-border bg-card p-3 shadow">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Reference URL</p>
+          <a
+            href={draft.referenceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-primary hover:underline flex items-center gap-1 truncate"
+          >
+            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+            {draft.referenceUrl}
+          </a>
         </div>
       )}
     </div>
@@ -687,6 +728,10 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
   const [actioning, setActioning] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
+  const { user } = useAuth();
+  // Only admin / account manager may mark a scheduled copy as published (final).
+  const canPublish =
+    user?.role === "admin" || (user?.roles ?? []).includes("ACCOUNT_MANAGER");
 
   // Reset form when item changes
   useEffect(() => {
@@ -1030,6 +1075,32 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                       }
                     />
                   </div>
+                  {/* Reference URL */}
+                  <div>
+                    <Label className="text-xs">Reference URL</Label>
+                    <div className="mt-1.5 flex gap-2 items-center">
+                      <Input
+                        type="url"
+                        className="text-xs flex-1"
+                        placeholder="https://example.com/reference…"
+                        value={form.referenceUrl ?? ""}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, referenceUrl: e.target.value }))
+                        }
+                      />
+                      {form.referenceUrl && (
+                        <a
+                          href={form.referenceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary hover:underline flex items-center gap-1 flex-shrink-0"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Open
+                        </a>
+                      )}
+                    </div>
+                  </div>
 
                   {/* Dates */}
                   <div className="grid grid-cols-2 gap-2">
@@ -1206,11 +1277,57 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                             </div>
                           )}
                           {normStatus === "design_approved" && (
-                            <div className="flex items-center gap-2 text-green-600 text-sm">
+                            <>
+                              <div className="flex items-center gap-2 text-green-600 text-sm">
+                                <Check className="h-4 w-4" />
+                                {skipsDesignPhase(draft)
+                                  ? "Approved — no design phase needed."
+                                  : "Design approved."}
+                              </div>
+                              <Button
+                                onClick={() => handleAction("scheduled")}
+                                disabled={actioning}
+                                className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                              >
+                                {actioning ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                ) : (
+                                  <Clock className="h-3.5 w-3.5 mr-1.5" />
+                                )}
+                                Schedule for Publish
+                              </Button>
+                            </>
+                          )}
+                          {normStatus === "scheduled" && (
+                            <>
+                              <div className="flex items-center gap-2 text-cyan-600 text-sm">
+                                <Clock className="h-4 w-4" />
+                                Scheduled for publish.
+                              </div>
+                              {canPublish ? (
+                                <Button
+                                  onClick={() => handleAction("published")}
+                                  disabled={actioning}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                >
+                                  {actioning ? (
+                                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                  ) : (
+                                    <Check className="h-3.5 w-3.5 mr-1.5" />
+                                  )}
+                                  Mark as Published
+                                </Button>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  Only an admin or account manager can publish this copy.
+                                </p>
+                              )}
+                            </>
+                          )}
+                          {normStatus === "published" && (
+                            <div className="flex items-center gap-2 text-emerald-600 text-sm">
                               <Check className="h-4 w-4" />
-                              {skipsDesignPhase(draft)
-                                ? "Approved — no design phase needed."
-                                : "Design approved."}
+                              Published — this copy is live.
                             </div>
                           )}
                           {(normStatus === "content_req_change" ||

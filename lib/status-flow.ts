@@ -37,6 +37,10 @@ export const DRAFT_STATUSES = [
   "design_req_change",
   "design_rejected",
   "rejected",
+  // Post-approval publishing pipeline (manual staff actions):
+  // design_approved → scheduled → published (final)
+  "scheduled",
+  "published",
 ] as const;
 
 export type DraftStatus = (typeof DRAFT_STATUSES)[number];
@@ -78,6 +82,22 @@ export const REJECT_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
   design_internal_review: "design_req_change",
   design_client_review: "design_req_change",
 };
+
+// Post-approval publishing pipeline. Once a copy is design_approved it can be
+// scheduled for publish, then marked published (final). These are manual staff
+// actions in the ContentPreviewModal — nothing advances them automatically.
+// design_approved → scheduled is open to any staff; scheduled → published is
+// restricted to admin / account manager (enforced in the draft PATCH route and
+// gated in the modal UI).
+export const PUBLISH_TRANSITIONS: Partial<Record<DraftStatus, DraftStatus>> = {
+  design_approved: "scheduled",
+  scheduled: "published",
+};
+
+// scheduled → published is the only publishing move restricted to admin/AM.
+export function requiresElevatedPublish(target: DraftStatus): boolean {
+  return target === "published";
+}
 
 // Re-submitting a reworked item after changes were requested: the writer sends
 // a content_req_change copy back into content internal review; the designer
@@ -164,10 +184,15 @@ export const DELIVERABLE_STATUS_FOR_DRAFT: Record<DraftStatus, string> = {
   design_req_change: "design_req_change",
   design_rejected: "design_rejected",
   rejected: "in_progress",
+  scheduled: "scheduled",
+  published: "published",
 };
 
-// Which deliverable timeline a status transition is recorded on.
+// Which deliverable timeline a status transition is recorded on. The
+// post-approval publishing steps continue the design/delivery track, which is
+// where design_approved lands, so they record on the designerTimeline.
 export function timelineForStatus(status: DraftStatus): "writerTimeline" | "designerTimeline" {
+  if (status === "scheduled" || status === "published") return "designerTimeline";
   return status.startsWith("design_") ? "designerTimeline" : "writerTimeline";
 }
 
@@ -183,6 +208,8 @@ export function historyActionForStatus(
     case "content_approved":
     case "design_client_review":
     case "design_approved":
+    case "scheduled":
+    case "published":
       return "approved";
     case "content_req_change":
     case "design_req_change":
@@ -211,7 +238,10 @@ export const STATUS_LABEL: Record<string, string> = {
   design_req_change: "Design Changes Requested",
   design_rejected: "Design Rejected",
   rejected: "Rejected",
-  delivered: "Delivered",
+  scheduled: "Scheduled",
+  published: "Published",
+  // legacy deliverable status; predates the scheduled/published pipeline
+  delivered: "Scheduled",
   // legacy
   submitted: "Content Internal Review",
   internal_review: "Content Internal Review",
@@ -234,7 +264,9 @@ export const STATUS_COLOR: Record<string, string> = {
   design_req_change: "bg-orange-100 text-orange-700",
   design_rejected: "bg-red-100 text-red-700",
   rejected: "bg-red-100 text-red-700",
-  delivered: "bg-emerald-100 text-emerald-700",
+  scheduled: "bg-cyan-100 text-cyan-700",
+  published: "bg-emerald-100 text-emerald-700",
+  delivered: "bg-cyan-100 text-cyan-700",
   // legacy
   submitted: "bg-amber-100 text-amber-700",
   internal_review: "bg-amber-100 text-amber-700",

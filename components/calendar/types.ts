@@ -43,6 +43,8 @@ export type TimelineStatus =
   | "design_rejected"
   | "rejected"
   | "publish"
+  | "scheduled"
+  | "published"
   // legacy values from before the content/design split
   | "internal_review"
   | "client_review"

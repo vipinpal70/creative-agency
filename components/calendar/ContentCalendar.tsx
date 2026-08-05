@@ -19,6 +19,8 @@ import {
   CalendarDays,
   RefreshCw,
   FolderOpen,
+  Calendar,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/lib/types";
@@ -33,17 +35,15 @@ type CalView = (typeof CAL_VIEWS)[number];
 
 const DELIVERABLE_STATUSES = [
   { key: "pending",                 label: "Draft",                   color: "bg-muted/80" },
-  { key: "in_progress",             label: "In Progress",             color: "bg-blue-500/10 border-blue-200" },
   { key: "content_internal_review", label: "Content Internal Review", color: "bg-amber-500/10 border-amber-200" },
   { key: "content_client_review",   label: "Content Client Review",   color: "bg-purple-500/10 border-purple-200" },
   { key: "content_approved",        label: "Content Approved",        color: "bg-green-500/10 border-green-200" },
-  { key: "content_req_change",      label: "Content Changes Requested", color: "bg-rose-500/10 border-rose-200" },
   { key: "design_in_progress",      label: "Design In Progress",      color: "bg-sky-500/10 border-sky-200" },
   { key: "design_internal_review",  label: "Design Internal Review",  color: "bg-orange-500/10 border-orange-200" },
   { key: "design_client_review",    label: "Design Client Review",    color: "bg-violet-500/10 border-violet-200" },
   { key: "design_approved",         label: "Design Approved",         color: "bg-emerald-500/10 border-emerald-200" },
-  { key: "design_req_change",       label: "Design Changes Requested", color: "bg-rose-500/10 border-rose-200" },
-  { key: "delivered",               label: "Delivered",               color: "bg-emerald-500/10 border-emerald-200" },
+  { key: "scheduled",               label: "Scheduled",               color: "bg-cyan-500/10 border-cyan-200" },
+  { key: "published",               label: "Published",               color: "bg-emerald-500/10 border-emerald-200" },
 ];
 
 const DRAFT_DOT: Record<string, string> = {
@@ -57,6 +57,8 @@ const DRAFT_DOT: Record<string, string> = {
   design_client_review:    "bg-violet-500",
   design_approved:         "bg-emerald-500",
   design_req_change:       "bg-rose-500",
+  scheduled:               "bg-cyan-500",
+  published:               "bg-emerald-500",
   rejected:                "bg-red-500",
   // legacy
   submitted: "bg-amber-500",
@@ -94,6 +96,15 @@ function getDisplayDate(item: CalendarCopy): string | null {
     return item.scheduledDate.slice(0, 10);
   }
   return null;
+}
+
+function getStatusLabel(statusRaw?: string): string {
+  if (!statusRaw) return "";
+  const match = DELIVERABLE_STATUSES.find(
+    (s) => s.key === statusRaw || s.key === normalizeDeliverableStatus(statusRaw)
+  );
+  if (match) return match.label;
+  return statusRaw.replace(/_/g, " ");
 }
 
 // ── Kanban card ──────────────────────────────────────────────────────
@@ -199,16 +210,21 @@ function CalendarChip({
       >
         {label}
       </p>
-      <div className="flex items-center justify-between mt-0.5 gap-1">
-        <span className="text-[9px] text-muted-foreground truncate">
-          {item.platforms[0] ?? item.module}
-        </span>
-        {item.draft && (
-          <span
-            className={cn("h-1.5 w-1.5 rounded-full flex-shrink-0", draftDot)}
-          />
-        )}
+      <div className="text-[9px] text-muted-foreground truncate mt-0.5">
+        {item.draft?.mediaType || item.platforms[0] || item.module}
       </div>
+      {item.draft && (
+        <div className="mt-1 flex items-center">
+          <span
+            className={cn(
+              "px-1.5 py-0.5 rounded text-[8px] font-medium text-white capitalize truncate leading-tight max-w-full",
+              draftDot
+            )}
+          >
+            {getStatusLabel(item.draft.status)}
+          </span>
+        </div>
+      )}
     </button>
   );
 }
@@ -238,6 +254,8 @@ export default function ContentCalendar({
     "influencer", "video", "design", "custom",
   ]);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [startDate, setStartDate]       = useState("");
+  const [endDate, setEndDate]           = useState("");
   const [selectedItem, setSelectedItem] = useState<CalendarCopy | null>(null);
 
   // Load clients on mount. Skipped in the client portal, which is locked to a
@@ -318,16 +336,29 @@ export default function ContentCalendar({
       a.includes(k) ? a.filter((x) => x !== k) : [...a, k]
     );
 
-  // Filter items by active modules and status
+  // Filter items by active modules, status, and date range
   const filtered = useMemo(
     () =>
-      items.filter(
-        (i) =>
-          activeModules.includes(i.module as ModuleKey) &&
-          (statusFilter === "all" ||
-            normalizeDeliverableStatus(i.status) === statusFilter)
-      ),
-    [items, activeModules, statusFilter]
+      items.filter((i) => {
+        const matchesModule = activeModules.includes(i.module as ModuleKey);
+        const matchesStatus =
+          statusFilter === "all" ||
+          normalizeDeliverableStatus(i.status) === statusFilter;
+
+        const dateStr = getDisplayDate(i);
+        let matchesDate = true;
+        if (startDate || endDate) {
+          if (!dateStr) {
+            matchesDate = false;
+          } else {
+            if (startDate && dateStr < startDate) matchesDate = false;
+            if (endDate && dateStr > endDate) matchesDate = false;
+          }
+        }
+
+        return matchesModule && matchesStatus && matchesDate;
+      }),
+    [items, activeModules, statusFilter, startDate, endDate]
   );
 
   // Month-filtered items
@@ -354,13 +385,16 @@ export default function ContentCalendar({
     return map;
   }, [monthFiltered]);
 
-  // Group by status for kanban (legacy statuses fold into their new column)
+  // Group by status for kanban (legacy statuses & merged columns fold into active columns)
   const byStatus = useMemo(() => {
     const map = new Map<string, CalendarCopy[]>();
     DELIVERABLE_STATUSES.forEach(({ key }) => map.set(key, []));
     filtered.forEach((i) => {
-      const key = normalizeDeliverableStatus(i.status);
-      const bucket = map.get(key) ?? [];
+      let key = normalizeDeliverableStatus(i.status);
+      if (key === "in_progress" || key === "draft") key = "pending";
+      if (key === "content_req_change") key = "content_internal_review";
+      if (key === "design_req_change") key = "design_internal_review";
+      const bucket = map.get(key) ?? map.get("pending") ?? [];
       bucket.push(i);
       map.set(key, bucket);
     });
@@ -482,7 +516,7 @@ export default function ContentCalendar({
                 <Loader2 className="h-3 w-3 animate-spin" /> Loading…
               </span>
             ) : selectedClient ? (
-              `${filtered.length} item${filtered.length !== 1 ? "s" : ""}`
+              `${filtered.length} item${filtered.length !== 1 ? "s" : ""}${startDate || endDate ? " (date filtered)" : ""}`
             ) : (
               "Select a client to begin"
             )}
@@ -541,7 +575,7 @@ export default function ContentCalendar({
         )}
       </div>
 
-      {/* Module filter chips */}
+      {/* Module & Date/Status filter chips */}
       <Card>
         <CardContent className="p-3 flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
@@ -600,20 +634,66 @@ export default function ContentCalendar({
             );
           })}
 
-          <div className="ml-auto min-w-[190px]">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                {DELIVERABLE_STATUSES.map((s) => (
-                  <SelectItem key={s.key} value={s.key}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            {/* Date Range Filter */}
+            <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-lg border border-border/60 text-xs">
+              <span className="text-muted-foreground font-medium flex items-center gap-1 px-1">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" /> Date:
+              </span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setStartDate(val);
+                  if (val) {
+                    const parsed = new Date(val);
+                    if (!isNaN(parsed.getTime())) {
+                      setCursor(parsed);
+                    }
+                  }
+                }}
+                className="h-7 px-2 text-xs border border-input rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                title="Start Date"
+              />
+              <span className="text-muted-foreground text-[11px]">to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-7 px-2 text-xs border border-input rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                title="End Date"
+              />
+              {(startDate || endDate) && (
+                <button
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  className="h-7 px-1.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5 rounded hover:bg-muted"
+                  title="Clear date filter"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Status Filter */}
+            <div className="min-w-[170px]">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {DELIVERABLE_STATUSES.map((s) => (
+                    <SelectItem key={s.key} value={s.key}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -766,10 +846,12 @@ export default function ContentCalendar({
                               {ev.draft && (
                                 <span
                                   className={cn(
-                                    "h-2 w-2 rounded-full",
+                                    "px-2 py-0.5 rounded text-[10px] font-medium text-white capitalize",
                                     draftDot
                                   )}
-                                />
+                                >
+                                  {getStatusLabel(ev.draft.status)}
+                                </span>
                               )}
                               <span className="text-xs text-muted-foreground capitalize hidden sm:block">
                                 {ev.draft?.mediaType || ev.type}

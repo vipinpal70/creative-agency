@@ -302,7 +302,7 @@ const getModuleBadgeColors = (modName: string) => {
 
 // A copy counts as delivered once it is fully approved (design_approved) or
 // explicitly marked delivered — the draft pipeline never sets "delivered".
-const DELIVERED_STATUSES = new Set(["delivered", "design_approved"]);
+const DELIVERED_STATUSES = new Set(["delivered", "design_approved", "scheduled", "published"]);
 
 const norm = (s?: string) => (s || "").toLowerCase().trim();
 const tokens = (s?: string) => norm(s).split(/[^a-z0-9]+/).filter(Boolean);
