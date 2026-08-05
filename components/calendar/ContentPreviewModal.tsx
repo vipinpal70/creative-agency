@@ -130,7 +130,7 @@ function CarouselSlider({
             <p className="text-[10px] font-semibold text-muted-foreground mb-2">
               Frame {frame?.frameNo}
             </p>
-            <p className="text-xs text-foreground line-clamp-6">
+            <p className="text-xs text-foreground whitespace-pre-wrap line-clamp-6">
               {frame?.copy || "No copy yet"}
             </p>
           </div>
@@ -396,7 +396,7 @@ function SocialMockup({
           />
         ) : (draft?.articleMode === "with-creative" || isArticleType(draft?.mediaType || item.type)) && draft?.creativeCopy ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 to-muted p-4">
-            <p className="text-xs text-foreground text-center font-medium leading-relaxed line-clamp-6">
+            <p className="text-xs text-foreground text-center font-medium leading-relaxed whitespace-pre-wrap line-clamp-6">
               {draft.creativeCopy}
             </p>
           </div>
@@ -420,7 +420,7 @@ function SocialMockup({
       {(draft?.caption || draft?.hashtags?.length || draft?.referenceUrl) && (
         <div className="px-3 pb-3 space-y-1">
           {draft?.caption && (
-            <p className="text-xs text-foreground line-clamp-3">
+            <p className="text-xs text-foreground whitespace-pre-wrap line-clamp-3">
               <span className="font-semibold">brand.handle</span>{" "}
               {draft.caption}
             </p>
@@ -457,7 +457,7 @@ function ArticlePreview({ draft, title }: { draft: CalendarDraft | null; title: 
       {withCreative && draft?.creativeCopy && (
         <div className="rounded-xl border border-border bg-gradient-to-br from-primary/10 to-muted p-4 shadow text-center">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Creative</p>
-          <p className="text-sm text-foreground font-medium leading-relaxed">
+          <p className="text-sm text-foreground font-medium leading-relaxed whitespace-pre-wrap">
             {draft.creativeCopy}
           </p>
         </div>
@@ -475,7 +475,7 @@ function ArticlePreview({ draft, title }: { draft: CalendarDraft | null; title: 
       {draft?.caption && (
         <div className="rounded-xl border border-border bg-card p-3 shadow">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Caption</p>
-          <p className="text-xs text-foreground">{draft.caption}</p>
+          <p className="text-xs text-foreground whitespace-pre-wrap">{draft.caption}</p>
         </div>
       )}
       {draft?.referenceUrl && (
@@ -589,16 +589,26 @@ function HistoryTab({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    setLoading(true);
+    let ignore = false;
+    queueMicrotask(() => {
+      if (!ignore) setLoading(true);
+    });
     fetch(
       `/api/clients/${clientId}/deliverables/${deliverableId}/drafts/${draftId}/history`
     )
       .then((r) => r.json())
       .then((data) => {
-        setHistory(Array.isArray(data) ? data : []);
+        if (!ignore) setHistory(Array.isArray(data) ? data : []);
       })
-      .catch(() => setHistory([]))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!ignore) setHistory([]);
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [clientId, deliverableId, draftId]);
 
   const toggleExpand = (key: string) =>
@@ -680,7 +690,7 @@ function HistoryTab({
                     return (
                       <div
                         key={ci}
-                        className="text-[10px] rounded bg-muted/60 px-2 py-1"
+                        className="text-[10px] rounded bg-muted/60 px-2 py-1 whitespace-pre-wrap"
                       >
                         <span className="font-medium text-muted-foreground">
                           {ch.label}:{" "}
@@ -735,30 +745,32 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
 
   // Reset form when item changes
   useEffect(() => {
-    if (item?.draft) {
-      const d = item.draft;
-      setForm({
-        caption:      d.caption,
-        hashtags:     d.hashtags,
-        creativeCopy: d.creativeCopy,
-        frames:       d.frames,
-        publishDate:  d.publishDate ? d.publishDate.slice(0, 10) : "",
-        publishTime:  d.publishTime ?? "",
-        imageUrl:     d.imageUrl,
-        videoUrl:     d.videoUrl,
-        thumbnailUrl: d.thumbnailUrl,
-        audioUrl:     d.audioUrl,
-        videoType:    d.videoType,
-        videoNotes:   d.videoNotes,
-        articleMode:  d.articleMode,
-        articleCopy:  d.articleCopy,
-        notes:        d.notes,
-        referenceUrl: d.referenceUrl,
-      });
-    }
-    setFeedbackOpen(false);
-    setActiveTab("details");
-  }, [item?.deliverableId, item?.draft?.id]);
+    queueMicrotask(() => {
+      if (item?.draft) {
+        const d = item.draft;
+        setForm({
+          caption:      d.caption,
+          hashtags:     d.hashtags,
+          creativeCopy: d.creativeCopy,
+          frames:       d.frames,
+          publishDate:  d.publishDate ? d.publishDate.slice(0, 10) : "",
+          publishTime:  d.publishTime ?? "",
+          imageUrl:     d.imageUrl,
+          videoUrl:     d.videoUrl,
+          thumbnailUrl: d.thumbnailUrl,
+          audioUrl:     d.audioUrl,
+          videoType:    d.videoType,
+          videoNotes:   d.videoNotes,
+          articleMode:  d.articleMode,
+          articleCopy:  d.articleCopy,
+          notes:        d.notes,
+          referenceUrl: d.referenceUrl,
+        });
+      }
+      setFeedbackOpen(false);
+      setActiveTab("details");
+    });
+  }, [item?.deliverableId, item?.draft?.id, item?.draft]);
 
   const patchDraft = useCallback(
     async (body: Record<string, unknown>) => {
@@ -1335,7 +1347,7 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                             normStatus === "design_rejected" ||
                             normStatus === "rejected") && (
                             <>
-                              <div className="text-xs text-rose-700 bg-rose-50 rounded-lg p-3">
+                              <div className="text-xs text-rose-700 bg-rose-50 rounded-lg p-3 whitespace-pre-wrap">
                                 {draft.rejectionNote
                                   ? `Feedback: ${draft.rejectionNote}`
                                   : "Changes were requested."}

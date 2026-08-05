@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Film, Check, X, User,
-  ShieldCheck, FileText, ClipboardList, MessageSquare, Palette, Image as ImageIcon, ChevronDown,
+  ShieldCheck, FileText, MessageSquare, Palette, Image as ImageIcon, ChevronDown,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
@@ -17,8 +17,6 @@ import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 
 // Types
-
-
 interface ApprovalTask {
   id: string;
   title: string;
@@ -161,7 +159,7 @@ function CopyApprovalCard({
     >
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-sm font-medium text-foreground line-clamp-3 flex-1 min-w-0">{copyText}</p>
+          <p className="text-sm font-medium text-foreground whitespace-pre-wrap line-clamp-3 flex-1 min-w-0">{copyText}</p>
           <span
             className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
           >
@@ -170,7 +168,7 @@ function CopyApprovalCard({
         </div>
 
         {copy.caption && (
-          <p className="text-xs text-muted-foreground line-clamp-1 italic">{copy.caption}</p>
+          <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-1 italic">{copy.caption}</p>
         )}
         {copy.hashtags.length > 0 && (
           <p className="text-xs text-primary/70 line-clamp-1">{copy.hashtags.join(" ")}</p>
@@ -304,7 +302,7 @@ function CopyApprovalCard({
   );
 }
 
-// ─── Task approval card ───────────────────────────────────────────────────────
+// Task approval card
 
 function TaskApprovalCard({ task, onDone }: { task: ApprovalTask; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -720,17 +718,6 @@ export default function ApprovalsPage() {
           Review submitted copies and completed tasks.
         </p>
       </div>
-
-      <Tabs value={tab} onValueChange={(v) => setTab(v as "copies")}>
-        <TabsList>
-          <TabsTrigger value="copies">
-            <FileText className="h-3.5 w-3.5 mr-1.5" /> Copies
-          </TabsTrigger>
-          {/* <TabsTrigger value="tasks">
-            <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Tasks
-          </TabsTrigger> */}
-        </TabsList>
-      </Tabs>
 
       {tab === "copies" && (
         <>

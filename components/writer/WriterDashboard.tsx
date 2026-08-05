@@ -494,7 +494,7 @@ function getTodayString(): string {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-            <Pen className="w-5 h-5"/> Writer's Workspace
+            <Pen className="w-5 h-5"/> Writer&apos;s Workspace
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Multi-channel production hub — social, email, paid, SEO.

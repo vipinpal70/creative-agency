@@ -414,7 +414,7 @@ const CopyCard = memo(function CopyCard({
     >
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-sm font-medium text-foreground line-clamp-2 flex-1 min-w-0">{copyText}</p>
+          <p className="text-sm font-medium text-foreground whitespace-pre-wrap line-clamp-2 flex-1 min-w-0">{copyText}</p>
           <div className="flex flex-col items-end gap-1 shrink-0">
             <span
               className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
@@ -441,7 +441,7 @@ const CopyCard = memo(function CopyCard({
         )}
 
         {copy.caption && (
-          <p className="text-xs text-muted-foreground line-clamp-1 italic">{copy.caption}</p>
+          <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-1 italic">{copy.caption}</p>
         )}
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

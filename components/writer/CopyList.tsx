@@ -95,9 +95,9 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
             <div key={copy.id} className="p-4 rounded-lg border border-border bg-accent/10 space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground line-clamp-2">{previewText}</p>
+                  <p className="text-sm font-medium text-foreground whitespace-pre-wrap line-clamp-2">{previewText}</p>
                   {draft?.caption && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{draft.caption}</p>
+                    <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-1">{draft.caption}</p>
                   )}
                 </div>
                 <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${colorClass}`}>

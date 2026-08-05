@@ -135,7 +135,7 @@ function KanbanCard({
             style={{ background: `hsl(var(--mod-${mod.tone}))` }}
           />
         )}
-        <p className="text-xs font-medium text-foreground line-clamp-2 flex-1">
+        <p className="text-xs font-medium text-foreground whitespace-pre-wrap line-clamp-2 flex-1">
           {previewText || item.type}
         </p>
       </div>

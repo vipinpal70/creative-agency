@@ -94,7 +94,7 @@ function ArchivedCard({
     >
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-sm font-medium text-foreground line-clamp-2 flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground whitespace-pre-wrap line-clamp-2 flex-1 min-w-0">
             {copyText(copy)}
           </p>
           <div className="flex flex-col items-end gap-1 shrink-0">
@@ -110,7 +110,7 @@ function ArchivedCard({
         </div>
 
         {copy.caption && (
-          <p className="text-xs text-muted-foreground line-clamp-1 italic">{copy.caption}</p>
+          <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-1 italic">{copy.caption}</p>
         )}
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
