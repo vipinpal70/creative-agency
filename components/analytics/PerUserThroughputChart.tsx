@@ -8,6 +8,9 @@ import type { AnalyticsPerUser } from "@/lib/analytics";
 interface PerUserThroughputChartProps {
   data: AnalyticsPerUser[];
   activeDays: number;
+  // When the discipline tab pins a single phase, lock the chart to that measure
+  // and hide the toggle (the other measure is empty by construction).
+  lockedMetric?: Metric;
 }
 
 type Metric = "copies" | "designs";
@@ -16,8 +19,9 @@ type Metric = "copies" | "designs";
 // the measure so the chart stays single-series (no dual encoding, no cycled
 // palette). The per-day average rides on each row; a dashed team-average line
 // gives a reference. Bars anchor to the left baseline with rounded data-ends.
-export function PerUserThroughputChart({ data, activeDays }: PerUserThroughputChartProps) {
-  const [metric, setMetric] = useState<Metric>("copies");
+export function PerUserThroughputChart({ data, activeDays, lockedMetric }: PerUserThroughputChartProps) {
+  const [localMetric, setMetric] = useState<Metric>("copies");
+  const metric = lockedMetric ?? localMetric;
 
   const rows = [...data]
     .filter((u) => (metric === "copies" ? u.copies > 0 : u.designs > 0))
@@ -43,23 +47,25 @@ export function PerUserThroughputChart({ data, activeDays }: PerUserThroughputCh
             {activeDays === 1 ? "day" : "days"}
           </p>
         </div>
-        <div className="inline-flex rounded-md border border-gray-200 p-0.5 text-xs">
-          {(["copies", "designs"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMetric(m)}
-              className={cn(
-                "rounded px-2.5 py-1 font-medium capitalize transition-colors",
-                metric === m
-                  ? "bg-[#2a78d6] text-white"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+        {!lockedMetric && (
+          <div className="inline-flex rounded-md border border-gray-200 p-0.5 text-xs">
+            {(["copies", "designs"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMetric(m)}
+                className={cn(
+                  "rounded px-2.5 py-1 font-medium capitalize transition-colors",
+                  metric === m
+                    ? "bg-[#2a78d6] text-white"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {rows.length === 0 ? (

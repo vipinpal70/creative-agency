@@ -16,6 +16,8 @@ export interface AnalyticsFilters {
   clientId: string; // "" = all
   memberId: string; // "" = all
   mediaType: string; // "" = all
+  discipline: string; // "" = all | "copy" | "design"
+  module: string; // "" = all | "social" | "paid"
 }
 
 interface AnalyticsFilterBarProps {

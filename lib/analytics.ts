@@ -99,6 +99,26 @@ export function isApprovedCopy(input: {
   return false;
 }
 
+// Statuses in which the *content* phase is still open. Everything else means the
+// copy has passed content approval (it may be in, or past, the design phase).
+// Used by the Copy discipline view, where "approved" means content-approved.
+const CONTENT_PENDING = new Set([
+  "draft",
+  "content_internal_review",
+  "content_client_review",
+  "content_req_change",
+  "rejected",
+]);
+
+export function isContentApproved(status: string): boolean {
+  const s = normalizeDraftStatus(status) ?? status;
+  return !CONTENT_PENDING.has(s);
+}
+
+// The Copy/Creative discipline tab. "" = both phases combined (default view),
+// "copy" = content phase only, "design" = design phase only.
+export type Discipline = "" | "copy" | "design";
+
 // Inclusive count of calendar days in [from, to] — the denominator for the
 // per-user "average per day" metric. Always ≥ 1 to avoid divide-by-zero.
 export function activeDaysBetween(from: Date, to: Date): number {

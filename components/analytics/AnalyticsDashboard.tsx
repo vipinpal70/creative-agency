@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BarChart3, Loader2, AlertCircle } from "lucide-react";
 import { AnalyticsFilterBar, type AnalyticsFilters } from "./AnalyticsFilterBar";
+import { AnalyticsScopeTabs } from "./AnalyticsScopeTabs";
 import { KpiStatTile } from "./KpiStatTile";
 import { ShotApprovalHistogram } from "./ShotApprovalHistogram";
 import { PerUserThroughputChart } from "./PerUserThroughputChart";
@@ -34,6 +35,8 @@ export function AnalyticsDashboard({ variant = "staff" }: AnalyticsDashboardProp
       clientId: searchParams.get("clientId") || "",
       memberId: searchParams.get("memberId") || "",
       mediaType: searchParams.get("mediaType") || "",
+      discipline: searchParams.get("discipline") || "",
+      module: searchParams.get("module") || "",
     };
   });
 
@@ -48,6 +51,8 @@ export function AnalyticsDashboard({ variant = "staff" }: AnalyticsDashboardProp
     if (filters.clientId) p.set("clientId", filters.clientId);
     if (filters.memberId) p.set("memberId", filters.memberId);
     if (filters.mediaType) p.set("mediaType", filters.mediaType);
+    if (filters.discipline) p.set("discipline", filters.discipline);
+    if (filters.module) p.set("module", filters.module);
     return p.toString();
   }, [filters]);
 
@@ -87,6 +92,13 @@ export function AnalyticsDashboard({ variant = "staff" }: AnalyticsDashboardProp
 
   const fmtPct = (n: number) => `${n.toFixed(n % 1 === 0 ? 0 : 1)}%`;
 
+  // The discipline tab renames the unit throughout (copies vs designs) and the
+  // review stage the redo tiles describe (content vs design review).
+  const isDesign = filters.discipline === "design";
+  const nounPlural = isDesign ? "designs" : "copies";
+  const totalLabel = isDesign ? "Total designs" : "Total copy / content";
+  const reviewNoun = isDesign ? "design" : "content";
+
   return (
     <div className="space-y-6">
       <div>
@@ -98,6 +110,12 @@ export function AnalyticsDashboard({ variant = "staff" }: AnalyticsDashboardProp
           {variant === "client" ? "campaigns" : "team and clients"}.
         </p>
       </div>
+
+      <AnalyticsScopeTabs
+        discipline={filters.discipline}
+        module={filters.module}
+        onChange={onChange}
+      />
 
       <AnalyticsFilterBar
         filters={filters}
@@ -123,7 +141,7 @@ export function AnalyticsDashboard({ variant = "staff" }: AnalyticsDashboardProp
           {/* KPI row 1 — total + redo rates */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <KpiStatTile
-              label="Total copy / content"
+              label={totalLabel}
               value={String(data.totals.totalCopies)}
               subtitle={`${data.totals.approvedCopies} approved · ${data.totals.inProgress} in progress`}
               accent="neutral"
@@ -131,15 +149,15 @@ export function AnalyticsDashboard({ variant = "staff" }: AnalyticsDashboardProp
             <KpiStatTile
               label="Internal redo rate"
               value={fmtPct(data.redo.internalRate)}
-              subtitle={`${data.redo.internalCount} of ${data.totals.totalCopies} copies`}
-              hint="Copies that needed ≥1 change at an internal review"
+              subtitle={`${data.redo.internalCount} of ${data.totals.totalCopies} ${nounPlural}`}
+              hint={`Items that needed ≥1 change at an internal ${reviewNoun} review`}
               accent="internal"
             />
             <KpiStatTile
               label="Client redo rate"
               value={fmtPct(data.redo.clientRate)}
-              subtitle={`${data.redo.clientCount} of ${data.totals.totalCopies} copies`}
-              hint="Copies that needed ≥1 change requested by the client"
+              subtitle={`${data.redo.clientCount} of ${data.totals.totalCopies} ${nounPlural}`}
+              hint={`Items that needed ≥1 change requested by the client at ${reviewNoun} review`}
               accent="client"
             />
           </div>
@@ -151,8 +169,19 @@ export function AnalyticsDashboard({ variant = "staff" }: AnalyticsDashboardProp
               twoShot={data.shots.twoShot}
               twoPlusShot={data.shots.twoPlusShot}
               inProgress={data.totals.inProgress}
+              noun={nounPlural}
             />
-            <PerUserThroughputChart data={data.perUser} activeDays={data.range.activeDays} />
+            <PerUserThroughputChart
+              data={data.perUser}
+              activeDays={data.range.activeDays}
+              lockedMetric={
+                filters.discipline === "copy"
+                  ? "copies"
+                  : filters.discipline === "design"
+                    ? "designs"
+                    : undefined
+              }
+            />
           </div>
         </div>
       ) : null}

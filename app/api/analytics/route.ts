@@ -7,14 +7,17 @@ import Deliverable from "@/lib/models/deliverable.model";
 import Client from "@/lib/models/client.model";
 import User from "@/lib/models/user.model";
 import {
-  countRedosForDeliverable,
+  countRedosInTimeline,
   isApprovedCopy,
+  isContentApproved,
   shotBucketFor,
   activeDaysBetween,
   safeRate,
+  type Discipline,
   type AnalyticsResponse,
   type AnalyticsPerUser,
 } from "@/lib/analytics";
+import { skipsDesignPhase } from "@/lib/status-flow";
 
 // GET /api/analytics?from=&to=&clientId=&memberId=&mediaType=
 //
@@ -48,6 +51,14 @@ export async function GET(req: NextRequest) {
     const memberId = searchParams.get("memberId") || "";
     const mediaType = searchParams.get("mediaType") || "";
 
+    // ── Discipline (Copy vs Creative/Design) & module (Social vs Paid) ──────
+    // Both are top-level tab filters. Discipline reshapes *which phase's* numbers
+    // we report; module narrows the item set to a calendar module.
+    const disciplineParam = searchParams.get("discipline") || "";
+    const discipline: Discipline =
+      disciplineParam === "copy" || disciplineParam === "design" ? disciplineParam : "";
+    const moduleFilter = searchParams.get("module") || "";
+
     // ── Scope by client ────────────────────────────────────────────────────
     // Staff may filter to any client (or all); a client user is locked to theirs.
     let scopedClientId = searchParams.get("clientId") || "";
@@ -80,67 +91,99 @@ export async function GET(req: NextRequest) {
     const delIds = [...new Set(drafts.map((d) => d.deliverableId.toString()))];
     const deliverables = delIds.length
       ? await Deliverable.find({ _id: { $in: delIds } })
-          .select("type statusTimeline")
+          .select("type module statusTimeline")
           .lean()
       : [];
     const delMap = new Map(deliverables.map((d) => [d._id.toString(), d]));
 
-    // Derive per-copy facts once: effective media type, redo counts, approved?
+    // Derive per-copy facts once. Redos are kept split per phase (writer =
+    // content/copy, designer = design/creative) so the discipline tab can report
+    // one phase in isolation or both combined.
     type Row = {
       createdBy: string | null;
       designerId: string | null;
       effectiveMediaType: string;
-      internalRedo: number;
-      clientRedo: number;
-      approved: boolean;
+      module: string;
+      copyInternal: number;
+      copyClient: number;
+      designInternal: number;
+      designClient: number;
+      contentApproved: boolean;
+      designApproved: boolean;
+      requiresDesign: boolean;
     };
     const rows: Row[] = drafts.map((d) => {
       const del = delMap.get(d.deliverableId.toString());
       const effectiveMediaType =
         (d.mediaType && d.mediaType.trim()) || del?.type || "";
-      const redos = countRedosForDeliverable(del?.statusTimeline);
-      const approved = isApprovedCopy({
-        status: d.status,
-        mediaType: effectiveMediaType,
-        articleMode: (d as { articleMode?: string }).articleMode,
-      });
+      const articleMode = (d as { articleMode?: string }).articleMode;
+      const w = countRedosInTimeline(del?.statusTimeline?.writerTimeline ?? []);
+      const design = countRedosInTimeline(del?.statusTimeline?.designerTimeline ?? []);
       return {
         createdBy: d.createdBy ? d.createdBy.toString() : null,
         designerId: (d as { designStartedBy?: { userId?: string } }).designStartedBy?.userId ?? null,
         effectiveMediaType,
-        internalRedo: redos.internal,
-        clientRedo: redos.client,
-        approved,
+        module: (del as { module?: string } | undefined)?.module || "",
+        copyInternal: w.internal,
+        copyClient: w.client,
+        designInternal: design.internal,
+        designClient: design.client,
+        contentApproved: isContentApproved(d.status),
+        designApproved: isApprovedCopy({ status: d.status, mediaType: effectiveMediaType, articleMode }),
+        // A copy-only article (skips design) has no creative work; everything else
+        // carries a design phase and belongs to the Creative/Design population.
+        requiresDesign: !skipsDesignPhase({ mediaType: effectiveMediaType, articleMode }),
       };
     });
 
-    // Media-type filter applies to the *effective* type (draft.mediaType with a
-    // deliverable.type fallback), so it must run after the join.
-    const filtered = mediaType
+    // Media-type + module filters apply after the join (both derive from the
+    // parent deliverable / effective media type).
+    let filtered = mediaType
       ? rows.filter((r) => r.effectiveMediaType === mediaType)
       : rows;
+    if (moduleFilter) filtered = filtered.filter((r) => r.module === moduleFilter);
+
+    // ── Discipline lens ────────────────────────────────────────────────────
+    // Population, approval, and redo readings all depend on the selected phase.
+    //   copy   → every draft; content-phase redos; content approval.
+    //   design → drafts that carry a design phase; design-phase redos; design approval.
+    //   ""     → every draft; combined redos; final (design) approval.
+    const population =
+      discipline === "design" ? filtered.filter((r) => r.requiresDesign) : filtered;
+    const internalOf = (r: Row) =>
+      discipline === "copy" ? r.copyInternal
+        : discipline === "design" ? r.designInternal
+        : r.copyInternal + r.designInternal;
+    const clientOf = (r: Row) =>
+      discipline === "copy" ? r.copyClient
+        : discipline === "design" ? r.designClient
+        : r.copyClient + r.designClient;
+    const isApproved = (r: Row) =>
+      discipline === "copy" ? r.contentApproved : r.designApproved;
 
     // ── Totals ─────────────────────────────────────────────────────────────
-    const totalCopies = filtered.length;
-    const approvedRows = filtered.filter((r) => r.approved);
+    const totalCopies = population.length;
+    const approvedRows = population.filter(isApproved);
     const approvedCopies = approvedRows.length;
 
-    // ── Redo rates (share of copies that needed ≥1 redo of that type) ──────
-    const internalCount = filtered.filter((r) => r.internalRedo >= 1).length;
-    const clientCount = filtered.filter((r) => r.clientRedo >= 1).length;
+    // ── Redo rates (share of items that needed ≥1 redo of that type) ───────
+    const internalCount = population.filter((r) => internalOf(r) >= 1).length;
+    const clientCount = population.filter((r) => clientOf(r) >= 1).length;
 
-    // ── Shot-approval distribution (over approved copies only) ─────────────
+    // ── Shot-approval distribution (over approved items only) ──────────────
     let oneShot = 0;
     let twoShot = 0;
     let twoPlusShot = 0;
     for (const r of approvedRows) {
-      const bucket = shotBucketFor(r.internalRedo + r.clientRedo);
+      const bucket = shotBucketFor(internalOf(r) + clientOf(r));
       if (bucket === "one_shot") oneShot += 1;
       else if (bucket === "two_shot") twoShot += 1;
       else twoPlusShot += 1;
     }
 
     // ── Per-user throughput ────────────────────────────────────────────────
+    // Copy discipline tallies authored copies only; design tallies claimed
+    // designs only; the combined view tallies both.
     const activeDays = activeDaysBetween(from, to);
     const tally = new Map<string, { copies: number; designs: number }>();
     const bump = (id: string | null, key: "copies" | "designs") => {
@@ -149,9 +192,9 @@ export async function GET(req: NextRequest) {
       cur[key] += 1;
       tally.set(id, cur);
     };
-    for (const r of filtered) {
-      bump(r.createdBy, "copies");
-      bump(r.designerId, "designs");
+    for (const r of population) {
+      if (discipline !== "design") bump(r.createdBy, "copies");
+      if (discipline !== "copy") bump(r.designerId, "designs");
     }
 
     const perUserIds = [...tally.keys()];

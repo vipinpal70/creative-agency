@@ -5,12 +5,14 @@ interface ShotApprovalHistogramProps {
   twoShot: number;
   twoPlusShot: number;
   inProgress: number;
+  // Plural unit for the items being counted ("copies" | "designs").
+  noun?: string;
 }
 
 const BUCKETS = [
-  { key: "oneShot", label: "One-shot", desc: "Approved with no changes" },
-  { key: "twoShot", label: "Two-shot", desc: "1 change requested" },
-  { key: "twoPlusShot", label: "2+ shot", desc: "2 or more changes" },
+  { key: "oneShot", label: "One-iteration", desc: "Approved with no changes" },
+  { key: "twoShot", label: "Two-iteration", desc: "1 change requested" },
+  { key: "twoPlusShot", label: "2+ iteration", desc: "2 or more changes" },
 ] as const;
 
 // A distribution over three ordered buckets. All three bars measure the same
@@ -23,18 +25,20 @@ export function ShotApprovalHistogram({
   twoShot,
   twoPlusShot,
   inProgress,
+  noun = "copies",
 }: ShotApprovalHistogramProps) {
   const values = { oneShot, twoShot, twoPlusShot };
   const total = oneShot + twoShot + twoPlusShot;
   const max = Math.max(oneShot, twoShot, twoPlusShot, 1);
+  const nounSingular = noun === "designs" ? "design" : "copy";
 
   return (
     <Card className="border-gray-100 p-5">
       <div className="flex items-baseline justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Shot-approval distribution</h2>
+          <h2 className="text-sm font-semibold text-foreground">Approval Lifecycle</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            How many review cycles each approved copy needed
+            How many review cycles each approved {nounSingular} needed
           </p>
         </div>
         <span className="text-xs text-muted-foreground">{total} approved</span>
@@ -42,7 +46,7 @@ export function ShotApprovalHistogram({
 
       {total === 0 ? (
         <p className="py-14 text-center text-sm text-gray-400">
-          No approved copies in this range yet.
+          No approved {noun} in this range yet.
         </p>
       ) : (
         <div className="mt-6 flex items-end gap-4" style={{ height: 200 }}>
@@ -56,7 +60,7 @@ export function ShotApprovalHistogram({
                   <div
                     className="w-full max-w-[92px] rounded-t bg-[#2a78d6] transition-[height]"
                     style={{ height: barHeight, minHeight: value > 0 ? 4 : 0 }}
-                    title={`${b.label}: ${value} copies (${pct}%)`}
+                    title={`${b.label}: ${value} ${noun} (${pct}%)`}
                   />
                 </div>
                 <div className="text-center">
@@ -74,7 +78,7 @@ export function ShotApprovalHistogram({
 
       {inProgress > 0 && (
         <p className="mt-4 border-t border-gray-100 pt-3 text-[11px] text-gray-400">
-          {inProgress} {inProgress === 1 ? "copy is" : "copies are"} still in
+          {inProgress} {inProgress === 1 ? `${nounSingular} is` : `${noun} are`} still in
           progress and excluded from this chart.
         </p>
       )}
