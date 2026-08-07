@@ -158,12 +158,26 @@ export default function ClientApprovalsPage() {
       )}
 
       {/* Read-only preview of the selected copy */}
-      <ContentPreviewModal
-        item={preview ? toCalendarCopy(preview) : null}
-        open={!!preview}
-        onClose={() => setPreview(null)}
-        onUpdate={() => {}}
-      />
+      {(() => {
+        const previewIndex = preview
+          ? copies.findIndex((c) => c.draftId === preview.draftId)
+          : -1;
+        const hasPrevCopy = previewIndex > 0;
+        const hasNextCopy = previewIndex >= 0 && previewIndex < copies.length - 1;
+
+        return (
+          <ContentPreviewModal
+            item={preview ? toCalendarCopy(preview) : null}
+            open={!!preview}
+            onClose={() => setPreview(null)}
+            onUpdate={() => {}}
+            hasPrev={hasPrevCopy}
+            hasNext={hasNextCopy}
+            onNavigatePrev={() => hasPrevCopy && setPreview(copies[previewIndex - 1])}
+            onNavigateNext={() => hasNextCopy && setPreview(copies[previewIndex + 1])}
+          />
+        );
+      })()}
 
       {/* Request-changes feedback modal (feedback required) */}
       <FeedbackModal

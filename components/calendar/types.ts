@@ -29,6 +29,12 @@ export interface CalendarDraft {
     email: string;
     changedAt: string;
   } | null;
+  designStartedBy?: {
+    userId: string;
+    name: string;
+    email: string;
+    startedAt: string;
+  } | null;
 }
 
 export type TimelineStatus =

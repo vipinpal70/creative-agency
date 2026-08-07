@@ -68,6 +68,7 @@ export function toCalendarCopy(copy: ApprovalCopy): CalendarCopy {
     status: copy.status as CalendarDraft["status"],
     rejectionNote: copy.rejectionNote,
     lastChangedBy: copy.lastChangedBy,
+    designStartedBy: copy.designStartedBy,
   };
   return {
     deliverableId: copy.deliverableId,

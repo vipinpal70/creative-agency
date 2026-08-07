@@ -893,31 +893,45 @@ export default function ApprovalsPage() {
       )} */}
 
       {/* Copy preview modal (same one the content calendar uses) */}
-      <ContentPreviewModal
-        item={previewCopy ? toCalendarCopy(previewCopy) : null}
-        open={!!previewCopy}
-        onClose={() => {
-          setPreviewCopy(null);
-          // A review action inside the modal may have moved the copy to
-          // another stage — refresh the current list.
-          if (tab === "copies") loadCopies(copyStage);
-        }}
-        onUpdate={(_deliverableId, updatedDraft) => {
-          // Keep the open modal in sync with edits/actions made inside it
-          setPreviewCopy((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  ...updatedDraft,
-                  draftId: prev.draftId,
-                  status: updatedDraft.status ?? prev.status,
-                  publishDate:
-                    updatedDraft.publishDate !== undefined ? updatedDraft.publishDate : prev.publishDate,
-                }
-              : prev
-          );
-        }}
-      />
+      {(() => {
+        const previewIndex = previewCopy
+          ? filteredCopies.findIndex((c) => c.draftId === previewCopy.draftId)
+          : -1;
+        const hasPrevCopy = previewIndex > 0;
+        const hasNextCopy = previewIndex >= 0 && previewIndex < filteredCopies.length - 1;
+
+        return (
+          <ContentPreviewModal
+            item={previewCopy ? toCalendarCopy(previewCopy) : null}
+            open={!!previewCopy}
+            onClose={() => {
+              setPreviewCopy(null);
+              // A review action inside the modal may have moved the copy to
+              // another stage — refresh the current list.
+              if (tab === "copies") loadCopies(copyStage);
+            }}
+            onUpdate={(_deliverableId, updatedDraft) => {
+              // Keep the open modal in sync with edits/actions made inside it
+              setPreviewCopy((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      ...updatedDraft,
+                      draftId: prev.draftId,
+                      status: updatedDraft.status ?? prev.status,
+                      publishDate:
+                        updatedDraft.publishDate !== undefined ? updatedDraft.publishDate : prev.publishDate,
+                    }
+                  : prev
+              );
+            }}
+            hasPrev={hasPrevCopy}
+            hasNext={hasNextCopy}
+            onNavigatePrev={() => hasPrevCopy && setPreviewCopy(filteredCopies[previewIndex - 1])}
+            onNavigateNext={() => hasNextCopy && setPreviewCopy(filteredCopies[previewIndex + 1])}
+          />
+        );
+      })()}
 
       <Toaster position="top-right" richColors />
     </div>

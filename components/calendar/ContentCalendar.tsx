@@ -918,13 +918,28 @@ export default function ContentCalendar({
       )}
 
       {/* Preview Modal */}
-      <ContentPreviewModal
-        item={selectedItem}
-        open={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
-        onUpdate={handleUpdate}
-        readOnly={readOnly}
-      />
+      {(() => {
+        const activeNavList = calView === "Month" ? monthFiltered : filtered;
+        const selectedIndex = selectedItem
+          ? activeNavList.findIndex((i) => i.deliverableId === selectedItem.deliverableId)
+          : -1;
+        const hasPrevItem = selectedIndex > 0;
+        const hasNextItem = selectedIndex >= 0 && selectedIndex < activeNavList.length - 1;
+
+        return (
+          <ContentPreviewModal
+            item={selectedItem}
+            open={!!selectedItem}
+            onClose={() => setSelectedItem(null)}
+            onUpdate={handleUpdate}
+            readOnly={readOnly}
+            hasPrev={hasPrevItem}
+            hasNext={hasNextItem}
+            onNavigatePrev={() => hasPrevItem && setSelectedItem(activeNavList[selectedIndex - 1])}
+            onNavigateNext={() => hasNextItem && setSelectedItem(activeNavList[selectedIndex + 1])}
+          />
+        );
+      })()}
     </div>
   );
 }

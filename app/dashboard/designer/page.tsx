@@ -1119,7 +1119,7 @@ export default function DesignerPage() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-            <Palette className="h-5 w-5" /> Designer's Workspace
+            <Palette className="h-5 w-5" /> Designer&apos;s Workspace
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Approved copies ready for creative production.
@@ -1282,28 +1282,42 @@ export default function DesignerPage() {
       )}
 
       {/* Instagram-style preview (same modal the content calendar uses) */}
-      <ContentPreviewModal
-        item={previewCopy ? toCalendarCopy(previewCopy) : null}
-        open={!!previewCopy}
-        onClose={() => {
-          setPreviewCopy(null);
-          handleChanged();
-        }}
-        onUpdate={(_deliverableId, updatedDraft) => {
-          setPreviewCopy((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  ...updatedDraft,
-                  draftId: prev.draftId,
-                  status: updatedDraft.status ?? prev.status,
-                  publishDate:
-                    updatedDraft.publishDate !== undefined ? updatedDraft.publishDate : prev.publishDate,
-                }
-              : prev
-          );
-        }}
-      />
+      {(() => {
+        const previewIndex = previewCopy
+          ? filteredCopies.findIndex((c) => c.draftId === previewCopy.draftId)
+          : -1;
+        const hasPrevCopy = previewIndex > 0;
+        const hasNextCopy = previewIndex >= 0 && previewIndex < filteredCopies.length - 1;
+
+        return (
+          <ContentPreviewModal
+            item={previewCopy ? toCalendarCopy(previewCopy) : null}
+            open={!!previewCopy}
+            onClose={() => {
+              setPreviewCopy(null);
+              handleChanged();
+            }}
+            onUpdate={(_deliverableId, updatedDraft) => {
+              setPreviewCopy((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      ...updatedDraft,
+                      draftId: prev.draftId,
+                      status: updatedDraft.status ?? prev.status,
+                      publishDate:
+                        updatedDraft.publishDate !== undefined ? updatedDraft.publishDate : prev.publishDate,
+                    }
+                  : prev
+              );
+            }}
+            hasPrev={hasPrevCopy}
+            hasNext={hasNextCopy}
+            onNavigatePrev={() => hasPrevCopy && setPreviewCopy(filteredCopies[previewIndex - 1])}
+            onNavigateNext={() => hasNextCopy && setPreviewCopy(filteredCopies[previewIndex + 1])}
+          />
+        );
+      })()}
 
       <Toaster position="top-right" richColors />
     </div>

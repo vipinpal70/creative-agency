@@ -65,6 +65,10 @@ interface Props {
   // When true, the modal is a pure preview: edit form is disabled and the
   // Approve tab / Save button are hidden. Used by the client portal.
   readOnly?: boolean;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
 const DELIVERABLE_STATUS_LABEL = STATUS_LABEL;
@@ -732,7 +736,17 @@ function HistoryTab({
 }
 
 // ── Main Modal ──────────────────────────────────────────────────────
-export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = false }: Props) {
+export function ContentPreviewModal({
+  item,
+  open,
+  onClose,
+  onUpdate,
+  readOnly = false,
+  onNavigatePrev,
+  onNavigateNext,
+  hasPrev = false,
+  hasNext = false,
+}: Props) {
   const [form, setForm] = useState<Partial<CalendarDraft>>({});
   const [saving, setSaving]     = useState(false);
   const [actioning, setActioning] = useState(false);
@@ -742,6 +756,31 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
   // Only admin / account manager may mark a scheduled copy as published (final).
   const canPublish =
     user?.role === "admin" || (user?.roles ?? []).includes("ACCOUNT_MANAGER");
+
+  // Keyboard navigation for Prev/Next
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "ArrowLeft" && hasPrev && onNavigatePrev) {
+        e.preventDefault();
+        onNavigatePrev();
+      } else if (e.key === "ArrowRight" && hasNext && onNavigateNext) {
+        e.preventDefault();
+        onNavigateNext();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, hasPrev, hasNext, onNavigatePrev, onNavigateNext]);
 
   // Reset form when item changes
   useEffect(() => {
@@ -858,70 +897,109 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
-        {/* Header */}
-        <div className="flex-shrink-0 flex items-center gap-3 px-6 py-4 border-b border-border">
-          {mod && (
-            <span
-              className="h-2.5 w-2.5 rounded-full flex-shrink-0"
-              style={{ background: `hsl(var(--mod-${mod.tone}))` }}
-            />
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">
-              {item.title || item.type}
-            </p>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className="text-[10px] text-muted-foreground capitalize">
-                {mod?.label ?? item.module} · {item.calendarName || item.type}
-              </span>
-              {item.platforms.length > 0 && (
-                <span className="text-[10px] text-muted-foreground">
-                  · {item.platforms.join(", ")}
+      <div className="relative w-full max-w-5xl">
+        {/* Floating Left Arrow button */}
+        {hasPrev && onNavigatePrev && (
+          <button
+            onClick={onNavigatePrev}
+            title="Previous copy (← Left Arrow)"
+            aria-label="Previous copy"
+            className="absolute -left-4 lg:-left-12 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center shadow-xl transition-all z-20 hover:scale-105"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
+
+        <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex-shrink-0 flex items-center gap-3 px-6 py-4 border-b border-border">
+            {mod && (
+              <span
+                className="h-2.5 w-2.5 rounded-full flex-shrink-0"
+                style={{ background: `hsl(var(--mod-${mod.tone}))` }}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">
+                {item.title || item.type}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="text-[10px] text-muted-foreground capitalize">
+                  {mod?.label ?? item.module} · {item.calendarName || item.type}
                 </span>
+                {item.platforms.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    · {item.platforms.join(", ")}
+                  </span>
+                )}
+                {/* Media type tag */}
+                {(draft?.mediaType || item.type) && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
+                    {draft?.mediaType || item.type}
+                  </span>
+                )}
+                {/* Video type tag (reel / video long-format) */}
+                {draft?.videoType && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 capitalize">
+                    {draft.videoType}
+                  </span>
+                )}
+                {/* Single status badge: the draft status is the real pipeline
+                    state; the deliverable status is only a coarse rollup and is
+                    shown only when there is no draft yet. */}
+                {draft ? (
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                      draftStatusColor
+                    )}
+                  >
+                    {STATUS_LABEL[draft.status] ?? draft.status}
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {DELIVERABLE_STATUS_LABEL[item.status] ?? item.status}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Header controls: Prev / Next / Close */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {(onNavigatePrev || onNavigateNext) && (
+                <div className="flex items-center gap-1 mr-1 border-r border-border pr-2">
+                  <button
+                    onClick={onNavigatePrev}
+                    disabled={!hasPrev || !onNavigatePrev}
+                    title="Previous copy (← Left Arrow)"
+                    aria-label="Previous copy"
+                    className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={onNavigateNext}
+                    disabled={!hasNext || !onNavigateNext}
+                    title="Next copy (→ Right Arrow)"
+                    aria-label="Next copy"
+                    className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               )}
-              {/* Media type tag */}
-              {(draft?.mediaType || item.type) && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
-                  {draft?.mediaType || item.type}
-                </span>
-              )}
-              {/* Video type tag (reel / video long-format) */}
-              {draft?.videoType && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 capitalize">
-                  {draft.videoType}
-                </span>
-              )}
-              {/* Single status badge: the draft status is the real pipeline
-                  state; the deliverable status is only a coarse rollup and is
-                  shown only when there is no draft yet. */}
-              {draft ? (
-                <span
-                  className={cn(
-                    "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                    draftStatusColor
-                  )}
-                >
-                  {STATUS_LABEL[draft.status] ?? draft.status}
-                </span>
-              ) : (
-                <span
-                  className={cn(
-                    "text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
-                  )}
-                >
-                  {DELIVERABLE_STATUS_LABEL[item.status] ?? item.status}
-                </span>
-              )}
+              <button
+                onClick={onClose}
+                className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors flex-shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors flex-shrink-0"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
 
         {/* Body: left preview + right editor */}
         <div className="flex-1 min-h-0 grid lg:grid-cols-2 overflow-hidden">
@@ -1342,34 +1420,69 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
                               Published — this copy is live.
                             </div>
                           )}
-                          {(normStatus === "content_req_change" ||
-                            normStatus === "design_req_change" ||
-                            normStatus === "design_rejected" ||
-                            normStatus === "rejected") && (
-                            <>
-                              <div className="text-xs text-rose-700 bg-rose-50 rounded-lg p-3 whitespace-pre-wrap">
-                                {draft.rejectionNote
-                                  ? `Feedback: ${draft.rejectionNote}`
-                                  : "Changes were requested."}
-                              </div>
-                              {RESUBMIT_TRANSITIONS[normStatus] && (
-                                <Button
-                                  onClick={() =>
-                                    handleAction(RESUBMIT_TRANSITIONS[normStatus]!)
-                                  }
-                                  disabled={actioning}
-                                  variant="outline"
-                                >
-                                  {actioning ? (
-                                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                                  ) : (
-                                    <Send className="h-3.5 w-3.5 mr-1.5" />
-                                  )}
-                                  Re-submit for Review
-                                </Button>
-                              )}
-                            </>
-                          )}
+                          {(() => {
+                            const isAdmin = user?.role === "admin";
+                            const claimer = draft.designStartedBy;
+                            const isOwner =
+                              !!user?.id &&
+                              ((claimer && claimer.userId === user.id) ||
+                                (!claimer && draft.lastChangedBy?.userId === user.id));
+                            const canRework = isAdmin || isOwner || (!claimer && !draft.lastChangedBy);
+
+                            const isRejected =
+                              normStatus === "content_req_change" ||
+                              normStatus === "design_req_change" ||
+                              normStatus === "design_rejected" ||
+                              normStatus === "rejected";
+
+                            if (!isRejected) return null;
+
+                            return (
+                              <>
+                                <div className="text-xs text-rose-700 bg-rose-50 rounded-lg p-3 whitespace-pre-wrap">
+                                  {draft.rejectionNote
+                                    ? `Feedback: ${draft.rejectionNote}`
+                                    : "Changes were requested."}
+                                </div>
+                                {canRework && (
+                                  <Button
+                                    onClick={() =>
+                                      handleAction(
+                                        normStatus.startsWith("design_")
+                                          ? "design_in_progress"
+                                          : "draft"
+                                      )
+                                    }
+                                    disabled={actioning}
+                                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                                  >
+                                    {actioning ? (
+                                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                    ) : (
+                                      <Play className="h-3.5 w-3.5 mr-1.5" />
+                                    )}
+                                    Re-work
+                                  </Button>
+                                )}
+                                {RESUBMIT_TRANSITIONS[normStatus] && (
+                                  <Button
+                                    onClick={() =>
+                                      handleAction(RESUBMIT_TRANSITIONS[normStatus]!)
+                                    }
+                                    disabled={actioning}
+                                    variant="outline"
+                                  >
+                                    {actioning ? (
+                                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                    ) : (
+                                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                                    )}
+                                    Re-submit for Review
+                                  </Button>
+                                )}
+                              </>
+                            );
+                          })()}
                         </>
                       );
                     })()}
@@ -1379,8 +1492,21 @@ export function ContentPreviewModal({ item, open, onClose, onUpdate, readOnly = 
             )}
           </div>
         </div>
+
+        {/* Floating Right Arrow button */}
+        {hasNext && onNavigateNext && (
+          <button
+            onClick={onNavigateNext}
+            title="Next copy (→ Right Arrow)"
+            aria-label="Next copy"
+            className="absolute -right-4 lg:-right-12 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center shadow-xl transition-all z-20 hover:scale-105"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
       </div>
     </div>
+  </div>
 
     <FeedbackModal
       open={feedbackOpen}

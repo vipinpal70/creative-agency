@@ -389,12 +389,26 @@ export default function ArchivedCopiesPage() {
         </>
       )}
 
-      <ContentPreviewModal
-        item={previewCopy ? toCalendarCopy(previewCopy) : null}
-        open={!!previewCopy}
-        onClose={() => setPreviewCopy(null)}
-        onUpdate={() => { /* archived copies are read-only here */ }}
-      />
+      {(() => {
+        const previewIndex = previewCopy
+          ? copies.findIndex((c) => c.draftId === previewCopy.draftId)
+          : -1;
+        const hasPrevCopy = previewIndex > 0;
+        const hasNextCopy = previewIndex >= 0 && previewIndex < copies.length - 1;
+
+        return (
+          <ContentPreviewModal
+            item={previewCopy ? toCalendarCopy(previewCopy) : null}
+            open={!!previewCopy}
+            onClose={() => setPreviewCopy(null)}
+            onUpdate={() => { /* archived copies are read-only here */ }}
+            hasPrev={hasPrevCopy}
+            hasNext={hasNextCopy}
+            onNavigatePrev={() => hasPrevCopy && setPreviewCopy(copies[previewIndex - 1])}
+            onNavigateNext={() => hasNextCopy && setPreviewCopy(copies[previewIndex + 1])}
+          />
+        );
+      })()}
 
       <Toaster position="top-right" richColors />
     </div>
