@@ -183,9 +183,9 @@ export default function CreativeUploadPage() {
         } else if (xhr.status === 413) {
           // Prefer the server's detailed message; fall back to a generic size error.
           try {
-            msg = JSON.parse(xhr.responseText)?.error || "File is too large (max 50MB)";
+            msg = JSON.parse(xhr.responseText)?.error || "File is too large (max 1GB)";
           } catch {
-            msg = "File is too large (max 50MB)";
+            msg = "File is too large (max 1GB)";
           }
         } else {
           try {
@@ -294,7 +294,7 @@ export default function CreativeUploadPage() {
                 ? `${Math.round(uploadState!.progress)}% complete`
                 : !selectedClientId
                   ? "The file picker is locked"
-                  : "PNG, JPG, MP4, PDF up to 50MB"}
+                  : "PNG, JPG, MP4, PDF up to 1GB"}
             </p>
           </div>
         </div>

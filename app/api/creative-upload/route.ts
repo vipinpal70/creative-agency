@@ -8,8 +8,8 @@ import { logActivity } from '@/lib/activity';
 import { promises as fs } from 'fs';
 import { isClient, forbidden } from '@/lib/authz';
 
-/** Max upload size in bytes. Keep in sync with nginx `client_max_body_size` and the UI copy (50MB). */
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+/** Max upload size in bytes. Keep in sync with nginx `client_max_body_size` and the UI copy (1GB). */
+const MAX_FILE_SIZE = 1024 * 1024 * 1024;
 
 /**
  * POST /api/creative-upload
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         {
-          error: `File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size is 50MB.`,
+           error: `File is too large (${(file.size / (1024 * 1024 * 1024)).toFixed(1)}GB). Maximum allowed size is 1GB.`,
         },
         { status: 413 }
       );
