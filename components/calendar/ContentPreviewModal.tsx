@@ -629,34 +629,34 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
   // Collect media action buttons
   const mediaButtons: { label: string; url: string }[] = [];
 
-  if (draft?.videoUrl) {
-    mediaButtons.push({ label: "Open Video", url: draft.videoUrl });
-  }
+  // if (draft?.videoUrl) {
+  //   mediaButtons.push({ label: "Open Video", url: draft.videoUrl });
+  // }
   // if (draft?.imageUrl && draft.imageUrl !== draft?.videoUrl) {
   //   mediaButtons.push({ label: "Open Image", url: draft.imageUrl });
   // }
-  if (
-    draft?.thumbnailUrl &&
-    draft.thumbnailUrl !== draft?.imageUrl &&
-    draft.thumbnailUrl !== draft?.videoUrl
-  ) {
-    mediaButtons.push({ label: "Open Thumbnail", url: draft.thumbnailUrl });
-  }
-  if (draft?.audioUrl) {
-    mediaButtons.push({ label: "Open Audio", url: draft.audioUrl });
-  }
+  // if (
+  //   draft?.thumbnailUrl &&
+  //   draft.thumbnailUrl !== draft?.imageUrl &&
+  //   draft.thumbnailUrl !== draft?.videoUrl
+  // ) {
+  //   mediaButtons.push({ label: "Open Thumbnail", url: draft.thumbnailUrl });
+  // }
+  // if (draft?.audioUrl) {
+  //   mediaButtons.push({ label: "Open Audio", url: draft.audioUrl });
+  // }
 
   // Also check carousel frame images
-  if (mediaCategory === "carousel" && draft?.frames) {
-    draft.frames.forEach((fr) => {
-      if (fr.imageUrl && !mediaButtons.some((b) => b.url === fr.imageUrl)) {
-        mediaButtons.push({
-          label: `Open Frame ${fr.frameNo} Image`,
-          url: fr.imageUrl,
-        });
-      }
-    });
-  }
+  // if (mediaCategory === "carousel" && draft?.frames) {
+  //   draft.frames.forEach((fr) => {
+  //     if (fr.imageUrl && !mediaButtons.some((b) => b.url === fr.imageUrl)) {
+  //       mediaButtons.push({
+  //         label: `Open Frame ${fr.frameNo} Image`,
+  //         url: fr.imageUrl,
+  //       });
+  //     }
+  //   });
+  // }
 
   return (
     <div className="w-full flex flex-col items-center gap-4 my-auto">

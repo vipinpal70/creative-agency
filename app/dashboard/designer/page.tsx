@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Image as ImageIcon, Film,
   Send, Upload, ShieldCheck, Palette, User, MessageSquare, Play,
-  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X, RotateCcw, Clock,
+  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X, RotateCcw, Clock, UserPlus,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
@@ -64,6 +64,8 @@ interface HistoryEntry {
 }
 
 function describeEntry(entry: HistoryEntry): string {
+  const assignedTo = entry.changes?.find((c) => c.field === "assignedTo");
+  if (assignedTo?.to) return `Allocated to ${assignedTo.to}`;
   const statusChange = entry.changes?.find((c) => c.field === "status");
   if (statusChange?.to === "design_in_progress") return "Started work";
   if (entry.action === "submitted") return "Submitted for review";
@@ -137,6 +139,8 @@ const CopyCard = memo(function CopyCard({
   currentUserId,
   isAdmin,
   isAccountManager,
+  canAllocate,
+  designers,
   canArchive,
   inRejectedView,
   schedulable,
@@ -150,6 +154,8 @@ const CopyCard = memo(function CopyCard({
   currentUserId?: string;
   isAdmin: boolean;
   isAccountManager: boolean;
+  canAllocate: boolean;
+  designers: { id: string; name: string }[];
   canArchive: boolean;
   inRejectedView: boolean;
   schedulable: boolean;
@@ -160,6 +166,10 @@ const CopyCard = memo(function CopyCard({
   onRemove: (draftId: string) => void;
 }) {
   const [starting, setStarting] = useState(false);
+  const [allocating, setAllocating] = useState(false);
+  const [allocateOpen, setAllocateOpen] = useState(false);
+  const [allocateSearch, setAllocateSearch] = useState("");
+  const allocateRef = useRef<HTMLDivElement>(null);
   const [scheduling, setScheduling] = useState(false);
   const [reworking, setReworking] = useState(false);
   const [recalling, setRecalling] = useState(false);
@@ -235,6 +245,43 @@ const CopyCard = memo(function CopyCard({
       setStarting(false);
     }
   };
+
+  // Allocate this queued copy to another designer — same claim as Start Work,
+  // but ownership is stamped to the chosen team member (server-enforced).
+  const handleAllocate = async (userId: string) => {
+    setAllocating(true);
+    setAllocateOpen(false);
+    setAllocateSearch("");
+    try {
+      const res = await fetch(
+        `/api/clients/${copy.clientId}/deliverables/${copy.deliverableId}/drafts/${copy.draftId}/allocate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Allocation failed");
+      toast.success("Task allocated");
+      onChanged();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to allocate");
+    } finally {
+      setAllocating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!allocateOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (allocateRef.current && !allocateRef.current.contains(event.target as Node)) {
+        setAllocateOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [allocateOpen]);
 
   // Schedule an approved copy for publish (design_approved → scheduled). Any
   // staff may schedule; the final publish (scheduled → published) is restricted
@@ -588,14 +635,71 @@ const CopyCard = memo(function CopyCard({
           />
 
           {isQueue && (
-            <Button size="sm" disabled={starting} onClick={handleStartWork}>
-              {starting ? (
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              ) : (
-                <Play className="h-3 w-3 mr-1" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button size="sm" disabled={starting || allocating} onClick={handleStartWork}>
+                {starting ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Play className="h-3 w-3 mr-1" />
+                )}
+                Start Work
+              </Button>
+
+              {/* Allocate to another designer — leads / admin / account managers only. */}
+              {canAllocate && (
+                <div className="relative" ref={allocateRef}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={allocating || starting}
+                    onClick={() => setAllocateOpen((o) => !o)}
+                  >
+                    {allocating ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <UserPlus className="h-3 w-3 mr-1" />
+                    )}
+                    Allocate to…
+                    <ChevronDown className={`h-3.5 w-3.5 ml-1 text-muted-foreground transition-transform ${allocateOpen ? "rotate-180" : ""}`} />
+                  </Button>
+
+                  {allocateOpen && (
+                    <div className="absolute left-0 mt-1 w-60 rounded-xl border border-gray-200 bg-white p-2 shadow-lg z-50 animate-in fade-in-50 zoom-in-95 duration-100">
+                      {designers.length > 5 && (
+                        <input
+                          type="text"
+                          value={allocateSearch}
+                          onChange={(e) => setAllocateSearch(e.target.value)}
+                          placeholder="Search team…"
+                          className="w-full mb-2 px-2.5 py-1.5 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 bg-white"
+                        />
+                      )}
+                      <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+                        {(() => {
+                          const q = allocateSearch.trim().toLowerCase();
+                          const list = q
+                            ? designers.filter((d) => d.name.toLowerCase().includes(q))
+                            : designers;
+                          if (list.length === 0) {
+                            return <p className="text-xs text-gray-400 py-3 text-center">No team members</p>;
+                          }
+                          return list.map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => handleAllocate(d.id)}
+                              className="w-full text-left px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-50 truncate"
+                            >
+                              {d.name}
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
-              Start Work
-            </Button>
+            </div>
           )}
 
           {/* Schedule tab: move an approved copy to "scheduled". */}
@@ -934,13 +1038,18 @@ export default function DesignerPage() {
   const [loading, setLoading] = useState(true);
   const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
   const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
+  const [designers, setDesigners] = useState<{ id: string; name: string }[]>([]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
+  const [selectedDesigners, setSelectedDesigners] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>(getTodayString);
   const [endDate, setEndDate] = useState<string>("");
 
   const isAdmin = user?.role === "admin";
   const isAccountManager = !!user?.roles?.includes("ACCOUNT_MANAGER");
+  const isCreativeLead = !!user?.roles?.includes("CREATIVE_LEAD");
+  // Who may hand a queued task to someone else (server enforces the same rule).
+  const canAllocate = isAdmin || isCreativeLead || isAccountManager;
   const canArchive = user?.role === "admin" || user?.role === "member";
 
   // The tab drives which DB status we list. "history" is a UI-only tab whose
@@ -1004,6 +1113,21 @@ export default function DesignerPage() {
       .catch(console.error);
   }, []);
 
+  // Active team members who can be handed a design task (also feeds the filter).
+  useEffect(() => {
+    const ASSIGNABLE = ["GRAPHIC_DESIGNER", "VIDEO_EDITOR", "PHOTO_VIDEOGRAPHER"];
+    fetch("/api/members")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: any[]) =>
+        setDesigners(
+          data
+            .filter((m) => (m.roles || []).some((r: string) => ASSIGNABLE.includes(r)))
+            .map((m) => ({ id: m.user.id, name: m.user.name }))
+        )
+      )
+      .catch(console.error);
+  }, []);
+
   // Stable card callbacks so memoized CopyCards don't re-render on every parent update.
   const handleChanged = useCallback(() => {
     // A mutation can move a copy between statuses, so drop the whole cache.
@@ -1052,6 +1176,11 @@ export default function DesignerPage() {
     [clients]
   );
 
+  const designerOptions = useMemo(
+    () => designers.map((d) => ({ label: d.name, value: d.id })),
+    [designers]
+  );
+
   const availableMediaTypes = useMemo(() => {
     const defaultTypes = ["Image", "Video", "Carousel", "Reel", "GIF", "Story", "Article"];
     const fromCopies = copies.map((c) => c.mediaType).filter(Boolean);
@@ -1082,6 +1211,12 @@ export default function DesignerPage() {
         if (!match) return false;
       }
 
+      // 2b. Multi-select Designer filter (by who the copy is allocated to)
+      if (selectedDesigners.length > 0) {
+        const owner = copy.designStartedBy?.userId;
+        if (!owner || !selectedDesigners.includes(owner)) return false;
+      }
+
       // 3. Date range filter (Start Date default current date, End Date picker)
       const rawDate = copy.publishDate || copy.scheduledDate || copy.updatedAt;
       if (rawDate) {
@@ -1099,17 +1234,19 @@ export default function DesignerPage() {
 
       return true;
     });
-  }, [copies, selectedClients, selectedMediaTypes, startDate, endDate]);
+  }, [copies, selectedClients, selectedMediaTypes, selectedDesigners, startDate, endDate]);
 
   const hasActiveFilters =
     selectedClients.length > 0 ||
     selectedMediaTypes.length > 0 ||
+    selectedDesigners.length > 0 ||
     startDate !== getTodayString() ||
     endDate !== "";
 
   const handleResetFilters = () => {
     setSelectedClients([]);
     setSelectedMediaTypes([]);
+    setSelectedDesigners([]);
     setStartDate(getTodayString());
     setEndDate("");
   };
@@ -1176,6 +1313,15 @@ export default function DesignerPage() {
             options={availableMediaTypes}
             selectedValues={selectedMediaTypes}
             onChange={setSelectedMediaTypes}
+          />
+
+          {/* Multi-Select Designer Filter (by who the copy is allocated to) */}
+          <MultiSelectDropdown
+            icon={<User className="w-3.5 h-3.5 text-gray-400" />}
+            label="Designer"
+            options={designerOptions}
+            selectedValues={selectedDesigners}
+            onChange={setSelectedDesigners}
           />
 
           {/* Date Range Filter (Start Date default current date, End Date picker) */}
@@ -1268,6 +1414,8 @@ export default function DesignerPage() {
               currentUserId={user?.id}
               isAdmin={isAdmin}
               isAccountManager={isAccountManager}
+              canAllocate={canAllocate}
+              designers={designers}
               canArchive={canArchive}
               inRejectedView={inRejectedView}
               schedulable={stage === "publishing"}
