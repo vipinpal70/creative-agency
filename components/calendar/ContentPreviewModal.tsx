@@ -140,6 +140,18 @@ function CarouselSlider({
           </div>
         </div>
       )}
+      {frame?.imageUrl && (
+        <a
+          href={frame.imageUrl}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Open frame image in new tab"
+          className="absolute top-2 left-2 h-7 w-7 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center z-10 transition-colors shadow"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
       <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
         {frames.map((_, i) => (
           <button
@@ -187,19 +199,31 @@ function VideoPreview({
 
   if (videoUrl && playing) {
     return (
-      <video
-        src={videoUrl}
-        controls
-        autoPlay
-        className="w-full h-full object-fit"
-      />
+      <div className="relative w-full h-full">
+        <video
+          src={videoUrl}
+          controls
+          autoPlay
+          className="w-full h-full object-fit"
+        />
+        <a
+          href={videoUrl}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Open video in new tab"
+          className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center z-10 transition-colors shadow"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      </div>
     );
   }
 
   return (
     <div
       className={cn(
-        "relative w-full h-full",
+        "relative w-full h-full group",
         videoUrl && "cursor-pointer"
       )}
       onClick={() => videoUrl && setPlaying(true)}
@@ -224,11 +248,23 @@ function VideoPreview({
         </div>
       )}
       {videoUrl && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="h-14 w-14 rounded-full bg-black/50 border-2 border-white/60 flex items-center justify-center">
-            <Play className="h-6 w-6 text-white ml-1" />
+        <>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="h-14 w-14 rounded-full bg-black/50 border-2 border-white/60 flex items-center justify-center">
+              <Play className="h-6 w-6 text-white ml-1" />
+            </div>
           </div>
-        </div>
+          <a
+            href={videoUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="Open video in new tab"
+            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center z-10 transition-colors shadow"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </>
       )}
       {!videoUrl && !thumbnailUrl && (
         <p className="absolute bottom-3 left-0 right-0 text-center text-xs text-white/50">
@@ -268,11 +304,22 @@ function ImagePreview({
 }) {
   if (imageUrl) {
     return (
-      <img
-        src={imageUrl}
-        alt="Content preview"
-        className="w-full h-full object-contain"
-      />
+      <div className="relative w-full h-full">
+        <img
+          src={imageUrl}
+          alt="Content preview"
+          className="w-full h-full object-contain"
+        />
+          <a
+            href={imageUrl}
+            target="_blank"
+            rel="noreferrer"
+            title="Open image in new tab"
+            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center z-10 transition-colors shadow"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+      </div>
     );
   }
   return (
@@ -368,12 +415,12 @@ function SocialMockup({
   return (
     <div
       className={cn(
-        "rounded-[1.5rem] bg-card border border-border shadow-xl overflow-hidden",
-        isPortrait ? "w-[180px]" : "w-[260px]"
+        "rounded-[1.5rem] bg-card border border-border shadow-xl overflow-hidden transition-all flex-shrink-0",
+        isPortrait ? "w-[240px] sm:w-[280px]" : "w-[300px] sm:w-[340px]"
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 p-3">
+      <div className="flex items-center gap-2.5 p-3">
         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-pink-500 via-orange-400 to-yellow-400 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">
@@ -393,11 +440,22 @@ function SocialMockup({
             thumbnailUrl={draft?.thumbnailUrl || draft?.imageUrl || ""}
           />
         ) : draft?.imageUrl ? (
-          <img
-            src={draft.imageUrl}
-            alt="Preview"
-            className="w-full h-full object-fit"
-          />
+          <div className="relative w-full h-full group">
+            <img
+              src={draft.imageUrl}
+              alt="Preview"
+              className="w-full h-full object-cover"
+            />
+            <a
+              href={draft.imageUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Open image in new tab"
+              className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 hover:bg-black text-white flex items-center justify-center z-10 transition-colors shadow"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
         ) : (draft?.articleMode === "with-creative" || isArticleType(draft?.mediaType || item.type)) && draft?.creativeCopy ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 to-muted p-4">
             <p className="text-xs text-foreground text-center font-medium leading-relaxed whitespace-pre-wrap line-clamp-6">
@@ -434,17 +492,6 @@ function SocialMockup({
               {draft.hashtags.slice(0, 5).join(" ")}
             </p>
           )}
-          {draft?.referenceUrl && (
-            <a
-              href={draft.referenceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[10px] text-primary hover:underline flex items-center gap-1 truncate"
-            >
-              <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />
-              {draft.referenceUrl}
-            </a>
-          )}
         </div>
       )}
     </div>
@@ -457,7 +504,7 @@ function ArticlePreview({ draft, title }: { draft: CalendarDraft | null; title: 
   const withCreative = draft?.articleMode === "with-creative";
 
   return (
-    <div className="w-full max-w-sm space-y-3">
+    <div className="w-full max-w-md space-y-3">
       {withCreative && draft?.creativeCopy && (
         <div className="rounded-xl border border-border bg-gradient-to-br from-primary/10 to-muted p-4 shadow text-center">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Creative</p>
@@ -510,70 +557,127 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
     item.module === "paid" ||
     item.module === "influencer";
 
-  if (mediaCategory === "audio") {
-    return (
-      <AudioPreview
-        audioUrl={draft?.audioUrl || ""}
-        title={item.title}
-      />
-    );
-  }
-
-  if (isSocial) {
-    return <SocialMockup item={item} mediaCategory={mediaCategory} />;
-  }
-
-  if (isArticleCopy) {
-    return <ArticlePreview draft={draft} title={item.title} />;
-  }
-
-  if (mediaCategory === "video") {
-    return (
-      <div className="w-full max-w-sm rounded-xl overflow-hidden border border-border shadow-xl bg-black aspect-video">
-        <VideoPreview
-          videoUrl={draft?.videoUrl || ""}
-          thumbnailUrl={draft?.thumbnailUrl || draft?.imageUrl || ""}
+  const renderMedia = () => {
+    if (mediaCategory === "audio") {
+      return (
+        <AudioPreview
+          audioUrl={draft?.audioUrl || ""}
+          title={item.title}
         />
+      );
+    }
+
+    if (isSocial) {
+      return <SocialMockup item={item} mediaCategory={mediaCategory} />;
+    }
+
+    if (isArticleCopy) {
+      return <ArticlePreview draft={draft} title={item.title} />;
+    }
+
+    if (mediaCategory === "video") {
+      return (
+        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl bg-black aspect-video">
+          <VideoPreview
+            videoUrl={draft?.videoUrl || ""}
+            thumbnailUrl={draft?.thumbnailUrl || draft?.imageUrl || ""}
+          />
+        </div>
+      );
+    }
+
+    if (mediaCategory === "image" || mediaCategory === "gif") {
+      return (
+        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
+          <ImagePreview
+            imageUrl={draft?.imageUrl || ""}
+            mediaType={draft?.mediaType || item.type}
+          />
+        </div>
+      );
+    }
+
+    // Uncategorized media type but a creative was uploaded — show it
+    if (draft?.videoUrl) {
+      return (
+        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl bg-black aspect-video">
+          <VideoPreview
+            videoUrl={draft.videoUrl}
+            thumbnailUrl={draft.thumbnailUrl || ""}
+          />
+        </div>
+      );
+    }
+    if (draft?.imageUrl) {
+      return (
+        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
+          <ImagePreview
+            imageUrl={draft.imageUrl}
+            mediaType={draft?.mediaType || item.type}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-full max-w-md">
+        <TextPreview draft={draft} title={item.title} module={item.module} />
       </div>
     );
-  }
+  };
 
-  if (mediaCategory === "image" || mediaCategory === "gif") {
-    return (
-      <div className="w-full max-w-sm rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
-        <ImagePreview
-          imageUrl={draft?.imageUrl || ""}
-          mediaType={draft?.mediaType || item.type}
-        />
-      </div>
-    );
-  }
+  // Collect media action buttons
+  const mediaButtons: { label: string; url: string }[] = [];
 
-  // Uncategorized media type but a creative was uploaded — show it
   if (draft?.videoUrl) {
-    return (
-      <div className="w-full max-w-sm rounded-xl overflow-hidden border border-border shadow-xl bg-black aspect-video">
-        <VideoPreview
-          videoUrl={draft.videoUrl}
-          thumbnailUrl={draft.thumbnailUrl || ""}
-        />
-      </div>
-    );
+    mediaButtons.push({ label: "Open Video", url: draft.videoUrl });
   }
-  if (draft?.imageUrl) {
-    return (
-      <div className="w-full max-w-sm rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
-        <ImagePreview
-          imageUrl={draft.imageUrl}
-          mediaType={draft?.mediaType || item.type}
-        />
-      </div>
-    );
+  // if (draft?.imageUrl && draft.imageUrl !== draft?.videoUrl) {
+  //   mediaButtons.push({ label: "Open Image", url: draft.imageUrl });
+  // }
+  if (
+    draft?.thumbnailUrl &&
+    draft.thumbnailUrl !== draft?.imageUrl &&
+    draft.thumbnailUrl !== draft?.videoUrl
+  ) {
+    mediaButtons.push({ label: "Open Thumbnail", url: draft.thumbnailUrl });
+  }
+  if (draft?.audioUrl) {
+    mediaButtons.push({ label: "Open Audio", url: draft.audioUrl });
+  }
+
+  // Also check carousel frame images
+  if (mediaCategory === "carousel" && draft?.frames) {
+    draft.frames.forEach((fr) => {
+      if (fr.imageUrl && !mediaButtons.some((b) => b.url === fr.imageUrl)) {
+        mediaButtons.push({
+          label: `Open Frame ${fr.frameNo} Image`,
+          url: fr.imageUrl,
+        });
+      }
+    });
   }
 
   return (
-    <div className="w-full max-w-sm">
-      <TextPreview draft={draft} title={item.title} module={item.module} />
+    <div className="w-full flex flex-col items-center gap-4 my-auto">
+      {renderMedia()}
+
+      {mediaButtons.length > 0 && (
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+          {mediaButtons.map((btn, idx) => (
+            <a
+              key={idx}
+              href={btn.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-card hover:bg-accent text-foreground border border-border shadow-sm transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              {btn.label}
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -897,7 +1001,7 @@ export function ContentPreviewModal({
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="relative w-full max-w-5xl">
+      <div className="relative w-full max-w-6xl">
         {/* Floating Left Arrow button */}
         {hasPrev && onNavigatePrev && (
           <button
@@ -1004,7 +1108,7 @@ export function ContentPreviewModal({
         {/* Body: left preview + right editor */}
         <div className="flex-1 min-h-0 grid lg:grid-cols-2 overflow-hidden">
           {/* Left – media preview */}
-          <div className="bg-muted/30 border-r border-border flex items-center justify-center p-6 overflow-y-auto">
+          <div className="bg-muted/30 border-r border-border flex flex-col items-center p-6 overflow-y-auto">
             {draft ? (
               <MediaPreviewPane item={item} />
             ) : (
@@ -1043,7 +1147,7 @@ export function ContentPreviewModal({
                     )}
                     {!readOnly && (
                       <TabsTrigger value="approve" className="flex-1">
-                        Approve
+                        Client Feedback
                       </TabsTrigger>
                     )}
                   </TabsList>
