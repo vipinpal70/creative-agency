@@ -814,9 +814,9 @@ export default function ApprovalsPage() {
                   variant="ghost"
                   size="sm"
                   onClick={handleResetFilters}
-                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3 w-3 mr-1" /> Reset filters
+                  className="h-8 text-xs text-red-500 hover:text-red-700 border bg-red-100 hover:bg-red-200 rounded-lg"
+                    >
+                      Clear
                 </Button>
               )}
             </div>

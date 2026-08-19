@@ -1369,9 +1369,9 @@ export default function DesignerPage() {
               variant="ghost"
               size="sm"
               onClick={handleResetFilters}
-              className="h-8 text-xs text-muted-foreground hover:text-foreground"
+              className="h-8 text-xs text-red-500 hover:text-red-700 border bg-red-100 hover:bg-red-200 rounded-lg"
             >
-              <X className="h-3 w-3 mr-1" /> Reset filters
+              Clear
             </Button>
           )}
         </div>

@@ -500,11 +500,11 @@ function getTodayString(): string {
             Multi-channel production hub — social, email, paid, SEO.
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
+        {/* <Button variant="outline" size="sm" asChild>
           <a href="/dashboard/approvals">
             <ShieldCheck className="h-4 w-4 mr-1.5" /> Approvals
           </a>
-        </Button>
+        </Button> */}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -532,7 +532,7 @@ function getTodayString(): string {
               <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {(["all", "social", "email", "paid", "seo", "video", "design"] as ModuleFilter[]).map((k) => {
+                    {(["all", "social", "paid"] as ModuleFilter[]).map((k) => {
                       const m = k === "all" ? null : MODULES.find((x) => x.key === k)!;
                       const on = filter === k;
                       return (
@@ -616,9 +616,9 @@ function getTodayString(): string {
                       variant="ghost"
                       size="sm"
                       onClick={handleResetFilters}
-                      className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                      className="h-8 text-xs text-red-500 hover:text-red-700 border bg-red-100 hover:bg-red-200 rounded-lg"
                     >
-                      <X className="h-3 w-3 mr-1" /> Reset filters
+                      Clear
                     </Button>
                   )}
                 </div>
