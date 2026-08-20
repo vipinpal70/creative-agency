@@ -8,6 +8,7 @@ import { AnalyticsScopeTabs } from "./AnalyticsScopeTabs";
 import { KpiStatTile } from "./KpiStatTile";
 import { ShotApprovalHistogram } from "./ShotApprovalHistogram";
 import { PerUserThroughputChart } from "./PerUserThroughputChart";
+import { TurnaroundCard } from "./TurnaroundCard";
 import type { AnalyticsResponse } from "@/lib/analytics";
 
 interface AnalyticsDashboardProps {
@@ -183,6 +184,9 @@ export function AnalyticsDashboard({ variant = "staff" }: AnalyticsDashboardProp
               }
             />
           </div>
+
+          {/* Row 3 — average turnaround time (rides the same payload) */}
+          <TurnaroundCard turnaround={data.turnaround} discipline={filters.discipline} />
         </div>
       ) : null}
     </div>

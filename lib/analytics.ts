@@ -74,6 +74,63 @@ export function countRedosForDeliverable(timeline?: DeliverableTimelineLite | nu
   return { internal: w.internal + d.internal, client: w.client + d.client };
 }
 
+// ── Turnaround time ──────────────────────────────────────────────────────────
+// Two independent phase durations, each averaged over items that *completed* that
+// phase (in-progress items have no end and are excluded):
+//   • content = t(content approval) − t(created)
+//   • design  = t(design approval)  − t(design start)
+// See docs/analytics-mediatype-turnaround.md for the full derivation.
+
+const CONTENT_APPROVAL = new Set(["content_approved", "approved"]);
+
+// ms from the copy's creation to the first content-approval entry on the writer
+// timeline, or null if content was never approved.
+export function contentTurnaroundMs(
+  createdAt: string | Date,
+  writerTimeline: TimelineEntryLite[]
+): number | null {
+  const start = new Date(createdAt).getTime();
+  if (isNaN(start)) return null;
+  const sorted = [...writerTimeline].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  const approval = sorted.find((e) => CONTENT_APPROVAL.has(e.status));
+  if (!approval) return null;
+  const end = new Date(approval.timestamp).getTime();
+  return end >= start ? end - start : null;
+}
+
+// ms from when design work started to the first design-approval entry on the
+// designer timeline, or null if either bound is missing. When no explicit start
+// timestamp is provided, the first `design_in_progress` entry is used instead.
+export function designTurnaroundMs(
+  designStartedAt: string | Date | null | undefined,
+  designerTimeline: TimelineEntryLite[]
+): number | null {
+  const sorted = [...designerTimeline].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  let start = designStartedAt ? new Date(designStartedAt).getTime() : NaN;
+  if (isNaN(start)) {
+    const started = sorted.find((e) => e.status === "design_in_progress");
+    if (!started) return null;
+    start = new Date(started.timestamp).getTime();
+  }
+  if (isNaN(start)) return null;
+
+  const approval = sorted.find((e) => e.status === "design_approved");
+  if (!approval) return null;
+  const end = new Date(approval.timestamp).getTime();
+  return end >= start ? end - start : null;
+}
+
+// Arithmetic mean of a list of durations; 0 for an empty list.
+export function meanMs(values: number[]): number {
+  if (!values.length) return 0;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
+}
+
 export type ShotBucket = "one_shot" | "two_shot" | "two_plus_shot";
 
 // 0 redos → one-shot, exactly 1 → two-shot, 2+ → 2+ shot.
@@ -140,6 +197,10 @@ export interface AnalyticsPerUser {
   designs: number;
   avgCopiesPerDay: number;
   avgDesignsPerDay: number;
+  // Breakdown of the user's copies / designs by media category (keys are
+  // MediaCategory values from lib/media-type-colors). Sums to `copies`/`designs`.
+  copiesByMedia: Record<string, number>;
+  designsByMedia: Record<string, number>;
 }
 
 export interface AnalyticsFilterOption {
@@ -157,6 +218,12 @@ export interface AnalyticsResponse {
     clientCount: number;
   };
   shots: { oneShot: number; twoShot: number; twoPlusShot: number };
+  turnaround: {
+    contentAvgMs: number;
+    contentCount: number;
+    designAvgMs: number;
+    designCount: number;
+  };
   perUser: AnalyticsPerUser[];
   filters: {
     clients: AnalyticsFilterOption[];

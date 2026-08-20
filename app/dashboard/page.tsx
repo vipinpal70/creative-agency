@@ -17,7 +17,8 @@ import {
   STATUS_LABEL,
   STATUS_COLOR,
 } from "@/lib/status-flow";
-import { Users, CheckCircle, Clock, FileText } from "lucide-react";
+import { Users, CheckCircle, Clock, FileText, Trophy } from "lucide-react";
+import { TeamLeaderboard } from "@/components/dashboard/TeamLeaderboard";
 
 // Always render with fresh data — this reads live collections on each request.
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ async function getDashboardData() {
     ScopeOfWork.find({ isActive: true }, { clientId: 1, items: 1 }).lean(),
     Deliverable.find({}, { clientId: 1, module: 1, status: 1, scheduledDate: 1, title: 1 }).lean(),
     Task.find({}, { status: 1, assignedToId: 1, endDate: 1, updatedAt: 1 }).lean(),
-    ContentDraft.find({ archivedAt: null }, { status: 1 }).lean(),
+    ContentDraft.find({ archivedAt: null }, { status: 1, createdBy: 1, designStartedBy: 1 }).lean(),
     User.find({}, { firstName: 1, lastName: 1 }).lean(),
   ]);
 
@@ -186,6 +187,29 @@ async function getDashboardData() {
     .sort((a, b) => b.tasks - a.tasks)
     .slice(0, 6);
 
+  // ── Leaderboard: most work created per employee (copies authored + designs claimed)
+  const workByUser = new Map<string, { copies: number; designs: number }>();
+  const bumpWork = (uid: string | null | undefined, key: "copies" | "designs") => {
+    if (!uid) return;
+    const cur = workByUser.get(uid) ?? { copies: 0, designs: 0 };
+    cur[key] += 1;
+    workByUser.set(uid, cur);
+  };
+  for (const d of drafts) {
+    bumpWork(d.createdBy ? String(d.createdBy) : null, "copies");
+    bumpWork(d.designStartedBy?.userId ? String(d.designStartedBy.userId) : null, "designs");
+  }
+  const leaderboard = Array.from(workByUser.entries())
+    .map(([uid, w]) => ({
+      name: (userMap.get(uid) || "Unknown").split(" ")[0],
+      copies: w.copies,
+      designs: w.designs,
+      total: w.copies + w.designs,
+    }))
+    .sort((a, b) => b.total - a.total);
+  // Full per-user list — the leaderboard component re-ranks and takes the top 3
+  // for the selected tab (All / Writers / Designers).
+
   // ── Approval rate (all non-archived copies) ────────────────────────────────
   const totalDrafts = drafts.length;
   const inReview = totalDrafts - approved - rejected;
@@ -233,7 +257,7 @@ async function getDashboardData() {
       status: normalizeDeliverableStatus(d.status),
     }));
 
-  return { kpis, scopeDelivery, productivity, approval, upcoming, overdue };
+  return { kpis, scopeDelivery, productivity, leaderboard, approval, upcoming, overdue };
 }
 
 // ── sub-components ──────────────────────────────────────────────────────────
@@ -315,6 +339,9 @@ function ProductivityChart({ data }: { data: { name: string; tasks: number }[] }
   );
 }
 
+// TeamLeaderboard is a client component (tabs need state) — see
+// components/dashboard/TeamLeaderboard.tsx.
+
 function DonutChart({ data, centerPct }: { data: { label: string; value: number; color: string }[]; centerPct: number }) {
   const r = 52, cx = 68, cy = 68, sw = 18;
   const circ = 2 * Math.PI * r;
@@ -370,7 +397,7 @@ export default async function DashboardPage() {
   const me = await User.findById(session.userId, { firstName: 1 }).lean();
   const firstName = (me as { firstName?: string } | null)?.firstName ?? "";
 
-  const { kpis, scopeDelivery, productivity, approval, upcoming, overdue } = await getDashboardData();
+  const { kpis, scopeDelivery, productivity, leaderboard, approval, upcoming, overdue } = await getDashboardData();
 
   return (
     <div className="max-w-7xl space-y-5">
@@ -445,12 +472,19 @@ export default async function DashboardPage() {
         </div>
       </div> */}
 
+
+
       {/* ── Charts row ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-[12px] font-semibold text-gray-900">Productivity per Team Member</h2>
-          <p className="text-[10px] text-gray-400 mt-0.5 mb-1">Tasks completed this month</p>
-          <ProductivityChart data={productivity} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* ── Team leaderboard ─────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-[12px] font-semibold text-gray-900">Team Leaderboard</h2>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-0.5 mb-1">
+            Most work created — copies authored + designs claimed
+          </p>
+          <TeamLeaderboard data={leaderboard} />
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-[12px] font-semibold text-gray-900">Approval Rate</h2>

@@ -13,10 +13,14 @@ import {
   shotBucketFor,
   activeDaysBetween,
   safeRate,
+  contentTurnaroundMs,
+  designTurnaroundMs,
+  meanMs,
   type Discipline,
   type AnalyticsResponse,
   type AnalyticsPerUser,
 } from "@/lib/analytics";
+import { classifyMediaType, type MediaCategory } from "@/lib/media-type-colors";
 import { skipsDesignPhase } from "@/lib/status-flow";
 
 // GET /api/analytics?from=&to=&clientId=&memberId=&mediaType=
@@ -103,6 +107,7 @@ export async function GET(req: NextRequest) {
       createdBy: string | null;
       designerId: string | null;
       effectiveMediaType: string;
+      mediaCategory: MediaCategory;
       module: string;
       copyInternal: number;
       copyClient: number;
@@ -111,18 +116,26 @@ export async function GET(req: NextRequest) {
       contentApproved: boolean;
       designApproved: boolean;
       requiresDesign: boolean;
+      // Phase durations in ms (null when the phase never reached approval).
+      contentMs: number | null;
+      designMs: number | null;
     };
     const rows: Row[] = drafts.map((d) => {
       const del = delMap.get(d.deliverableId.toString());
       const effectiveMediaType =
         (d.mediaType && d.mediaType.trim()) || del?.type || "";
       const articleMode = (d as { articleMode?: string }).articleMode;
-      const w = countRedosInTimeline(del?.statusTimeline?.writerTimeline ?? []);
-      const design = countRedosInTimeline(del?.statusTimeline?.designerTimeline ?? []);
+      const writerTimeline = del?.statusTimeline?.writerTimeline ?? [];
+      const designerTimeline = del?.statusTimeline?.designerTimeline ?? [];
+      const w = countRedosInTimeline(writerTimeline);
+      const design = countRedosInTimeline(designerTimeline);
+      const designStartedAt = (d as { designStartedBy?: { startedAt?: string | Date } })
+        .designStartedBy?.startedAt ?? null;
       return {
         createdBy: d.createdBy ? d.createdBy.toString() : null,
         designerId: (d as { designStartedBy?: { userId?: string } }).designStartedBy?.userId ?? null,
         effectiveMediaType,
+        mediaCategory: classifyMediaType(effectiveMediaType),
         module: (del as { module?: string } | undefined)?.module || "",
         copyInternal: w.internal,
         copyClient: w.client,
@@ -133,6 +146,8 @@ export async function GET(req: NextRequest) {
         // A copy-only article (skips design) has no creative work; everything else
         // carries a design phase and belongs to the Creative/Design population.
         requiresDesign: !skipsDesignPhase({ mediaType: effectiveMediaType, articleMode }),
+        contentMs: contentTurnaroundMs(d.createdAt, writerTimeline),
+        designMs: designTurnaroundMs(designStartedAt, designerTimeline),
       };
     });
 
@@ -185,17 +200,47 @@ export async function GET(req: NextRequest) {
     // Copy discipline tallies authored copies only; design tallies claimed
     // designs only; the combined view tallies both.
     const activeDays = activeDaysBetween(from, to);
-    const tally = new Map<string, { copies: number; designs: number }>();
-    const bump = (id: string | null, key: "copies" | "designs") => {
+    type Tally = {
+      copies: number;
+      designs: number;
+      copiesByMedia: Record<string, number>;
+      designsByMedia: Record<string, number>;
+    };
+    const tally = new Map<string, Tally>();
+    const bump = (
+      id: string | null,
+      key: "copies" | "designs",
+      category: MediaCategory
+    ) => {
       if (!id) return;
-      const cur = tally.get(id) ?? { copies: 0, designs: 0 };
+      const cur =
+        tally.get(id) ??
+        ({ copies: 0, designs: 0, copiesByMedia: {}, designsByMedia: {} } as Tally);
       cur[key] += 1;
+      const byMedia = key === "copies" ? cur.copiesByMedia : cur.designsByMedia;
+      byMedia[category] = (byMedia[category] ?? 0) + 1;
       tally.set(id, cur);
     };
     for (const r of population) {
-      if (discipline !== "design") bump(r.createdBy, "copies");
-      if (discipline !== "copy") bump(r.designerId, "designs");
+      if (discipline !== "design") bump(r.createdBy, "copies", r.mediaCategory);
+      if (discipline !== "copy") bump(r.designerId, "designs", r.mediaCategory);
     }
+
+    // ── Turnaround (per phase, over items that completed that phase) ────────
+    // The discipline lens narrows which phases are reported: copy → content only,
+    // design → design only, "" → both.
+    const contentDurations =
+      discipline === "design"
+        ? []
+        : population
+            .filter((r) => r.contentApproved && r.contentMs != null)
+            .map((r) => r.contentMs as number);
+    const designDurations =
+      discipline === "copy"
+        ? []
+        : population
+            .filter((r) => r.requiresDesign && r.designApproved && r.designMs != null)
+            .map((r) => r.designMs as number);
 
     const perUserIds = [...tally.keys()];
     const perUserUsers = perUserIds.length
@@ -220,6 +265,8 @@ export async function GET(req: NextRequest) {
           designs: t.designs,
           avgCopiesPerDay: t.copies / activeDays,
           avgDesignsPerDay: t.designs / activeDays,
+          copiesByMedia: t.copiesByMedia,
+          designsByMedia: t.designsByMedia,
         };
       })
       .sort((a, b) => b.copies - a.copies || b.designs - a.designs);
@@ -260,6 +307,12 @@ export async function GET(req: NextRequest) {
         clientCount,
       },
       shots: { oneShot, twoShot, twoPlusShot },
+      turnaround: {
+        contentAvgMs: meanMs(contentDurations),
+        contentCount: contentDurations.length,
+        designAvgMs: meanMs(designDurations),
+        designCount: designDurations.length,
+      },
       perUser,
       filters: {
         clients: clientDocs.map((c) => ({

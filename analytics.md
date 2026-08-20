@@ -8,7 +8,7 @@ Social/Paid tabs), and the exact calculation behind each KPI and chart.
 
 ## 1. Overview
 
-The Analytics page surfaces four things about content production over a date range:
+The Analytics page surfaces five things about content production over a date range:
 
 1. **Volume** — how much copy/content was produced.
 2. **Rework (redo) rates** — how often items needed changes, split by *internal*
@@ -16,6 +16,8 @@ The Analytics page surfaces four things about content production over a date ran
 3. **Approval quality** — the distribution of how many review cycles approved
    items needed ("one-iteration", "two-iteration", "2+ iteration").
 4. **Per-user throughput** — copies authored / designs claimed per team member.
+5. **Turnaround time (TAT)** — how long work takes from start to approval, split
+   into a content phase and a design phase.
 
 All of it is derived from data we already persist — there is **no separate
 analytics store**. Numbers are computed on demand from `ContentDraft` and
@@ -109,6 +111,7 @@ Query params (all optional):
   totals:  { totalCopies, approvedCopies, inProgress },
   redo:    { internalRate, clientRate, internalCount, clientCount },
   shots:   { oneShot, twoShot, twoPlusShot },
+  turnaround: { contentAvgMs, contentCount, designAvgMs, designCount },  // §9.5
   perUser: [{ userId, name, copies, designs, avgCopiesPerDay, avgDesignsPerDay }],
   filters: { clients[], members[], mediaTypes[] }   // option lists for the dropdowns
 }
@@ -259,6 +262,71 @@ User ids are resolved to display names in a single `User.find`. When a disciplin
 is pinned, the chart's copies/designs toggle is hidden (`lockedMetric`) because the
 other measure is empty by construction.
 
+### 9.5 Average turnaround time (`TurnaroundCard`)
+
+TAT answers *"how long does work sit in each phase before it's approved?"* It is
+reported as **two independent phase averages** — there is deliberately no single
+combined number, because content work and design work happen on two separate
+timelines and mixing them hides where time is actually spent.
+
+Each item contributes a **duration** for a phase only if it **completed** that
+phase (reached approval); items still in progress have no end timestamp and are
+excluded from the average. The two per-item durations are pure helpers in
+`lib/analytics.ts`.
+
+**Content phase** — `contentTurnaroundMs(createdAt, writerTimeline)`:
+```
+contentMs = t(content_approved) − t(createdAt)
+```
+- **Start** = the draft's `createdAt` (when the copy first existed).
+- **End** = timestamp of the first `content_approved` entry on the writer timeline
+  (legacy `approved` is also accepted).
+- Returns **null** (excluded) if content was never approved, or if the timestamps
+  are missing / out of order (a negative duration is treated as invalid).
+
+**Design phase** — `designTurnaroundMs(designStartedAt, designerTimeline)`:
+```
+designMs = t(design_approved) − t(design start)
+```
+- **Start** = `designStartedBy.startedAt` (set when a designer claims the item via
+  *Start Work*). If that is missing, it falls back to the first
+  `design_in_progress` entry on the designer timeline.
+- **End** = timestamp of the first `design_approved` entry on the designer timeline.
+- Returns **null** (excluded) if there is no start or no design approval.
+
+**Aggregation** (in `route.ts`, respecting the discipline lens of §8):
+```
+contentDurations = population
+    .filter(r => r.contentApproved && r.contentMs != null)   // skipped entirely when discipline = design
+    .map(r => r.contentMs)
+
+designDurations  = population
+    .filter(r => r.requiresDesign && r.designApproved && r.designMs != null)  // skipped when discipline = copy
+    .map(r => r.designMs)
+
+contentAvgMs = meanMs(contentDurations)   // arithmetic mean; 0 for an empty set
+designAvgMs  = meanMs(designDurations)
+contentCount = contentDurations.length    // sample size shown as "avg over N copies"
+designCount  = designDurations.length
+```
+
+`meanMs(values)` is a plain arithmetic mean (`Σ / n`), returning `0` when there
+are no samples. So:
+```
+contentAvgMs = (Σ contentMs) / contentCount
+designAvgMs  = (Σ designMs)  / designCount
+```
+
+**Discipline lens.** Matching the rest of the page: the **Copy** tab reports only
+the content average (design set empty), the **Creative** tab reports only the
+design average (content set empty), and the **All** tab reports both. `TurnaroundCard`
+hides the phase its tab does not report.
+
+**Display.** `contentAvgMs` / `designAvgMs` are millisecond values; the card
+renders them via `formatDuration(ms)` as `2d 4h` / `6h 30m` / `45m` / `<1m`, and
+draws a single-hue horizontal bar comparing the two phase durations (both bars
+measure the same quantity — a duration — so no categorical palette or legend).
+
 ---
 
 ## 10. How redos are derived from timelines (`lib/analytics.ts`)
@@ -324,4 +392,5 @@ for each entry:
 | `components/analytics/KpiStatTile.tsx` | Headline stat tiles |
 | `components/analytics/ShotApprovalHistogram.tsx` | Approval-lifecycle distribution |
 | `components/analytics/PerUserThroughputChart.tsx` | Per-user copies/designs bars |
+| `components/analytics/TurnaroundCard.tsx` | Average turnaround time (content vs design phase) + comparison graph |
 </content>

@@ -250,8 +250,7 @@ export default function ContentCalendar({
   const [calView, setCalView]   = useState<CalView>("Month");
   const [cursor, setCursor]     = useState(new Date());
   const [activeModules, setActiveModules] = useState<ModuleKey[]>([
-    "social", "paid", "seo", "email", "website", "orm",
-    "influencer", "video", "design", "custom",
+    "social", "paid"
   ]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [startDate, setStartDate]       = useState("");
@@ -603,7 +602,7 @@ export default function ContentCalendar({
 
           <div className="h-5 w-px bg-border mx-1" />
 
-          {MODULES.map((m) => {
+          {MODULES.filter((m) => m.key === "social" || m.key === "paid").map((m) => {
             const on = activeModules.includes(m.key);
             return (
               <button
