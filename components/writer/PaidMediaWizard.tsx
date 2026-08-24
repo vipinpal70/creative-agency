@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Megaphone, Target } from "lucide-react";
+import { Loader2, Plus, Megaphone, Target, X, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { CopyList } from "@/components/writer/CopyList";
 import { VariantModal } from "@/components/writer/VariantModal";
 import type { VariantModalInitialData } from "@/components/writer/VariantModal";
+import { AdPreviewCard } from "@/components/writer/AdPreviewCard";
 import { CAMPAIGN_PLATFORMS, FUNNEL_STAGES } from "@/components/writer/CampaignCreateView";
 import type { WriterCalendar, WriterDeliverable, CopyFormData, DraftSnapshot } from "@/components/writer/types";
 import { normalizeDraftStatus } from "@/lib/status-flow";
@@ -20,18 +21,20 @@ type VariantModalState =
 interface Props {
   campaign: WriterCalendar;
   me: { id: string; role: string; roles: string[] } | null;
+  onEditCampaign?: () => void;
 }
 
 const platformLabel = (id: string) =>
   CAMPAIGN_PLATFORMS.find((p) => p.id === id)?.label ?? id;
 
-export function PaidCampaignWorkspace({ campaign, me }: Props) {
+export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
   const { toast } = useToast();
 
   const [variants, setVariants]     = useState<WriterDeliverable[]>([]);
   const [loading, setLoading]       = useState(true);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [modal, setModal]           = useState<VariantModalState>(null);
+  const [previewVariant, setPreviewVariant] = useState<WriterDeliverable | null>(null);
 
   const clientId = campaign.clientId;
 
@@ -72,6 +75,7 @@ export function PaidCampaignWorkspace({ campaign, me }: Props) {
         platforms:     campaign.platforms ?? [],
         title:         form.headline?.trim().slice(0, 80)
                          || form.creativeCopy.trim().slice(0, 80)
+                         || form.frames?.[0]?.copy.trim().slice(0, 80)
                          || `${form.mediaType} variant`,
         buckets:       [],
         scheduledDate: form.publishDate || new Date().toISOString(),
@@ -89,12 +93,15 @@ export function PaidCampaignWorkspace({ campaign, me }: Props) {
         body: JSON.stringify({
           mediaType:    form.mediaType,
           creativeCopy: form.creativeCopy,   // primary text
+          frames:       form.frames ?? [],
           referenceUrl: form.referenceUrl,   // helping url
           publishDate:  form.publishDate || null,
           headline:     form.headline,
           description:  form.description,
           cta:          form.cta,
           landingUrl:   form.landingUrl,
+          videoType:    form.videoType,
+          videoNotes:   form.videoNotes,
         }),
       }
     );
@@ -180,12 +187,15 @@ export function PaidCampaignWorkspace({ campaign, me }: Props) {
       initialData: {
         mediaType:    variant.type,
         creativeCopy: draft.creativeCopy,
+        frames:       draft.frames,
         referenceUrl: draft.referenceUrl ?? "",
         headline:     draft.headline ?? "",
         description:  draft.description ?? "",
         cta:          draft.cta ?? "Learn More",
         landingUrl:   draft.landingUrl ?? "",
         publishDate:  draft.publishDate ? draft.publishDate.slice(0, 10) : "",
+        videoType:    draft.videoType ?? "",
+        videoNotes:   draft.videoNotes ?? "",
       },
     });
   };
@@ -204,12 +214,15 @@ export function PaidCampaignWorkspace({ campaign, me }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             creativeCopy: form.creativeCopy,
+            frames:       form.frames ?? [],
             referenceUrl: form.referenceUrl,
             publishDate:  form.publishDate || null,
             headline:     form.headline,
             description:  form.description,
             cta:          form.cta,
             landingUrl:   form.landingUrl,
+            videoType:    form.videoType,
+            videoNotes:   form.videoNotes,
           }),
         }
       );
@@ -231,12 +244,19 @@ export function PaidCampaignWorkspace({ campaign, me }: Props) {
       {/* Campaign header */}
       <Card className="bg-muted/30">
         <CardContent className="p-4 space-y-3">
-          <div className="flex items-start gap-2">
-            <Target className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Campaign Brief</p>
-              <p className="text-sm text-foreground">{campaign.objective || "—"}</p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2 min-w-0">
+              <Target className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="space-y-1 min-w-0">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Campaign Brief</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.objective || "—"}</p>
+              </div>
             </div>
+            {onEditCampaign && (
+              <Button variant="outline" size="sm" className="shrink-0" onClick={onEditCampaign}>
+                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit Campaign
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2 pt-1">
@@ -275,6 +295,7 @@ export function PaidCampaignWorkspace({ campaign, me }: Props) {
             onSubmitAll={submitAll}
             onOpenEdit={openEditModal}
             onRecall={recallVariant}
+            onPreview={setPreviewVariant}
             canRecallClientReview={me?.role === "admin" || !!me?.roles?.includes("ACCOUNT_MANAGER")}
             submitting={submitting}
           />
@@ -315,6 +336,37 @@ export function PaidCampaignWorkspace({ campaign, me }: Props) {
           onClose={() => setModal(null)}
           onSave={handleModalSave}
         />
+      )}
+
+      {previewVariant?.latestDraft && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPreviewVariant(null)}
+        >
+          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-white">Ad Preview</p>
+              <button
+                onClick={() => setPreviewVariant(null)}
+                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="h-4 w-4 text-white" />
+              </button>
+            </div>
+            <AdPreviewCard
+              mediaType={previewVariant.type}
+              primaryText={previewVariant.latestDraft.creativeCopy}
+              frames={previewVariant.latestDraft.frames}
+              imageUrl={previewVariant.latestDraft.imageUrl}
+              videoUrl={previewVariant.latestDraft.videoUrl}
+              thumbnailUrl={previewVariant.latestDraft.thumbnailUrl}
+              headline={previewVariant.latestDraft.headline}
+              description={previewVariant.latestDraft.description}
+              cta={previewVariant.latestDraft.cta}
+              landingUrl={previewVariant.latestDraft.landingUrl}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

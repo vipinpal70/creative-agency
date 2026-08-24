@@ -27,6 +27,7 @@ import { CopyModal } from "@/components/writer/CopyModal";
 import type { CopyModalInitialData } from "@/components/writer/CopyModal";
 import { CalendarCreateView } from "@/components/writer/CalendarCreateView";
 import { CalendarEditDialog } from "@/components/writer/CalendarEditDialog";
+import { CampaignEditDialog } from "@/components/writer/CampaignEditDialog";
 import { CalendarScopeEditModal } from "@/components/writer/CalendarScopeEditModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmailCampaignWizard } from "@/components/writer/EmailCampaignWizard";
@@ -736,19 +737,21 @@ function getTodayString(): string {
 
                         {canManage(cal) && (
                           <div className="flex items-center gap-1 shrink-0">
+                            {cal.module !== "paid" && (
+                              <button
+                                type="button"
+                                title="Edit scope of work"
+                                aria-label="Edit scope of work"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); setEditingScopeCalendar(cal); }}
+                              >
+                                <Sliders className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               type="button"
-                              title="Edit scope of work"
-                              aria-label="Edit scope of work"
-                              className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                              onClick={(e) => { e.stopPropagation(); setEditingScopeCalendar(cal); }}
-                            >
-                              <Sliders className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              title="Edit calendar metadata"
-                              aria-label="Edit calendar metadata"
+                              title={cal.module === "paid" ? "Edit campaign" : "Edit calendar metadata"}
+                              aria-label={cal.module === "paid" ? "Edit campaign" : "Edit calendar metadata"}
                               className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                               onClick={(e) => { e.stopPropagation(); setEditingCalendar(cal); }}
                             >
@@ -968,7 +971,11 @@ function getTodayString(): string {
 
               {/* ── Paid module (campaign) ── */}
               {activeCalendar.module === "paid" && (
-                <PaidCampaignWorkspace campaign={activeCalendar} me={me} />
+                <PaidCampaignWorkspace
+                  campaign={activeCalendar}
+                  me={me}
+                  onEditCampaign={() => setEditingCalendar(activeCalendar)}
+                />
               )}
 
               {/* ── SEO module ── */}
@@ -1051,21 +1058,36 @@ function getTodayString(): string {
         />
       )}
 
-      {/* ── Edit calendar dialog ── */}
+      {/* ── Edit calendar / campaign dialog ── */}
       {editingCalendar && (
-        <CalendarEditDialog
-          calendar={editingCalendar}
-          onClose={() => setEditingCalendar(null)}
-          onOpenScopeEdit={() => setEditingScopeCalendar(editingCalendar)}
-          onSaved={(patch) => {
-            setCalendars((prev) =>
-              prev.map((c) => (c.id === editingCalendar.id ? { ...c, ...patch } : c))
-            );
-            if (activeCalendar?.id === editingCalendar.id) {
-              setActiveCalendar((c) => (c ? { ...c, ...patch } : c));
-            }
-          }}
-        />
+        editingCalendar.module === "paid" ? (
+          <CampaignEditDialog
+            campaign={editingCalendar}
+            onClose={() => setEditingCalendar(null)}
+            onSaved={(patch) => {
+              setCalendars((prev) =>
+                prev.map((c) => (c.id === editingCalendar.id ? { ...c, ...patch } : c))
+              );
+              if (activeCalendar?.id === editingCalendar.id) {
+                setActiveCalendar((c) => (c ? { ...c, ...patch } : c));
+              }
+            }}
+          />
+        ) : (
+          <CalendarEditDialog
+            calendar={editingCalendar}
+            onClose={() => setEditingCalendar(null)}
+            onOpenScopeEdit={() => setEditingScopeCalendar(editingCalendar)}
+            onSaved={(patch) => {
+              setCalendars((prev) =>
+                prev.map((c) => (c.id === editingCalendar.id ? { ...c, ...patch } : c))
+              );
+              if (activeCalendar?.id === editingCalendar.id) {
+                setActiveCalendar((c) => (c ? { ...c, ...patch } : c));
+              }
+            }}
+          />
+        )
       )}
 
       {/* ── Edit calendar scope of work modal ── */}

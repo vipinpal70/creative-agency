@@ -64,6 +64,12 @@ export interface DraftSnapshot {
   version: number;
   creativeCopy: string;
   frames?: { frameNo: number; copy: string; imageUrl: string }[];
+  // Design-phase creative files — set by the designer once content is
+  // approved. Present on the API response from the start (full ContentDraft
+  // document); typed here so pre-design vs. post-design states are both safe.
+  imageUrl?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
   caption: string;
   hashtags: string[];
   publishDate: string | null;

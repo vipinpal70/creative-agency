@@ -38,6 +38,7 @@ import {
 } from "@/lib/status-flow";
 import type { DraftStatus } from "@/lib/status-flow";
 import { FeedbackModal } from "@/components/ui/feedback-modal";
+import { AdPreviewCard } from "@/components/writer/AdPreviewCard";
 import { useAuth } from "@/hooks/useAuth";
 import type { CalendarCopy, CalendarDraft } from "./types";
 
@@ -552,9 +553,11 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
   const draft = item.draft;
   const mediaCategory = getMediaCategory(draft?.mediaType || "", item.type);
   const isArticleCopy = isArticleType(draft?.mediaType || item.type);
+  // Paid variants have no caption/hashtags (SocialMockup's body text) — they
+  // have headline/description/CTA/landing URL instead, so they get their own
+  // ad-mockup rendering rather than the Instagram-style social card.
   const isSocial =
     item.module === "social" ||
-    item.module === "paid" ||
     item.module === "influencer";
 
   const renderMedia = () => {
@@ -563,6 +566,23 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
         <AudioPreview
           audioUrl={draft?.audioUrl || ""}
           title={item.title}
+        />
+      );
+    }
+
+    if (item.module === "paid") {
+      return (
+        <AdPreviewCard
+          mediaType={draft?.mediaType || item.type}
+          primaryText={draft?.creativeCopy}
+          frames={draft?.frames}
+          imageUrl={draft?.imageUrl}
+          videoUrl={draft?.videoUrl}
+          thumbnailUrl={draft?.thumbnailUrl}
+          headline={draft?.headline}
+          description={draft?.description}
+          cta={draft?.cta}
+          landingUrl={draft?.landingUrl}
         />
       );
     }

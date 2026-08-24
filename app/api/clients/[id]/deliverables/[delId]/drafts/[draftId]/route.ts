@@ -114,7 +114,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       mediaType, creativeCopy, frames, caption, hashtags,
       publishDate, publishTime, notes, status, rejectionNote,
       imageUrl, videoUrl, thumbnailUrl, audioUrl,
-      articleMode, articleCopy,
+      articleMode, articleCopy, referenceUrl, videoType, videoNotes,
       headline, description, cta, landingUrl,
     } = body;
 
@@ -147,6 +147,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (creativeCopy !== undefined)  draft.creativeCopy = creativeCopy;
     if (articleMode !== undefined)   draft.articleMode  = articleMode;
     if (articleCopy !== undefined)   draft.articleCopy  = articleCopy;
+    if (referenceUrl !== undefined)  draft.referenceUrl = referenceUrl;
+    if (videoType !== undefined)     draft.videoType    = videoType;
+    if (videoNotes !== undefined)    draft.videoNotes   = videoNotes;
     if (headline !== undefined)      draft.headline     = headline;
     if (description !== undefined)    draft.description  = description;
     if (cta !== undefined)           draft.cta          = cta;

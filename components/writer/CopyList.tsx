@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock, MessageSquare, RotateCcw } from "lucide-react";
+import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock, MessageSquare, RotateCcw, Eye } from "lucide-react";
 import type { WriterDeliverable } from "./types";
 import { STATUS_LABEL, STATUS_COLOR, normalizeDraftStatus } from "@/lib/status-flow";
 
@@ -25,6 +25,10 @@ interface Props {
   onSubmitAll: () => Promise<void>;
   onOpenEdit: (copy: WriterDeliverable) => void;
   onRecall: (delId: string, draftId: string) => Promise<void>;
+  // Optional — when provided, a "Preview" button is shown per row. Only the
+  // paid-media workspace passes this today (AdPreviewCard); the social flow
+  // is unaffected when it's omitted.
+  onPreview?: (copy: WriterDeliverable) => void;
   // Whether the current user (admin / account manager) may recall a copy that
   // is in the content_client_review stage. Internal-review recall is available
   // to the copy's creator, which in the writer workspace is the current user.
@@ -36,7 +40,7 @@ interface Props {
   title?: string;
 }
 
-export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, onRecall, canRecallClientReview, submitting, noun = "copy", title }: Props) {
+export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, onRecall, onPreview, canRecallClientReview, submitting, noun = "copy", title }: Props) {
   const draftCopies = copies.filter(
     (c) => c.latestDraft && normalizeDraftStatus(c.latestDraft.status) === "draft"
   );
@@ -186,6 +190,15 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                     onClick={() => onOpenEdit(copy)}
                   >
                     <Pencil className="h-3 w-3 mr-1" /> Edit
+                  </Button>
+                )}
+                {onPreview && draft && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onPreview(copy)}
+                  >
+                    <Eye className="h-3 w-3 mr-1" /> Preview
                   </Button>
                 )}
                 {canRecall && draft && (

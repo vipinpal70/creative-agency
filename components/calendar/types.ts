@@ -19,6 +19,10 @@ export interface CalendarDraft {
   videoNotes: string;
   articleMode: string;
   articleCopy: string;
+  headline: string;
+  description: string;
+  cta: string;
+  landingUrl: string;
   notes: string;
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";

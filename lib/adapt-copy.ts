@@ -25,6 +25,10 @@ export interface ApprovalCopy {
   publishDate: string | null;
   publishTime: string | null;
   referenceUrl: string;
+  headline: string;
+  description: string;
+  cta: string;
+  landingUrl: string;
   notes: string;
   rejectionNote: string;
   title: string;
@@ -64,6 +68,10 @@ export function toCalendarCopy(copy: ApprovalCopy): CalendarCopy {
     videoNotes: copy.videoNotes,
     articleMode: copy.articleMode,
     articleCopy: copy.articleCopy,
+    headline: copy.headline,
+    description: copy.description,
+    cta: copy.cta,
+    landingUrl: copy.landingUrl,
     notes: copy.notes,
     status: copy.status as CalendarDraft["status"],
     rejectionNote: copy.rejectionNote,
