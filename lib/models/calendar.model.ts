@@ -35,6 +35,9 @@ export interface ICalendar extends Document {
   status:     CalendarStatus;
   plannedItems: IPlannedItem[];
   buckets:    string[];
+  // Paid-media campaign metadata (module === "paid").
+  platforms:    string[];   // ["meta", "google", "linkedin"]
+  funnelStages: string[];   // ["TOF", "MOF", "BOF"]
   createdAt:  Date;
   updatedAt:  Date;
 }
@@ -72,6 +75,8 @@ const calendarSchema = new Schema<ICalendar>(
     },
     plannedItems: { type: [plannedItemSchema], default: [] },
     buckets:      { type: [String], default: [] },
+    platforms:    { type: [String], default: [] },
+    funnelStages: { type: [String], default: [] },
   },
   { timestamps: true }
 );

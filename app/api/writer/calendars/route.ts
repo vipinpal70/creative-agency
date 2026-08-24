@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     if (isClient(session)) return forbidden();
 
     const body = await req.json();
-    const { clientId, scopeId, module, name, objective, startDate, endDate, status, plannedItems } = body;
+    const { clientId, scopeId, module, name, objective, startDate, endDate, status, plannedItems, platforms, funnelStages } = body;
 
     if (!clientId || !scopeId || !module || !name?.trim() || !startDate || !endDate) {
       return NextResponse.json(
@@ -145,6 +145,8 @@ export async function POST(req: NextRequest) {
       status:      status || "draft",
       plannedItems: resolvedItems,
       buckets:     [],
+      platforms:    Array.isArray(platforms) ? platforms : [],
+      funnelStages: Array.isArray(funnelStages) ? funnelStages : [],
     });
 
     return NextResponse.json(

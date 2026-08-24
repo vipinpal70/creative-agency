@@ -28,6 +28,11 @@ export interface CopyFormData {
   videoNotes?: string;
   articleMode?: string;      // "with-creative" | "without-creative" — only for article/copy media type
   articleCopy?: string;      // written article/copy text — only for article/copy media type
+  // Paid-media variant fields (module === "paid")
+  headline?: string;
+  description?: string;
+  cta?: string;
+  landingUrl?: string;
 }
 
 export interface LastChangedBy {
@@ -69,6 +74,10 @@ export interface DraftSnapshot {
   videoNotes?: string;
   articleMode?: string;
   articleCopy?: string;
+  headline?: string;
+  description?: string;
+  cta?: string;
+  landingUrl?: string;
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";
   rejectionNote?: string;
@@ -114,6 +123,9 @@ export interface WriterCalendar {
   endDate: string;
   status: string;
   plannedItems: PlannedItem[];
+  // Paid-media campaign metadata (module === "paid")
+  platforms?: string[];
+  funnelStages?: string[];
   progress: { totalPlanned: number; totalCreated: number; totalDelivered: number };
   // Populated creator — used to decide who may edit/delete the calendar.
   createdBy?: { _id: string; firstName?: string; lastName?: string; email?: string } | string;

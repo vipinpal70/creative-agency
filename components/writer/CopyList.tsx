@@ -30,19 +30,24 @@ interface Props {
   // to the copy's creator, which in the writer workspace is the current user.
   canRecallClientReview: boolean;
   submitting: string | null;
+  // Terminology overrides — default to social "copy" wording. The paid-media
+  // workspace passes noun="variant" / title="Campaign Variants".
+  noun?: string;
+  title?: string;
 }
 
-export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, onRecall, canRecallClientReview, submitting }: Props) {
+export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, onRecall, canRecallClientReview, submitting, noun = "copy", title }: Props) {
   const draftCopies = copies.filter(
     (c) => c.latestDraft && normalizeDraftStatus(c.latestDraft.status) === "draft"
   );
+  const nounPlural = noun === "copy" ? "copies" : `${noun}s`;
 
   if (copies.length === 0) {
     return (
       <Card>
         <CardContent className="p-8 text-center">
           <Calendar className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">No copies added yet. Use the button above to add your first copy.</p>
+          <p className="text-sm text-muted-foreground">No {nounPlural} added yet. Use the button above to add your first {noun}.</p>
         </CardContent>
       </Card>
     );
@@ -53,7 +58,7 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-base">Calendar Copies ({copies.length})</CardTitle>
+            <CardTitle className="text-base">{title ?? `Calendar Copies`} ({copies.length})</CardTitle>
             <CardDescription>{draftCopies.length} draft(s) ready for review</CardDescription>
           </div>
           {draftCopies.length > 1 && (

@@ -30,7 +30,8 @@ import { CalendarEditDialog } from "@/components/writer/CalendarEditDialog";
 import { CalendarScopeEditModal } from "@/components/writer/CalendarScopeEditModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmailCampaignWizard } from "@/components/writer/EmailCampaignWizard";
-import { PaidMediaWizard } from "@/components/writer/PaidMediaWizard";
+import { PaidCampaignWorkspace } from "@/components/writer/PaidMediaWizard";
+import { CampaignCreateView } from "@/components/writer/CampaignCreateView";
 import { SeoWizard } from "@/components/writer/SeoWizard";
 import type {
   WriterCalendar, WriterDeliverable, ContentBucket, CopyFormData, DraftSnapshot,
@@ -45,7 +46,7 @@ type CopyModalState =
   | null
   | { mode: "create" }
   | { mode: "edit"; delId: string; draftId: string; initialData: CopyModalInitialData };
-type CalendarsView = "list" | "create";
+type CalendarsView = "list" | "create" | "create-campaign";
 type FlowStep = "objective" | "buckets" | "copies";
 
 const MODULE_ICONS: Partial<Record<ModuleKey, React.ComponentType<any>>> = {
@@ -526,6 +527,15 @@ function getTodayString(): string {
                 openCalendar(cal);
               }}
             />
+          ) : calendarsView === "create-campaign" ? (
+            <CampaignCreateView
+              onBack={() => setCalendarsView("list")}
+              onCreated={(cal) => {
+                setCalendars((prev) => [cal, ...prev]);
+                setCalendarsView("list");
+                openCalendar(cal);
+              }}
+            />
           ) : (
             <>
               {/* Filters + New button */}
@@ -623,9 +633,14 @@ function getTodayString(): string {
                   )}
                 </div>
 
-                <Button size="sm" onClick={() => setCalendarsView("create")}>
-                  <CalendarPlus className="h-4 w-4 mr-1.5" /> New Calendar
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setCalendarsView("create-campaign")}>
+                    <Megaphone className="h-4 w-4 mr-1.5" /> New Campaign
+                  </Button>
+                  <Button size="sm" onClick={() => setCalendarsView("create")}>
+                    <CalendarPlus className="h-4 w-4 mr-1.5" /> New Calendar
+                  </Button>
+                </div>
               </div>
 
               {/* Calendar list */}
@@ -781,24 +796,29 @@ function getTodayString(): string {
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">CALENDAR</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                        {activeCalendar.module === "paid" ? "CAMPAIGN" : "CALENDAR"}
+                      </p>
                       <p className="text-sm font-semibold text-foreground">{activeCalendar.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {new Date(activeCalendar.startDate).toLocaleDateString()} – {new Date(activeCalendar.endDate).toLocaleDateString()}
                         {" · "}{activeCalendar.clientName}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Progress</p>
-                        <p className="text-sm font-semibold text-foreground">
-                          {activeCalendar.progress.totalCreated} / {activeCalendar.progress.totalPlanned} copies
-                        </p>
+                    {activeCalendar.module !== "paid" && (
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Progress</p>
+                          <p className="text-sm font-semibold text-foreground">
+                            {activeCalendar.progress.totalCreated} / {activeCalendar.progress.totalPlanned} copies
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Planned items chips */}
+                  {/* Planned items chips — not shown for paid campaigns */}
+                  {activeCalendar.module !== "paid" && (
                   <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
                     <div className="flex flex-wrap gap-2 items-center">
                       {activeCalendar.plannedItems.length > 0 ? (
@@ -824,6 +844,7 @@ function getTodayString(): string {
                       </button>
                     )}
                   </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -945,14 +966,9 @@ function getTodayString(): string {
                 />
               )}
 
-              {/* ── Paid module ── */}
+              {/* ── Paid module (campaign) ── */}
               {activeCalendar.module === "paid" && (
-                <PaidMediaWizard
-                  taskTitle={activeCalendar.name}
-                  client={activeCalendar.clientName}
-                  onCancel={exitWork}
-                  onComplete={exitWork}
-                />
+                <PaidCampaignWorkspace campaign={activeCalendar} me={me} />
               )}
 
               {/* ── SEO module ── */}

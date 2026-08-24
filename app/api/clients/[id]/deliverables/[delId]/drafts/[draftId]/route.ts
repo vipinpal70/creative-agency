@@ -115,6 +115,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       publishDate, publishTime, notes, status, rejectionNote,
       imageUrl, videoUrl, thumbnailUrl, audioUrl,
       articleMode, articleCopy,
+      headline, description, cta, landingUrl,
     } = body;
 
     // Snapshot old values for diff before any mutation
@@ -136,12 +137,20 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       videoNotes:    draft.videoNotes,
       articleMode:   draft.articleMode,
       articleCopy:   draft.articleCopy,
+      headline:      draft.headline,
+      description:   draft.description,
+      cta:           draft.cta,
+      landingUrl:    draft.landingUrl,
     };
 
     if (mediaType !== undefined)     draft.mediaType    = mediaType;
     if (creativeCopy !== undefined)  draft.creativeCopy = creativeCopy;
     if (articleMode !== undefined)   draft.articleMode  = articleMode;
     if (articleCopy !== undefined)   draft.articleCopy  = articleCopy;
+    if (headline !== undefined)      draft.headline     = headline;
+    if (description !== undefined)    draft.description  = description;
+    if (cta !== undefined)           draft.cta          = cta;
+    if (landingUrl !== undefined)    draft.landingUrl   = landingUrl;
     if (Array.isArray(frames))       draft.frames       = frames;
     if (imageUrl !== undefined)      draft.imageUrl     = imageUrl;
     if (videoUrl !== undefined)      draft.videoUrl     = videoUrl;
@@ -275,6 +284,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (body.videoNotes !== undefined)   newValues.videoNotes   = body.videoNotes;
     if (articleMode !== undefined)       newValues.articleMode  = articleMode;
     if (articleCopy !== undefined)       newValues.articleCopy  = articleCopy;
+    if (headline !== undefined)          newValues.headline     = headline;
+    if (description !== undefined)        newValues.description  = description;
+    if (cta !== undefined)               newValues.cta          = cta;
+    if (landingUrl !== undefined)        newValues.landingUrl   = landingUrl;
     if (imageUrl !== undefined)          newValues.imageUrl     = imageUrl;
     if (videoUrl !== undefined)          newValues.videoUrl     = videoUrl;
     if (thumbnailUrl !== undefined)      newValues.thumbnailUrl = thumbnailUrl;

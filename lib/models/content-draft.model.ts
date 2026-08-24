@@ -40,6 +40,13 @@ export interface IContentDraft extends Document {
   referenceUrl:   string;
   videoType:      string;
   videoNotes:     string;
+
+  // Paid-media variant fields (module === "paid"). Primary text reuses
+  // creativeCopy; helping URL reuses referenceUrl; launch date reuses publishDate.
+  headline:       string;
+  description:    string;
+  cta:            string;
+  landingUrl:     string;
   articleMode:    string;   // "with-creative" | "without-creative" | "" — only for article/copy media type
   articleCopy:    string;   // written article/copy text — only for article/copy media type
   notes:          string;
@@ -83,6 +90,10 @@ const contentDraftSchema = new Schema<IContentDraft>(
     referenceUrl:  { type: String, default: "" },
     videoType:     { type: String, default: "" },
     videoNotes:    { type: String, default: "" },
+    headline:      { type: String, default: "" },
+    description:   { type: String, default: "" },
+    cta:           { type: String, default: "" },
+    landingUrl:    { type: String, default: "" },
     articleMode:   { type: String, default: "" },
     articleCopy:   { type: String, default: "" },
     notes:         { type: String, default: "" },

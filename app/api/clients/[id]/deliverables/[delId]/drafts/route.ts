@@ -73,7 +73,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const { mediaType, creativeCopy, frames, caption, hashtags,
             publishDate, publishTime, referenceUrl, videoType, videoNotes,
             articleMode, articleCopy, notes,
-            imageUrl, videoUrl, thumbnailUrl, audioUrl } = body;
+            imageUrl, videoUrl, thumbnailUrl, audioUrl,
+            headline, description, cta, landingUrl } = body;
 
     // Resolve author name for history snapshot
     const author = await User.findById(session.userId).select("firstName lastName email").lean();
@@ -105,6 +106,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       videoNotes:    videoNotes   || "",
       articleMode:   articleMode  || "",
       articleCopy:   articleCopy  || "",
+      headline:      headline     || "",
+      description:   description  || "",
+      cta:           cta          || "",
+      landingUrl:    landingUrl   || "",
       notes:         notes        || "",
       status:        "draft",
       lastChangedBy: { userId: session.userId, name: authorName, email: session.email, changedAt: now },

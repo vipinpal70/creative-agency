@@ -58,7 +58,7 @@ export function ClientSidebar() {
   return (
     <aside
       className="relative flex flex-col shrink-0 h-screen sticky top-0 bg-white border-r border-gray-100 transition-all duration-300 overflow-hidden"
-      style={{ width: collapsed ? 56 : 200 }}
+      style={{ width: collapsed ? 56 : 220 }}
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-3 py-2 border-b border-gray-100 shrink-0">
@@ -70,11 +70,11 @@ export function ClientSidebar() {
       </div>
 
       {/* Nav groups */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2.5 space-y-0.5">
         {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="mb-1">
+          <div key={group.label} className="mb-1.5">
             {!collapsed && (
-              <p className="text-[10px] font-normal tracking-widest text-gray-400 uppercase px-2 pt-3 pb-1 select-none">
+              <p className="text-[11px] font-semibold tracking-wider text-gray-400 uppercase px-2 pt-3 pb-1 select-none">
                 {group.label}
               </p>
             )}
@@ -92,22 +92,22 @@ export function ClientSidebar() {
                   href={item.href}
                   title={collapsed ? item.title : undefined}
                   className={`
-                    flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs font-medium
+                    flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium
                     transition-all duration-150 group relative
                     ${isActive
                       ? "bg-indigo-50 text-indigo-600"
-                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     }
                   `}
                 >
                   {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-indigo-500" />
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4.5 rounded-r-full bg-indigo-500" />
                   )}
-                  <span className={`shrink-0 ${isActive ? "text-indigo-500" : "text-gray-600 group-hover:text-gray-600"}`}>
-                    <ItemIcon width={15} height={15} strokeWidth={2} />
+                  <span className={`shrink-0 ${isActive ? "text-indigo-500" : "text-gray-500 group-hover:text-gray-700"}`}>
+                    <ItemIcon width={17} height={17} strokeWidth={2} />
                   </span>
                   {!collapsed && (
-                    <span className="font-normal text-gray-800 leading-none">{item.title}</span>
+                    <span className="font-medium text-gray-800 leading-none">{item.title}</span>
                   )}
                 </Link>
               );
@@ -122,23 +122,23 @@ export function ClientSidebar() {
         onClick={handleLogout}
         disabled={loggingOut}
         title="Log out"
-        className={`flex items-center gap-2.5 mx-2 mt-2 px-2 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition-all duration-150 shrink-0 disabled:opacity-60 ${collapsed ? "justify-center" : ""}`}
+        className={`flex items-center gap-2.5 mx-2.5 mt-2 px-2.5 py-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 transition-all duration-150 shrink-0 disabled:opacity-60 ${collapsed ? "justify-center" : ""}`}
       >
         <span className="shrink-0">
-          {loggingOut ? <Loader2 width={15} height={15} className="animate-spin" /> : <LogOut width={15} height={15} strokeWidth={2} />}
+          {loggingOut ? <Loader2 width={17} height={17} className="animate-spin" /> : <LogOut width={17} height={17} strokeWidth={2} />}
         </span>
-        {!collapsed && <span className="font-normal leading-none">Log out</span>}
+        {!collapsed && <span className="font-medium leading-none">Log out</span>}
       </button>
 
       {/* Collapse toggle */}
       <div className="border border-t border-gray-100 mb-2 mt-2" />
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="flex items-center justify-center gap-2 mx-2 mb-3 px-2 py-1.5 rounded-lg text-[11px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition-all duration-150 shrink-0 border border-gray-300"
+        className="flex items-center justify-center gap-2 mx-2.5 mb-3 px-2.5 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-all duration-150 shrink-0 border border-gray-200"
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         <span className={`transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`}>
-          <ChevronLeft width={14} height={14} strokeWidth={2.5} />
+          <ChevronLeft width={15} height={15} strokeWidth={2.5} />
         </span>
         {!collapsed && <span>Collapse</span>}
       </button>
