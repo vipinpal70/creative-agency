@@ -54,7 +54,7 @@ export function PerUserThroughputChart({ data, activeDays, lockedMetric }: PerUs
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-foreground">
-            {metric === "copies" ? "Copy/content per user" : "Designs claimed per user"}
+            {metric === "copies" ? "Copy/Content per user" : "Designs claimed per user"}
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Team avg {teamAvgPerDay.toFixed(1)} / day over {activeDays}{" "}
