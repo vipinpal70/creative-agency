@@ -13,6 +13,7 @@ import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
 import { FeedbackModal } from "@/components/ui/feedback-modal";
+import { ModuleTag } from "@/components/ui/ModuleTag";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 
@@ -160,11 +161,14 @@ function CopyApprovalCard({
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-medium text-foreground whitespace-pre-wrap line-clamp-3 flex-1 min-w-0">{copyText}</p>
-          <span
-            className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
-          >
-            {STATUS_LABEL[copy.status] || copy.status}
-          </span>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <span
+              className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
+            >
+              {STATUS_LABEL[copy.status] || copy.status}
+            </span>
+            <ModuleTag module={copy.module} />
+          </div>
         </div>
 
         {copy.caption && (
@@ -585,6 +589,7 @@ export default function ApprovalsPage() {
   const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
   const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
   const [clientFilter, setClientFilter] = useState<string>("");
+  const [moduleFilter, setModuleFilter] = useState<string>("");
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>(getTodayString);
   const [endDate, setEndDate] = useState<string>("");
@@ -667,6 +672,8 @@ export default function ApprovalsPage() {
     return copies.filter((copy) => {
       if (clientFilter && copy.clientId !== clientFilter) return false;
 
+      if (moduleFilter && copy.module !== moduleFilter) return false;
+
       if (selectedMediaTypes.length > 0) {
         const copyMedia = (copy.mediaType || "").toLowerCase();
         const match = selectedMediaTypes.some(
@@ -691,18 +698,20 @@ export default function ApprovalsPage() {
 
       return true;
     });
-  }, [copies, clientFilter, selectedMediaTypes, startDate, endDate]);
+  }, [copies, clientFilter, moduleFilter, selectedMediaTypes, startDate, endDate]);
 
   const filteredTasks = tasks.filter((t) => !clientFilter || t.clientId === clientFilter);
 
   const hasActiveFilters =
     clientFilter !== "" ||
+    moduleFilter !== "" ||
     selectedMediaTypes.length > 0 ||
     startDate !== getTodayString() ||
     endDate !== "";
 
   const handleResetFilters = () => {
     setClientFilter("");
+    setModuleFilter("");
     setSelectedMediaTypes([]);
     setStartDate(getTodayString());
     setEndDate("");
@@ -743,6 +752,31 @@ export default function ApprovalsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-gray-100">
+              {/* Social / Paid module filter */}
+              <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50/80 p-0.5">
+                {[
+                  { value: "", label: "All" },
+                  { value: "social", label: "Social Media" },
+                  { value: "paid", label: "Paid Media" },
+                ].map((opt) => {
+                  const on = moduleFilter === opt.value;
+                  return (
+                    <button
+                      key={opt.value || "all"}
+                      type="button"
+                      onClick={() => setModuleFilter(opt.value)}
+                      className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                        on
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-gray-500 hover:text-gray-800"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Client filter */}
               <div className="relative">
                 <Building2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />

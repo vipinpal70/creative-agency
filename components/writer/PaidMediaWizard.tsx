@@ -290,6 +290,7 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
             copies={variants}
             noun="variant"
             title="Campaign Variants"
+            module="paid"
             onRemove={removeVariant}
             onSubmitSingle={submitVariant}
             onSubmitAll={submitAll}
@@ -340,10 +341,10 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
 
       {previewVariant?.latestDraft && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
           onClick={() => setPreviewVariant(null)}
         >
-          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm space-y-3 my-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Ad Preview</p>
               <button

@@ -34,6 +34,7 @@ import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ModuleTag } from "@/components/ui/ModuleTag";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 import { useAuth } from "@/hooks/useAuth";
@@ -538,6 +539,7 @@ const CopyCard = memo(function CopyCard({
 						>
 							{STATUS_LABEL[copy.status] || copy.status}
 						</span>
+						<ModuleTag module={copy.module} />
 						{isArchived && (
 							<span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-zinc-200 text-zinc-700">
 								<Archive className="h-3 w-3" /> Archived
@@ -1175,6 +1177,7 @@ export default function DesignerPage() {
 		[],
 	);
 	const [selectedClients, setSelectedClients] = useState<string[]>([]);
+	const [moduleFilter, setModuleFilter] = useState<string>("");
 	const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
 	const [selectedDesigners, setSelectedDesigners] = useState<string[]>([]);
 	const [startDate, setStartDate] = useState<string>(getTodayString);
@@ -1372,6 +1375,9 @@ export default function DesignerPage() {
 				return false;
 			}
 
+			// 1b. Social / Paid module filter
+			if (moduleFilter && copy.module !== moduleFilter) return false;
+
 			// 2. Multi-select Media Type filter
 			if (selectedMediaTypes.length > 0) {
 				const copyMedia = (copy.mediaType || "").toLowerCase();
@@ -1407,6 +1413,7 @@ export default function DesignerPage() {
 	}, [
 		copies,
 		selectedClients,
+		moduleFilter,
 		selectedMediaTypes,
 		selectedDesigners,
 		startDate,
@@ -1415,6 +1422,7 @@ export default function DesignerPage() {
 
 	const hasActiveFilters =
 		selectedClients.length > 0 ||
+		moduleFilter !== "" ||
 		selectedMediaTypes.length > 0 ||
 		selectedDesigners.length > 0 ||
 		startDate !== getTodayString() ||
@@ -1422,6 +1430,7 @@ export default function DesignerPage() {
 
 	const handleResetFilters = () => {
 		setSelectedClients([]);
+		setModuleFilter("");
 		setSelectedMediaTypes([]);
 		setSelectedDesigners([]);
 		setStartDate(getTodayString());
@@ -1477,6 +1486,31 @@ export default function DesignerPage() {
 				</div>
 
 				<div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-gray-100">
+					{/* Social / Paid module filter */}
+					<div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50/80 p-0.5">
+						{[
+							{ value: "", label: "All" },
+							{ value: "social", label: "Social Media" },
+							{ value: "paid", label: "Paid Media" },
+						].map((opt) => {
+							const on = moduleFilter === opt.value;
+							return (
+								<button
+									key={opt.value || "all"}
+									type="button"
+									onClick={() => setModuleFilter(opt.value)}
+									className={`text-xs px-3 py-1 rounded-md transition-colors ${
+										on
+											? "bg-primary text-primary-foreground shadow-sm"
+											: "text-gray-500 hover:text-gray-800"
+									}`}
+								>
+									{opt.label}
+								</button>
+							);
+						})}
+					</div>
+
 					{/* Multi-Select Client Filter */}
 					<MultiSelectDropdown
 						icon={<Building2 className="w-3.5 h-3.5 text-gray-400" />}

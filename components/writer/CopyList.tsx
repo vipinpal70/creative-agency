@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock, MessageSquare, RotateCcw, Eye } from "lucide-react";
 import type { WriterDeliverable } from "./types";
+import { ModuleTag } from "@/components/ui/ModuleTag";
 import { STATUS_LABEL, STATUS_COLOR, normalizeDraftStatus } from "@/lib/status-flow";
 
 function timeAgo(dateStr: string): string {
@@ -38,9 +39,13 @@ interface Props {
   // workspace passes noun="variant" / title="Campaign Variants".
   noun?: string;
   title?: string;
+  // Scope-of-work module ("social" | "paid" | …) of the calendar/campaign
+  // these copies belong to. Rendered as a tag on each card. Optional — the
+  // deliverable shape itself doesn't carry it, so the workspace supplies it.
+  module?: string;
 }
 
-export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, onRecall, onPreview, canRecallClientReview, submitting, noun = "copy", title }: Props) {
+export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpenEdit, onRecall, onPreview, canRecallClientReview, submitting, noun = "copy", title, module }: Props) {
   const draftCopies = copies.filter(
     (c) => c.latestDraft && normalizeDraftStatus(c.latestDraft.status) === "draft"
   );
@@ -109,9 +114,12 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                     <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-1">{draft.caption}</p>
                   )}
                 </div>
-                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${colorClass}`}>
-                  {label}
-                </span>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${colorClass}`}>
+                    {label}
+                  </span>
+                  <ModuleTag module={module} />
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

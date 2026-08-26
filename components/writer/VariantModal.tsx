@@ -534,10 +534,10 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
       {/* Ad preview overlay — shows the in-progress form, unsaved */}
       {showPreview && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
           onClick={() => setShowPreview(false)}
         >
-          <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm space-y-3 my-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">Ad Preview</p>
               <button

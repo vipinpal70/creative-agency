@@ -21,6 +21,7 @@ export interface AdPreviewCardProps {
   description?: string;
   cta?: string;
   landingUrl?: string;
+  className?: string;
 }
 
 // Strips the protocol/path for the muted "display URL" line real ad units
@@ -54,14 +55,14 @@ function CarouselMedia({ frames }: { frames: AdPreviewFrame[] }) {
           <button
             type="button"
             onClick={() => setI((n) => (n - 1 + frames.length) % frames.length)}
-            className="absolute left-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center"
+            className="absolute left-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
             onClick={() => setI((n) => (n + 1) % frames.length)}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
@@ -74,7 +75,7 @@ function CarouselMedia({ frames }: { frames: AdPreviewFrame[] }) {
       )}
 
       {frame?.copy && (
-        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-3 pt-6 pb-2">
+        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/75 to-transparent px-3 pt-6 pb-2">
           <p className="text-[11px] text-white leading-snug line-clamp-2">{frame.copy}</p>
         </div>
       )}
@@ -91,7 +92,7 @@ function VideoMedia({ videoUrl, thumbnailUrl }: { videoUrl?: string; thumbnailUr
       <div className="relative w-full h-full">
         <img src={thumbnailUrl} alt="Video thumbnail" className="w-full h-full object-cover" />
         <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-          <div className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
             <Play className="h-4 w-4 text-black fill-black ml-0.5" />
           </div>
         </div>
@@ -101,7 +102,7 @@ function VideoMedia({ videoUrl, thumbnailUrl }: { videoUrl?: string; thumbnailUr
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-muted-foreground bg-gradient-to-br from-primary/10 to-muted">
       <Play className="h-6 w-6" />
-      <p className="text-[10px]">Video creative pending</p>
+      <p className="text-[11px] font-medium">Video creative pending</p>
     </div>
   );
 }
@@ -123,14 +124,15 @@ export function AdPreviewCard({
   description,
   cta,
   landingUrl,
+  className = "",
 }: AdPreviewCardProps) {
   const isCarousel = mediaType.toLowerCase() === "carousel";
   const isVideo = isReelOrVideoType(mediaType);
 
   return (
-    <div className="w-full max-w-sm rounded-xl border border-border bg-card shadow-xl overflow-hidden mx-auto">
+    <div className={`w-full max-w-sm rounded-xl border border-border bg-card shadow-xl overflow-hidden mx-auto ${className}`}>
       {/* Sponsored chrome, to read unmistakably as an ad, not an organic post */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-card">
         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex-shrink-0" />
         <div className="min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">Your Brand</p>
@@ -139,7 +141,7 @@ export function AdPreviewCard({
       </div>
 
       {primaryText && (
-        <p className="px-3 pt-2.5 pb-1 text-xs text-foreground whitespace-pre-wrap line-clamp-3">{primaryText}</p>
+        <p className="px-3 pt-2.5 pb-1 text-xs text-foreground whitespace-pre-wrap leading-relaxed line-clamp-3">{primaryText}</p>
       )}
 
       <div className="aspect-square bg-muted relative overflow-hidden">
@@ -152,7 +154,7 @@ export function AdPreviewCard({
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-muted-foreground bg-gradient-to-br from-primary/10 to-muted">
             <span className="text-3xl">🖼️</span>
-            <p className="text-[10px]">Creative pending — design phase</p>
+            <p className="text-[11px] font-medium">Creative pending — design phase</p>
           </div>
         )}
       </div>
@@ -161,12 +163,12 @@ export function AdPreviewCard({
       <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-muted/40">
         <div className="min-w-0">
           {displayUrl(landingUrl) && (
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground truncate">{displayUrl(landingUrl)}</p>
+            <p className="text-[10px] uppercase tracking-wide font-medium text-muted-foreground truncate mb-0.5">{displayUrl(landingUrl)}</p>
           )}
-          <p className="text-sm font-semibold text-foreground truncate">{headline || "—"}</p>
-          {description && <p className="text-xs text-muted-foreground truncate">{description}</p>}
+          <p className="text-xs font-semibold text-foreground truncate">{headline || "—"}</p>
+          {description && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{description}</p>}
         </div>
-        <span className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground whitespace-nowrap">
+        <span className="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-md bg-primary text-primary-foreground shadow-sm whitespace-nowrap">
           {cta || "Learn More"}
         </span>
       </div>
@@ -176,7 +178,7 @@ export function AdPreviewCard({
           href={landingUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1 px-3 py-2 text-[11px] text-primary hover:underline border-t border-border truncate"
+          className="flex items-center gap-1.5 px-3 py-2 text-[11px] text-primary hover:underline border-t border-border truncate font-medium"
         >
           <ExternalLink className="h-3 w-3 flex-shrink-0" />
           {landingUrl}

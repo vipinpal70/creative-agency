@@ -951,6 +951,7 @@ function getTodayString(): string {
                             onRecall={recallCopy}
                             canRecallClientReview={me?.role === "admin" || !!me?.roles?.includes("ACCOUNT_MANAGER")}
                             submitting={submitting}
+                            module={activeCalendar.module}
                           />
                         </>
                       )}
@@ -1025,6 +1026,7 @@ function getTodayString(): string {
                         onRecall={recallCopy}
                         canRecallClientReview={me?.role === "admin" || !!me?.roles?.includes("ACCOUNT_MANAGER")}
                         submitting={submitting}
+                        module={activeCalendar.module}
                       />
                     </>
                   )}
