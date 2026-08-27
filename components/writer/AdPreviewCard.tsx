@@ -41,9 +41,9 @@ function CarouselMedia({ frames }: { frames: AdPreviewFrame[] }) {
   const frame = frames[i];
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full flex items-center justify-center">
       {frame?.imageUrl ? (
-        <img src={frame.imageUrl} alt={`Frame ${frame.frameNo}`} className="w-full h-full object-cover" />
+        <img src={frame.imageUrl} alt={`Frame ${frame.frameNo}`} className="max-h-full max-w-full w-auto h-auto object-contain" />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-muted">
           <span className="text-3xl">🖼️</span>
@@ -85,12 +85,12 @@ function CarouselMedia({ frames }: { frames: AdPreviewFrame[] }) {
 
 function VideoMedia({ videoUrl, thumbnailUrl }: { videoUrl?: string; thumbnailUrl?: string }) {
   if (videoUrl) {
-    return <video src={videoUrl} controls poster={thumbnailUrl || undefined} className="w-full h-full object-cover" />;
+    return <video src={videoUrl} controls poster={thumbnailUrl || undefined} className="w-full h-full object-contain" />;
   }
   if (thumbnailUrl) {
     return (
-      <div className="relative w-full h-full">
-        <img src={thumbnailUrl} alt="Video thumbnail" className="w-full h-full object-cover" />
+      <div className="relative w-full h-full flex items-center justify-center">
+        <img src={thumbnailUrl} alt="Video thumbnail" className="max-h-full max-w-full w-auto h-auto object-contain" />
         <div className="absolute inset-0 flex items-center justify-center bg-black/20">
           <div className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
             <Play className="h-4 w-4 text-black fill-black ml-0.5" />
@@ -144,13 +144,13 @@ export function AdPreviewCard({
         <p className="px-3 pt-2.5 pb-1 text-xs text-foreground whitespace-pre-wrap leading-relaxed line-clamp-3">{primaryText}</p>
       )}
 
-      <div className="aspect-square bg-muted relative overflow-hidden">
+      <div className="aspect-square bg-muted relative overflow-hidden flex items-center justify-center">
         {isCarousel && frames.length > 0 ? (
           <CarouselMedia frames={frames} />
         ) : isVideo ? (
           <VideoMedia videoUrl={videoUrl} thumbnailUrl={thumbnailUrl} />
         ) : imageUrl ? (
-          <img src={imageUrl} alt="Creative" className="w-full h-full object-cover" />
+          <img src={imageUrl} alt="Creative" className="max-h-full max-w-full w-auto h-auto object-contain" />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-muted-foreground bg-gradient-to-br from-primary/10 to-muted">
             <span className="text-3xl">🖼️</span>

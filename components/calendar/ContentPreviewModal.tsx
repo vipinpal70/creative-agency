@@ -122,12 +122,12 @@ function CarouselSlider({
   const frame = frames[current];
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full flex items-center justify-center">
       {frame?.imageUrl ? (
         <img
           src={frame.imageUrl}
           alt={`Frame ${frame.frameNo}`}
-          className="w-full h-full object-contain"
+          className="max-h-full max-w-full w-auto h-auto object-contain"
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-muted p-4">
@@ -305,11 +305,11 @@ function ImagePreview({
 }) {
   if (imageUrl) {
     return (
-      <div className="relative w-full h-full">
+      <div className="relative w-full h-full flex items-center justify-center">
         <img
           src={imageUrl}
           alt="Content preview"
-          className="w-full h-full object-contain"
+          className="max-h-full max-w-full w-auto h-auto object-contain"
         />
           <a
             href={imageUrl}
@@ -411,17 +411,19 @@ function SocialMockup({
   mediaCategory: ReturnType<typeof getMediaCategory>;
 }) {
   const draft = item.draft;
-  const isPortrait = mediaCategory === "story";
+  const mt = (draft?.mediaType || item.type || "").toLowerCase();
+  const isPortraitStory = mediaCategory === "story" || mt.includes("story") || mt.includes("reel");
+  const isPortraitFeed = mt.includes("portrait") || mt.includes("vertical") || mt.includes("4:5");
 
   return (
     <div
       className={cn(
-        "rounded-[1.5rem] bg-card border border-border shadow-xl overflow-hidden transition-all flex-shrink-0",
-        isPortrait ? "w-[240px] sm:w-[280px]" : "w-[300px] sm:w-[340px]"
+        "rounded-[1.5rem] bg-card border border-border shadow-xl overflow-hidden transition-all flex-shrink-0 flex flex-col",
+        isPortraitStory ? "w-[240px] sm:w-[280px]" : "w-[300px] sm:w-[340px]"
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-2.5 p-3">
+      <div className="flex items-center gap-2.5 p-3 flex-shrink-0">
         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-pink-500 via-orange-400 to-yellow-400 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">
@@ -432,7 +434,12 @@ function SocialMockup({
       </div>
 
       {/* Media */}
-      <div className={cn("bg-muted relative overflow-hidden", isPortrait ? "aspect-[9/16]" : "aspect-square")}>
+      <div
+        className={cn(
+          "bg-muted relative overflow-hidden flex items-center justify-center",
+          isPortraitStory ? "aspect-[9/16]" : isPortraitFeed ? "aspect-[4/5]" : "aspect-square"
+        )}
+      >
         {mediaCategory === "carousel" && (draft?.frames?.length ?? 0) > 0 ? (
           <CarouselSlider frames={draft!.frames} />
         ) : mediaCategory === "video" ? (
@@ -441,11 +448,11 @@ function SocialMockup({
             thumbnailUrl={draft?.thumbnailUrl || draft?.imageUrl || ""}
           />
         ) : draft?.imageUrl ? (
-          <div className="relative w-full h-full group">
+          <div className="relative w-full h-full group flex items-center justify-center">
             <img
               src={draft.imageUrl}
               alt="Preview"
-              className="w-full h-full object-contain"
+              className="max-h-full max-w-full w-auto h-auto object-contain"
             />
             <a
               href={draft.imageUrl}
@@ -608,7 +615,7 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
 
     if (mediaCategory === "image" || mediaCategory === "gif") {
       return (
-        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
+        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl bg-muted flex items-center justify-center p-2 min-h-[300px] max-h-[500px]">
           <ImagePreview
             imageUrl={draft?.imageUrl || ""}
             mediaType={draft?.mediaType || item.type}
@@ -630,7 +637,7 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
     }
     if (draft?.imageUrl) {
       return (
-        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
+        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl bg-muted flex items-center justify-center p-2 min-h-[300px] max-h-[500px]">
           <ImagePreview
             imageUrl={draft.imageUrl}
             mediaType={draft?.mediaType || item.type}

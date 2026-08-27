@@ -683,7 +683,7 @@ const CopyCard = memo(function CopyCard({
 										<img
 											src={frame.imageUrl}
 											alt={`Frame ${frame.frameNo}`}
-											className="w-full aspect-square rounded-md object-cover"
+											className="w-full aspect-square rounded-md object-contain bg-muted"
 										/>
 									) : (
 										<div className="w-full aspect-square rounded-md bg-muted/50 flex items-center justify-center">
