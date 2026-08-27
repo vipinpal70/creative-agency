@@ -642,7 +642,7 @@ const CopyCard = memo(function CopyCard({
 							<img
 								src={attachedUrl}
 								alt="Attached creative"
-								className="h-12 w-12 rounded-md object-cover shrink-0"
+								className="h-12 w-12 rounded-md object-contain bg-muted shrink-0"
 							/>
 						)}
 						<a
@@ -680,11 +680,13 @@ const CopyCard = memo(function CopyCard({
 										)}
 									</div>
 									{frame.imageUrl ? (
-										<img
-											src={frame.imageUrl}
-											alt={`Frame ${frame.frameNo}`}
-											className="w-full aspect-square rounded-md object-contain bg-muted"
-										/>
+										<div className="w-full aspect-square rounded-md bg-muted flex items-center justify-center overflow-hidden p-1">
+											<img
+												src={frame.imageUrl}
+												alt={`Frame ${frame.frameNo}`}
+												className="max-h-full max-w-full w-auto h-auto object-contain rounded"
+											/>
+										</div>
 									) : (
 										<div className="w-full aspect-square rounded-md bg-muted/50 flex items-center justify-center">
 											<ImageIcon className="h-5 w-5 text-muted-foreground/40" />
