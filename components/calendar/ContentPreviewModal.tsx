@@ -127,7 +127,7 @@ function CarouselSlider({
         <img
           src={frame.imageUrl}
           alt={`Frame ${frame.frameNo}`}
-          className="w-full h-full object-fit"
+          className="w-full h-full object-contain"
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-muted p-4">
@@ -205,7 +205,7 @@ function VideoPreview({
           src={videoUrl}
           controls
           autoPlay
-          className="w-full h-full object-fit"
+          className="w-full h-full object-contain"
         />
         <a
           href={videoUrl}
@@ -233,7 +233,7 @@ function VideoPreview({
         <img
           src={thumbnailUrl}
           alt="Video thumbnail"
-          className="w-full h-full object-fit"
+          className="w-full h-full object-contain"
         />
       ) : videoUrl ? (
         <video
@@ -241,7 +241,7 @@ function VideoPreview({
           preload="metadata"
           muted
           playsInline
-          className="w-full h-full object-fit"
+          className="w-full h-full object-contain"
         />
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
@@ -445,7 +445,7 @@ function SocialMockup({
             <img
               src={draft.imageUrl}
               alt="Preview"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
             <a
               href={draft.imageUrl}
