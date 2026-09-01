@@ -13,8 +13,19 @@ import { resolveClientId } from "@/lib/authz";
 export const MAX_REPO_FILE_BYTES = 100 * 1024 * 1024;
 
 // Roles permitted to mutate the repository (create/rename/upload/move/delete).
-export function canManageRepository(role?: string): boolean {
-  return role === "admin" || role === "member" || role === "client" || role === "sub-user";
+// Only admin, client, and account manager have write/delete permissions.
+// Others have read-only access.
+export async function canManageRepository(session: JWTPayload): Promise<boolean> {
+  if (!session) return false;
+  if (session.role === "admin" || session.role === "client") return true;
+
+  try {
+    const user = await User.findById(session.userId).select("roles").lean();
+    const roles = (user?.roles as string[]) ?? [];
+    return roles.includes("ACCOUNT_MANAGER");
+  } catch {
+    return false;
+  }
 }
 
 // Physical store lives alongside the existing private `storage/` tree.
@@ -230,8 +241,8 @@ export async function repoVisibilityFilter(
     return {};
   }
   const own = await resolveClientId(session);
-  if (!own) return null;
-  return { clientId: new mongoose.Types.ObjectId(own) };
+  if (!own) return {};
+  return { $or: [{ clientId: new mongoose.Types.ObjectId(own) }, { clientId: null }] };
 }
 
 /** True if `session` may read/mutate an item with the given `itemClientId`. */
@@ -240,8 +251,9 @@ export async function canAccessRepoItem(
   itemClientId: unknown
 ): Promise<boolean> {
   if (session.role !== "client") return true;
+  if (!itemClientId) return true;
   const own = await resolveClientId(session);
-  return !!own && !!itemClientId && String(itemClientId) === own;
+  return !own || String(itemClientId) === own;
 }
 
 /**
