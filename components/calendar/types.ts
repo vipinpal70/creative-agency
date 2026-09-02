@@ -21,8 +21,12 @@ export interface CalendarDraft {
   articleCopy: string;
   headline: string;
   description: string;
+  primaryTexts?: string[];
+  headlines?: string[];
+  descriptions?: string[];
   cta: string;
   landingUrl: string;
+  adCopy: string;
   notes: string;
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";

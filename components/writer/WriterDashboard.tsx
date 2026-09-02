@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -106,6 +106,20 @@ function getTodayString(): string {
   const [editingScopeCalendar, setEditingScopeCalendar] = useState<WriterCalendar | null>(null);
   const [deletingCalendar, setDeletingCalendar]         = useState<WriterCalendar | null>(null);
   const [deletingBusy, setDeletingBusy]                 = useState(false);
+
+  // ── "Add New" dropdown ──
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [addMenuOpen]);
 
   // ── Load calendars ──
   const loadCalendars = useCallback(async () => {
@@ -634,13 +648,29 @@ function getTodayString(): string {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setCalendarsView("create-campaign")}>
-                    <Megaphone className="h-4 w-4 mr-1.5" /> New Campaign
+                <div className="relative" ref={addMenuRef}>
+                  <Button size="sm" onClick={() => setAddMenuOpen((o) => !o)}>
+                    <Plus className="h-4 w-4 mr-1.5" /> Add New
+                    <ChevronDown className={`h-4 w-4 ml-1.5 transition-transform ${addMenuOpen ? "rotate-180" : ""}`} />
                   </Button>
-                  <Button size="sm" onClick={() => setCalendarsView("create")}>
-                    <CalendarPlus className="h-4 w-4 mr-1.5" /> New Calendar
-                  </Button>
+                  {addMenuOpen && (
+                    <div className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white shadow-lg py-1">
+                      <button
+                        type="button"
+                        onClick={() => { setAddMenuOpen(false); setCalendarsView("create-campaign"); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Megaphone className="h-4 w-4 text-muted-foreground" /> Add campaign
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAddMenuOpen(false); setCalendarsView("create"); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <CalendarPlus className="h-4 w-4 text-muted-foreground" /> Add social media calendar
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

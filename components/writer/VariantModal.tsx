@@ -11,12 +11,12 @@ import { AdPreviewCard } from "./AdPreviewCard";
 import type { CopyFormData, CarouselFrame, HistoryEntry } from "./types";
 import { VIDEO_TYPE_OPTIONS } from "./types";
 
-// A "variant" is a paid-media copy inside a campaign — the paid-media
+// An "ad copy" is a paid-media copy inside a campaign — the paid-media
 // counterpart of a social "copy". It reuses the ContentDraft data model:
-// primary text → creativeCopy, helping URL → referenceUrl, launch date →
-// publishDate, plus paid-only headline / description / cta / landingUrl.
+// primary text → creativeCopy, reference URL → referenceUrl, launch date →
+// publishDate, plus paid-only headline / description / cta / landingUrl / adCopy.
 // Like the social CopyModal, the creative-authoring fields below the
-// Helping URL branch by media type: Carousel gets per-frame copy, Video
+// Reference URL branch by media type: Carousel gets per-frame copy, Video
 // gets a video type + notes block, Static keeps a single primary text box.
 
 export const VARIANT_MEDIA_TYPES = ["Static", "Carousel", "Video"] as const;
@@ -26,11 +26,15 @@ export interface VariantModalInitialData {
   mediaType?: string;
   creativeCopy?: string;   // primary text
   frames?: CarouselFrame[];
-  referenceUrl?: string;   // helping url
+  referenceUrl?: string;   // reference url
   headline?: string;
   description?: string;
   cta?: string;
   landingUrl?: string;
+  adCopy?: string;         // standalone "Copy" field
+  primaryTexts?: string[];
+  headlines?: string[];
+  descriptions?: string[];
   publishDate?: string;    // launch date
   videoType?: string;
   videoNotes?: string;
@@ -58,7 +62,7 @@ function timeAgo(dateStr: string): string {
 }
 
 const ACTION_LABEL: Record<string, string> = {
-  created:   "Created variant",
+  created:   "Created ad copy",
   edited:    "Edited",
   submitted: "Submitted for review",
   approved:  "Approved",
@@ -74,16 +78,102 @@ const ACTION_COLOR: Record<string, string> = {
 
 const LABEL = "text-xs font-semibold text-muted-foreground uppercase tracking-wider";
 
+const MAX_VARIANTS = 5;
+
+// Repeatable multi-value field (Meta lets an ad carry up to 5 primary texts /
+// headlines / descriptions). Renders one input per value with a remove button,
+// plus an "Add …" button capped at MAX_VARIANTS. Required lists keep at least
+// one row; optional lists may be emptied entirely.
+function RepeatableList({
+  label, addLabel, values, onChange, required, multiline, placeholder,
+}: {
+  label: string;
+  addLabel: string;
+  values: string[];
+  onChange: (v: string[]) => void;
+  required?: boolean;
+  multiline?: boolean;
+  placeholder?: string;
+}) {
+  const setAt   = (i: number, val: string) => onChange(values.map((v, idx) => (idx === i ? val : v)));
+  const add     = () => { if (values.length < MAX_VARIANTS) onChange([...values, ""]); };
+  const removeAt = (i: number) => onChange(values.filter((_, idx) => idx !== i));
+  const canRemove = required ? values.length > 1 : values.length >= 1;
+
+  return (
+    <div className="space-y-2">
+      <label className={LABEL}>
+        {label}{" "}
+        {required
+          ? "*"
+          : <span className="normal-case font-normal text-muted-foreground">(optional)</span>}
+      </label>
+      <div className="space-y-2">
+        {values.map((val, i) => (
+          <div key={i} className="flex items-start gap-2">
+            {multiline ? (
+              <Textarea
+                className="min-h-[80px] flex-1"
+                placeholder={placeholder}
+                value={val}
+                onChange={(e) => setAt(i, e.target.value)}
+              />
+            ) : (
+              <Input
+                className="flex-1"
+                placeholder={placeholder}
+                value={val}
+                onChange={(e) => setAt(i, e.target.value)}
+              />
+            )}
+            {canRemove && (
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                title={`Remove ${label.toLowerCase()}`}
+                className="mt-1 h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      {values.length < MAX_VARIANTS && (
+        <button
+          type="button"
+          onClick={add}
+          className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+        >
+          <Plus className="h-3.5 w-3.5" /> {addLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function VariantModal({ mode, index, initialData, historyEndpoint, onClose, onSave }: Props) {
   const initFrames: CarouselFrame[] = initialData?.frames?.length
     ? initialData.frames
     : Array.from({ length: 3 }, (_, i) => ({ frameNo: i + 1, copy: "", imageUrl: "" }));
 
   const [mediaType,    setMediaType]    = useState(initialData?.mediaType ?? "");
-  const [primaryText,  setPrimaryText]  = useState(initialData?.creativeCopy ?? "");
-  const [helpingUrl,   setHelpingUrl]   = useState(initialData?.referenceUrl ?? "");
-  const [headline,     setHeadline]     = useState(initialData?.headline ?? "");
-  const [description,  setDescription]  = useState(initialData?.description ?? "");
+  const [referenceUrl, setReferenceUrl] = useState(initialData?.referenceUrl ?? "");
+  const [adCopy,       setAdCopy]       = useState(initialData?.adCopy ?? "");
+  // Meta-style multi-value fields (up to 5 each). Fall back to the legacy
+  // scalar value for drafts created before these were arrays.
+  const [primaryTexts, setPrimaryTexts] = useState<string[]>(
+    initialData?.primaryTexts?.length ? initialData.primaryTexts
+      : initialData?.creativeCopy ? [initialData.creativeCopy] : [""]
+  );
+  const [headlines,    setHeadlines]    = useState<string[]>(
+    initialData?.headlines?.length ? initialData.headlines
+      : initialData?.headline ? [initialData.headline] : [""]
+  );
+  const [descriptions, setDescriptions] = useState<string[]>(
+    initialData?.descriptions?.length ? initialData.descriptions
+      : initialData?.description ? [initialData.description] : []
+  );
   const [cta,          setCta]          = useState(initialData?.cta ?? "Learn More");
   const [landingUrl,   setLandingUrl]   = useState(initialData?.landingUrl ?? "");
   const [launchDate,   setLaunchDate]   = useState(initialData?.publishDate ?? "");
@@ -145,13 +235,15 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
     ? Array.from({ length: frameCount }, (_, i) => getFrame(i + 1)).every((f) => f.copy.trim())
     : true;
 
-  const copyFieldValid = isCarousel ? carouselFramesFilled : primaryText.trim().length > 0;
+  const hasPrimary  = primaryTexts.some((t) => t.trim());
+  const hasHeadline = headlines.some((h) => h.trim());
 
   const isValid =
     mediaType.trim() &&
-    copyFieldValid &&
-    headline.trim() &&
-    landingUrl.trim() &&
+    adCopy.trim() &&
+    (isCarousel ? carouselFramesFilled : true) &&
+    hasPrimary &&
+    hasHeadline &&
     launchDate;
 
   const resolvedFrames = isCarousel
@@ -162,9 +254,12 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
     if (!isValid || saving) return;
     setSaving(true);
     try {
+      const primaryTextsClean = primaryTexts.map((t) => t.trim()).filter(Boolean);
+      const headlinesClean    = headlines.map((h) => h.trim()).filter(Boolean);
+      const descriptionsClean = descriptions.map((d) => d.trim()).filter(Boolean);
       await onSave({
         mediaType,
-        creativeCopy: isCarousel ? "" : primaryText,
+        creativeCopy: primaryTextsClean[0] ?? "",
         frames:       resolvedFrames,
         caption:      "",
         hashtags:     "",
@@ -172,9 +267,13 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
         publishTime:  "",
         contentBucket: "",
         platforms:    [],           // campaign platforms are injected by the workspace
-        referenceUrl: helpingUrl.trim() || undefined,
-        headline,
-        description,
+        referenceUrl: referenceUrl.trim() || undefined,
+        adCopy,
+        headline:     headlinesClean[0] ?? "",
+        description:  descriptionsClean[0] ?? "",
+        primaryTexts: primaryTextsClean,
+        headlines:    headlinesClean,
+        descriptions: descriptionsClean,
         cta,
         landingUrl:   landingUrl.trim(),
         videoType:    isVideo ? videoType  : undefined,
@@ -193,12 +292,12 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
         <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
           <div>
             <h2 className="text-base font-semibold text-foreground">
-              {mode === "create" ? `Add Variant ${index}` : `Edit Variant ${index}`}
+              {mode === "create" ? `Add Ad Copy ${index}` : `Edit Ad Copy ${index}`}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {mode === "create"
-                ? "A variant is a single ad copy inside this campaign"
-                : "Update this variant before submitting for review"}
+                ? "A single ad copy inside this campaign"
+                : "Update this ad copy before submitting for review"}
             </p>
           </div>
           <button
@@ -270,19 +369,41 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
             </div>
           )}
 
-          {/* 2 — Helping URL — present for every media type */}
+          {/* 2 — Reference URL — present for every media type */}
           <div className="space-y-2">
-            <label className={LABEL}>Helping URL <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
+            <label className={LABEL}>Reference URL <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
             <Input
               type="url"
               placeholder="https://example.com/reference"
-              value={helpingUrl}
-              onChange={(e) => setHelpingUrl(e.target.value)}
+              value={referenceUrl}
+              onChange={(e) => setReferenceUrl(e.target.value)}
             />
           </div>
 
-          {/* 3 — Primary Text, or Carousel Frames */}
-          {isCarousel ? (
+          {/* 2b — Copy (standalone, required) — sits above Primary Text */}
+          <div className="space-y-2">
+            <label className={LABEL}>Copy *</label>
+            <Textarea
+              placeholder="Ad copy…"
+              className="min-h-[80px]"
+              value={adCopy}
+              onChange={(e) => setAdCopy(e.target.value)}
+            />
+          </div>
+
+          {/* 3 — Primary Texts (Meta allows up to 5) */}
+          <RepeatableList
+            label="Primary Text"
+            addLabel="Add primary text"
+            values={primaryTexts}
+            onChange={setPrimaryTexts}
+            required
+            multiline
+            placeholder="The main body copy of the ad…"
+          />
+
+          {/* Carousel Frames */}
+          {isCarousel && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <label className={LABEL}>Frames / Cards *</label>
@@ -373,37 +494,26 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
                 </p>
               </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <label className={LABEL}>Primary Text *</label>
-              <Textarea
-                placeholder="The main body copy of the ad…"
-                className="min-h-[100px]"
-                value={primaryText}
-                onChange={(e) => setPrimaryText(e.target.value)}
-              />
-            </div>
           )}
 
-          {/* 4 — Headline */}
-          <div className="space-y-2">
-            <label className={LABEL}>Headline *</label>
-            <Input
-              placeholder="Short attention-grabbing headline"
-              value={headline}
-              onChange={(e) => setHeadline(e.target.value)}
-            />
-          </div>
+          {/* 4 — Headlines (Meta allows up to 5) */}
+          <RepeatableList
+            label="Headline"
+            addLabel="Add headline"
+            values={headlines}
+            onChange={setHeadlines}
+            required
+            placeholder="Short attention-grabbing headline"
+          />
 
-          {/* 5 — Description */}
-          <div className="space-y-2">
-            <label className={LABEL}>Description <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
-            <Input
-              placeholder="Supporting description line"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+          {/* 5 — Descriptions (optional, up to 5) */}
+          <RepeatableList
+            label="Description"
+            addLabel="Add description"
+            values={descriptions}
+            onChange={setDescriptions}
+            placeholder="Supporting description line"
+          />
 
           {/* 6+7 — CTA & Landing URL */}
           <div className="grid grid-cols-2 gap-4">
@@ -419,7 +529,7 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
               </Select>
             </div>
             <div className="space-y-2">
-              <label className={LABEL}>Landing URL *</label>
+              <label className={LABEL}>Landing URL <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
               <Input
                 type="url"
                 placeholder="https://"
@@ -526,7 +636,7 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
               : mode === "create"
               ? <Plus className="h-4 w-4 mr-1.5" />
               : <Save className="h-4 w-4 mr-1.5" />}
-            {mode === "create" ? "Add Variant to Campaign" : "Save Changes"}
+            {mode === "create" ? "Add Ad Copy to Campaign" : "Save Changes"}
           </Button>
         </div>
       </div>
@@ -549,12 +659,13 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
             </div>
             <AdPreviewCard
               mediaType={mediaType}
-              primaryText={primaryText}
+              primaryTexts={primaryTexts}
               frames={resolvedFrames}
-              headline={headline}
-              description={description}
+              headlines={headlines}
+              descriptions={descriptions}
               cta={cta}
               landingUrl={landingUrl}
+              adCopy={adCopy}
             />
           </div>
         </div>

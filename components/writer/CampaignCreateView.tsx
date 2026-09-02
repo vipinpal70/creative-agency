@@ -88,7 +88,8 @@ export function CampaignCreateView({ onBack, onCreated }: Props) {
     setFunnelStages((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const canSubmit =
-    name.trim() && platforms.length > 0 && funnelStages.length > 0 && startDate && endDate;
+    name.trim() && platforms.length > 0 && funnelStages.length > 0 &&
+    startDate && endDate && endDate >= startDate;
 
   const handleSubmit = async () => {
     if (!canSubmit || saving) return;
@@ -294,10 +295,18 @@ export function CampaignCreateView({ onBack, onCreated }: Props) {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">End Date *</label>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  <Input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
                 </div>
               </div>
 
+              {startDate && endDate && endDate < startDate && (
+                <p className="text-xs text-destructive">End date can&apos;t be before the start date.</p>
+              )}
               {error && <p className="text-xs text-destructive">{error}</p>}
 
               <div className="flex justify-between pt-2">

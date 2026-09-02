@@ -581,15 +581,19 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
       return (
         <AdPreviewCard
           mediaType={draft?.mediaType || item.type}
+          primaryTexts={draft?.primaryTexts}
           primaryText={draft?.creativeCopy}
           frames={draft?.frames}
           imageUrl={draft?.imageUrl}
           videoUrl={draft?.videoUrl}
           thumbnailUrl={draft?.thumbnailUrl}
+          headlines={draft?.headlines}
           headline={draft?.headline}
+          descriptions={draft?.descriptions}
           description={draft?.description}
           cta={draft?.cta}
           landingUrl={draft?.landingUrl}
+          adCopy={draft?.adCopy}
         />
       );
     }

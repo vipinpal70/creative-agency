@@ -213,6 +213,7 @@ export function CampaignEditDialog({ campaign, onClose, onSaved }: CampaignEditD
                 id="camp-end"
                 type="date"
                 value={endDate}
+                min={startDate || undefined}
                 onChange={(e) => setEndDate(e.target.value)}
               />
             </div>

@@ -147,6 +147,7 @@ export function CalendarEditDialog({ calendar, onClose, onSaved, onOpenScopeEdit
                 id="cal-end"
                 type="date"
                 value={endDate}
+                min={startDate || undefined}
                 onChange={(e) => setEndDate(e.target.value)}
               />
             </div>

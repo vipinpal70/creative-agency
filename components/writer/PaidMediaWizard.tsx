@@ -76,14 +76,14 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
         title:         form.headline?.trim().slice(0, 80)
                          || form.creativeCopy.trim().slice(0, 80)
                          || form.frames?.[0]?.copy.trim().slice(0, 80)
-                         || `${form.mediaType} variant`,
+                         || `${form.mediaType} ad copy`,
         buckets:       [],
         scheduledDate: form.publishDate || new Date().toISOString(),
         notes:         "",
       }),
     });
     const del = await delRes.json();
-    if (!delRes.ok) { toast({ title: del.error || "Failed to save variant" }); return; }
+    if (!delRes.ok) { toast({ title: del.error || "Failed to save ad copy" }); return; }
 
     const draftRes = await fetch(
       `/api/clients/${clientId}/deliverables/${del.id}/drafts`,
@@ -94,12 +94,16 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
           mediaType:    form.mediaType,
           creativeCopy: form.creativeCopy,   // primary text
           frames:       form.frames ?? [],
-          referenceUrl: form.referenceUrl,   // helping url
+          referenceUrl: form.referenceUrl,   // reference url
           publishDate:  form.publishDate || null,
           headline:     form.headline,
           description:  form.description,
+          primaryTexts: form.primaryTexts,
+          headlines:    form.headlines,
+          descriptions: form.descriptions,
           cta:          form.cta,
           landingUrl:   form.landingUrl,
+          adCopy:       form.adCopy,
           videoType:    form.videoType,
           videoNotes:   form.videoNotes,
         }),
@@ -107,7 +111,7 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
     );
     const draft = await draftRes.json();
     setVariants((prev) => [...prev, { ...del, latestDraft: draftRes.ok ? draft : null }]);
-    toast({ title: "Variant added to campaign" });
+    toast({ title: "Ad copy added to campaign" });
   };
 
   // ── Submit a variant for internal review ──
@@ -126,7 +130,7 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
             : c
         )
       );
-      toast({ title: "Variant sent for internal review" });
+      toast({ title: "Ad copy sent for internal review" });
     } finally {
       setSubmitting(null);
     }
@@ -160,7 +164,7 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
             : c
         )
       );
-      toast({ title: "Variant recalled to the previous stage" });
+      toast({ title: "Ad copy recalled to the previous stage" });
     } catch (err: any) {
       toast({ title: err.message || "Failed to recall" });
     } finally {
@@ -171,7 +175,7 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
   const removeVariant = async (delId: string) => {
     await fetch(`/api/clients/${clientId}/deliverables/${delId}`, { method: "DELETE" });
     setVariants((prev) => prev.filter((c) => c.id !== delId));
-    toast({ title: "Variant removed" });
+    toast({ title: "Ad copy removed" });
   };
 
   // ── Open edit modal ──
@@ -191,8 +195,12 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
         referenceUrl: draft.referenceUrl ?? "",
         headline:     draft.headline ?? "",
         description:  draft.description ?? "",
+        primaryTexts: draft.primaryTexts ?? [],
+        headlines:    draft.headlines ?? [],
+        descriptions: draft.descriptions ?? [],
         cta:          draft.cta ?? "Learn More",
         landingUrl:   draft.landingUrl ?? "",
+        adCopy:       draft.adCopy ?? "",
         publishDate:  draft.publishDate ? draft.publishDate.slice(0, 10) : "",
         videoType:    draft.videoType ?? "",
         videoNotes:   draft.videoNotes ?? "",
@@ -219,8 +227,12 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
             publishDate:  form.publishDate || null,
             headline:     form.headline,
             description:  form.description,
+            primaryTexts: form.primaryTexts,
+            headlines:    form.headlines,
+            descriptions: form.descriptions,
             cta:          form.cta,
             landingUrl:   form.landingUrl,
+            adCopy:       form.adCopy,
             videoType:    form.videoType,
             videoNotes:   form.videoNotes,
           }),
@@ -231,7 +243,7 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
       setVariants((prev) =>
         prev.map((c) => (c.id === delId ? { ...c, latestDraft: { ...c.latestDraft!, ...updated } } : c))
       );
-      toast({ title: "Variant updated" });
+      toast({ title: "Ad copy updated" });
     }
     setModal(null);
   };
@@ -276,20 +288,20 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
 
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading variants…
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading ad copies…
         </div>
       ) : (
         <>
           <div className="flex justify-end">
             <Button onClick={() => setModal({ mode: "create", index: variants.length + 1 })}>
-              <Plus className="h-4 w-4 mr-1.5" /> Add Variant
+              <Plus className="h-4 w-4 mr-1.5" /> Add Ad Copy
             </Button>
           </div>
 
           <CopyList
             copies={variants}
-            noun="variant"
-            title="Campaign Variants"
+            noun="ad copy"
+            title="Campaign Ad Copies"
             module="paid"
             onRemove={removeVariant}
             onSubmitSingle={submitVariant}
@@ -316,7 +328,7 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
                   value={(campaign.platforms ?? []).map(platformLabel).join(", ") || "—"}
                 />
                 <OverviewRow label="Funnel stages" value={(campaign.funnelStages ?? []).join(", ") || "—"} />
-                <OverviewRow label="Variants" value={String(variants.length)} />
+                <OverviewRow label="Ad copies" value={String(variants.length)} />
                 <OverviewRow label="Drafts / In review" value={`${draftCount} draft · ${inReviewCount} submitted`} />
               </CardContent>
             </Card>
@@ -356,15 +368,19 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
             </div>
             <AdPreviewCard
               mediaType={previewVariant.type}
+              primaryTexts={previewVariant.latestDraft.primaryTexts}
               primaryText={previewVariant.latestDraft.creativeCopy}
               frames={previewVariant.latestDraft.frames}
               imageUrl={previewVariant.latestDraft.imageUrl}
               videoUrl={previewVariant.latestDraft.videoUrl}
               thumbnailUrl={previewVariant.latestDraft.thumbnailUrl}
+              headlines={previewVariant.latestDraft.headlines}
               headline={previewVariant.latestDraft.headline}
+              descriptions={previewVariant.latestDraft.descriptions}
               description={previewVariant.latestDraft.description}
               cta={previewVariant.latestDraft.cta}
               landingUrl={previewVariant.latestDraft.landingUrl}
+              adCopy={previewVariant.latestDraft.adCopy}
             />
           </div>
         </div>

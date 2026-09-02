@@ -49,7 +49,7 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
   const draftCopies = copies.filter(
     (c) => c.latestDraft && normalizeDraftStatus(c.latestDraft.status) === "draft"
   );
-  const nounPlural = noun === "copy" ? "copies" : `${noun}s`;
+  const nounPlural = noun.endsWith("copy") ? noun.replace(/copy$/, "copies") : `${noun}s`;
 
   if (copies.length === 0) {
     return (

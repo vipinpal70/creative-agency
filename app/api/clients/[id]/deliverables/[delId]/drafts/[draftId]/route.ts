@@ -115,8 +115,17 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       publishDate, publishTime, notes, status, rejectionNote,
       imageUrl, videoUrl, thumbnailUrl, audioUrl,
       articleMode, articleCopy, referenceUrl, videoType, videoNotes,
-      headline, description, cta, landingUrl,
+      headline, description, cta, landingUrl, adCopy,
+      primaryTexts, headlines, descriptions,
     } = body;
+
+    // Meta-style multi-value fields: clean incoming arrays and mirror [0] to the
+    // scalar fields the rest of the pipeline reads.
+    const cleanList = (arr: unknown): string[] =>
+      (Array.isArray(arr) ? arr.map((s) => String(s ?? "").trim()).filter(Boolean) : []).slice(0, 5);
+    const primaryTextsClean = primaryTexts !== undefined ? cleanList(primaryTexts) : undefined;
+    const headlinesClean    = headlines    !== undefined ? cleanList(headlines)    : undefined;
+    const descriptionsClean = descriptions !== undefined ? cleanList(descriptions) : undefined;
 
     // Snapshot old values for diff before any mutation
     const oldValues: Record<string, unknown> = {
@@ -139,8 +148,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       articleCopy:   draft.articleCopy,
       headline:      draft.headline,
       description:   draft.description,
+      primaryTexts:  draft.primaryTexts,
+      headlines:     draft.headlines,
+      descriptions:  draft.descriptions,
       cta:           draft.cta,
       landingUrl:    draft.landingUrl,
+      adCopy:        draft.adCopy,
     };
 
     if (mediaType !== undefined)     draft.mediaType    = mediaType;
@@ -154,6 +167,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (description !== undefined)    draft.description  = description;
     if (cta !== undefined)           draft.cta          = cta;
     if (landingUrl !== undefined)    draft.landingUrl   = landingUrl;
+    if (adCopy !== undefined)        draft.adCopy       = adCopy;
+    // Multi-value arrays take precedence over their scalar mirror.
+    if (primaryTextsClean !== undefined) { draft.primaryTexts = primaryTextsClean; draft.creativeCopy = primaryTextsClean[0] ?? ""; }
+    if (headlinesClean    !== undefined) { draft.headlines    = headlinesClean;    draft.headline     = headlinesClean[0]    ?? ""; }
+    if (descriptionsClean !== undefined) { draft.descriptions = descriptionsClean; draft.description  = descriptionsClean[0] ?? ""; }
     if (Array.isArray(frames))       draft.frames       = frames;
     if (imageUrl !== undefined)      draft.imageUrl     = imageUrl;
     if (videoUrl !== undefined)      draft.videoUrl     = videoUrl;
@@ -291,6 +309,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (description !== undefined)        newValues.description  = description;
     if (cta !== undefined)               newValues.cta          = cta;
     if (landingUrl !== undefined)        newValues.landingUrl   = landingUrl;
+    if (adCopy !== undefined)            newValues.adCopy       = adCopy;
+    if (primaryTextsClean !== undefined) newValues.primaryTexts = primaryTextsClean;
+    if (headlinesClean    !== undefined) newValues.headlines    = headlinesClean;
+    if (descriptionsClean !== undefined) newValues.descriptions = descriptionsClean;
     if (imageUrl !== undefined)          newValues.imageUrl     = imageUrl;
     if (videoUrl !== undefined)          newValues.videoUrl     = videoUrl;
     if (thumbnailUrl !== undefined)      newValues.thumbnailUrl = thumbnailUrl;

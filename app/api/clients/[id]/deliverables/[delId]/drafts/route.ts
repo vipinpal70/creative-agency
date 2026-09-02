@@ -74,7 +74,20 @@ export async function POST(req: NextRequest, { params }: Ctx) {
             publishDate, publishTime, referenceUrl, videoType, videoNotes,
             articleMode, articleCopy, notes,
             imageUrl, videoUrl, thumbnailUrl, audioUrl,
-            headline, description, cta, landingUrl } = body;
+            headline, description, cta, landingUrl, adCopy,
+            primaryTexts, headlines, descriptions } = body;
+
+    // Meta-style multi-value fields: clean (trim, drop empties, cap 5) and keep
+    // the scalar creativeCopy/headline/description synced to element [0].
+    const cleanList = (arr: unknown, fallback: string): string[] => {
+      const list = Array.isArray(arr)
+        ? arr.map((s) => String(s ?? "").trim()).filter(Boolean)
+        : (fallback.trim() ? [fallback.trim()] : []);
+      return list.slice(0, 5);
+    };
+    const primaryTextsClean = cleanList(primaryTexts, creativeCopy || "");
+    const headlinesClean    = cleanList(headlines, headline || "");
+    const descriptionsClean = cleanList(descriptions, description || "");
 
     // Resolve author name for history snapshot
     const author = await User.findById(session.userId).select("firstName lastName email").lean();
@@ -91,7 +104,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       version:       nextVersion,
       createdBy:     session.userId,
       mediaType:     mediaType    || "",
-      creativeCopy:  creativeCopy || "",
+      creativeCopy:  primaryTextsClean[0] ?? (creativeCopy || ""),
       frames:        Array.isArray(frames) ? frames : [],
       imageUrl:      imageUrl     || "",
       videoUrl:      videoUrl     || "",
@@ -106,10 +119,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       videoNotes:    videoNotes   || "",
       articleMode:   articleMode  || "",
       articleCopy:   articleCopy  || "",
-      headline:      headline     || "",
-      description:   description  || "",
+      headline:      headlinesClean[0]    ?? (headline || ""),
+      description:   descriptionsClean[0] ?? (description || ""),
+      primaryTexts:  primaryTextsClean,
+      headlines:     headlinesClean,
+      descriptions:  descriptionsClean,
       cta:           cta          || "",
       landingUrl:    landingUrl   || "",
+      adCopy:        adCopy       || "",
       notes:         notes        || "",
       status:        "draft",
       lastChangedBy: { userId: session.userId, name: authorName, email: session.email, changedAt: now },

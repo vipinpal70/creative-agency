@@ -45,8 +45,15 @@ export interface IContentDraft extends Document {
   // creativeCopy; helping URL reuses referenceUrl; launch date reuses publishDate.
   headline:       string;
   description:    string;
+  // Meta-style multi-value paid fields (up to 5 each). Scalar creativeCopy /
+  // headline / description are kept synced to element [0] for the rest of the
+  // pipeline (designer, published, analytics, social flow, history, old docs).
+  primaryTexts:   string[];
+  headlines:      string[];
+  descriptions:   string[];
   cta:            string;
   landingUrl:     string;
+  adCopy:         string;   // paid-media: standalone "Copy" field, separate from primary text (creativeCopy)
   articleMode:    string;   // "with-creative" | "without-creative" | "" — only for article/copy media type
   articleCopy:    string;   // written article/copy text — only for article/copy media type
   notes:          string;
@@ -92,8 +99,12 @@ const contentDraftSchema = new Schema<IContentDraft>(
     videoNotes:    { type: String, default: "" },
     headline:      { type: String, default: "" },
     description:   { type: String, default: "" },
+    primaryTexts:  { type: [String], default: [] },
+    headlines:     { type: [String], default: [] },
+    descriptions:  { type: [String], default: [] },
     cta:           { type: String, default: "" },
     landingUrl:    { type: String, default: "" },
+    adCopy:        { type: String, default: "" },
     articleMode:   { type: String, default: "" },
     articleCopy:   { type: String, default: "" },
     notes:         { type: String, default: "" },
@@ -164,6 +175,15 @@ contentDraftSchema.index({ createdBy: 1, status: 1 });
 // Cleanup job scans archived copies by archive date; active-list queries filter
 // on archivedAt: null.
 contentDraftSchema.index({ archivedAt: 1 });
+
+// In development, Next.js hot-reloads this module, but Mongoose keeps previously
+// compiled models on its (non-reloaded) singleton — so newly added schema fields
+// are silently ignored on read/write until a full server restart. Recompiling the
+// model whenever this file re-evaluates keeps the schema in sync during dev. In
+// production the module is imported once, so this runs a single time.
+if (process.env.NODE_ENV !== "production" && mongoose.models.ContentDraft) {
+  mongoose.deleteModel("ContentDraft");
+}
 
 const ContentDraft: Model<IContentDraft> =
   mongoose.models.ContentDraft ||

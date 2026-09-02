@@ -33,6 +33,11 @@ export interface CopyFormData {
   description?: string;
   cta?: string;
   landingUrl?: string;
+  adCopy?: string;           // standalone "Copy" field, separate from creativeCopy (primary text)
+  // Meta-style multi-value fields (up to 5 each)
+  primaryTexts?: string[];
+  headlines?: string[];
+  descriptions?: string[];
 }
 
 export interface LastChangedBy {
@@ -84,6 +89,10 @@ export interface DraftSnapshot {
   description?: string;
   cta?: string;
   landingUrl?: string;
+  adCopy?: string;
+  primaryTexts?: string[];
+  headlines?: string[];
+  descriptions?: string[];
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";
   rejectionNote?: string;

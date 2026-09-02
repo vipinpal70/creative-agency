@@ -27,8 +27,12 @@ export interface ApprovalCopy {
   referenceUrl: string;
   headline: string;
   description: string;
+  primaryTexts: string[];
+  headlines: string[];
+  descriptions: string[];
   cta: string;
   landingUrl: string;
+  adCopy: string;
   notes: string;
   rejectionNote: string;
   title: string;
@@ -70,8 +74,12 @@ export function toCalendarCopy(copy: ApprovalCopy): CalendarCopy {
     articleCopy: copy.articleCopy,
     headline: copy.headline,
     description: copy.description,
+    primaryTexts: copy.primaryTexts ?? [],
+    headlines: copy.headlines ?? [],
+    descriptions: copy.descriptions ?? [],
     cta: copy.cta,
     landingUrl: copy.landingUrl,
+    adCopy: copy.adCopy,
     notes: copy.notes,
     status: copy.status as CalendarDraft["status"],
     rejectionNote: copy.rejectionNote,
