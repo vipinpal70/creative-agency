@@ -39,6 +39,7 @@ import {
 import type { DraftStatus } from "@/lib/status-flow";
 import { FeedbackModal } from "@/components/ui/feedback-modal";
 import { AdPreviewCard } from "@/components/writer/AdPreviewCard";
+import { PaidDetailsForm } from "./PaidDetailsForm";
 import { useAuth } from "@/hooks/useAuth";
 import type { CalendarCopy, CalendarDraft } from "./types";
 
@@ -939,6 +940,14 @@ export function ContentPreviewModal({
           articleCopy:  d.articleCopy,
           notes:        d.notes,
           referenceUrl: d.referenceUrl,
+          // Paid-media fields — seeded so the paid Details form is editable.
+          // Required multi-value lists keep at least one row.
+          adCopy:       d.adCopy,
+          primaryTexts: d.primaryTexts?.length ? d.primaryTexts : d.creativeCopy ? [d.creativeCopy] : [""],
+          headlines:    d.headlines?.length ? d.headlines : d.headline ? [d.headline] : [""],
+          descriptions: d.descriptions?.length ? d.descriptions : d.description ? [d.description] : [],
+          cta:          d.cta,
+          landingUrl:   d.landingUrl,
         });
       }
       setFeedbackOpen(false);
@@ -967,24 +976,44 @@ export function ContentPreviewModal({
     if (!item?.draft) return;
     setSaving(true);
     try {
-      const updated = await patchDraft({
-        caption:      form.caption,
-        hashtags:     form.hashtags,
-        creativeCopy: form.creativeCopy,
-        frames:       form.frames,
-        publishDate:  form.publishDate || null,
-        publishTime:  form.publishTime || null,
-        imageUrl:     form.imageUrl,
-        videoUrl:     form.videoUrl,
-        thumbnailUrl: form.thumbnailUrl,
-        audioUrl:     form.audioUrl,
-        videoType:    form.videoType,
-        videoNotes:   form.videoNotes,
-        articleMode:  form.articleMode,
-        articleCopy:  form.articleCopy,
-        notes:        form.notes,
-        referenceUrl: form.referenceUrl,
-      });
+      // Paid-media drafts save a distinct field set (Copy / primary texts /
+      // headlines / descriptions / CTA / landing URL) instead of the
+      // social caption + hashtags, so we don't blank out the paid fields.
+      const body: Record<string, unknown> =
+        item.module === "paid"
+          ? {
+              adCopy:       form.adCopy,
+              primaryTexts: form.primaryTexts,
+              headlines:    form.headlines,
+              descriptions: form.descriptions,
+              cta:          form.cta,
+              landingUrl:   form.landingUrl,
+              frames:       form.frames,
+              publishDate:  form.publishDate || null,
+              videoType:    form.videoType,
+              videoNotes:   form.videoNotes,
+              notes:        form.notes,
+              referenceUrl: form.referenceUrl,
+            }
+          : {
+              caption:      form.caption,
+              hashtags:     form.hashtags,
+              creativeCopy: form.creativeCopy,
+              frames:       form.frames,
+              publishDate:  form.publishDate || null,
+              publishTime:  form.publishTime || null,
+              imageUrl:     form.imageUrl,
+              videoUrl:     form.videoUrl,
+              thumbnailUrl: form.thumbnailUrl,
+              audioUrl:     form.audioUrl,
+              videoType:    form.videoType,
+              videoNotes:   form.videoNotes,
+              articleMode:  form.articleMode,
+              articleCopy:  form.articleCopy,
+              notes:        form.notes,
+              referenceUrl: form.referenceUrl,
+            };
+      const updated = await patchDraft(body);
       if (updated) {
         onUpdate(item.deliverableId, {
           ...item.draft,
@@ -1190,6 +1219,15 @@ export function ContentPreviewModal({
                   className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-4"
                 >
                   <fieldset disabled={readOnly} className="contents">
+                  {item.module === "paid" ? (
+                    <PaidDetailsForm
+                      form={form}
+                      setForm={setForm}
+                      draft={draft}
+                      item={item}
+                    />
+                  ) : (
+                  <>
                   {/* Carousel frames — editable */}
                   {mediaCategory === "carousel" && draft.frames.length > 0 && (
                     <div className="space-y-3 p-3 rounded-lg bg-muted/40 border border-border">
@@ -1385,7 +1423,8 @@ export function ContentPreviewModal({
                       }
                     />
                   </div>
-
+                  </>
+                  )}
                   </fieldset>
                   {!readOnly && (
                     <Button className="w-full" onClick={handleSave} disabled={saving}>

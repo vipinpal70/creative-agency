@@ -194,10 +194,6 @@ export function AdPreviewCard({
       {/* Primary text (1st) with See more/less */}
       {firstPrimary && <PrimaryText text={firstPrimary} />}
 
-      {adCopy && (
-        <p className="px-3 pb-1 text-[11px] text-muted-foreground whitespace-pre-wrap leading-relaxed line-clamp-2">{adCopy}</p>
-      )}
-
       <div className="aspect-square bg-muted relative overflow-hidden flex items-center justify-center">
         {isCarousel && frames.length > 0 ? (
           <CarouselMedia frames={frames} />
