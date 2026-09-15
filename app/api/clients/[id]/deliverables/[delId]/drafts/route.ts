@@ -75,7 +75,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
             articleMode, articleCopy, notes,
             imageUrl, videoUrl, thumbnailUrl, audioUrl,
             headline, description, cta, landingUrl, adCopy,
-            primaryTexts, headlines, descriptions } = body;
+            primaryTexts, headlines, descriptions,
+            adPlatform, businessName, longHeadline,
+            trackingTemplate, finalUrlSuffix, customParameters } = body;
 
     // Meta-style multi-value fields: clean (trim, drop empties, cap 5) and keep
     // the scalar creativeCopy/headline/description synced to element [0].
@@ -127,6 +129,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       cta:           cta          || "",
       landingUrl:    landingUrl   || "",
       adCopy:        adCopy       || "",
+      adPlatform:    adPlatform === "google" ? "google" : "meta",
+      businessName:  businessName || "",
+      longHeadline:  longHeadline || "",
+      trackingTemplate: trackingTemplate || "",
+      finalUrlSuffix:   finalUrlSuffix   || "",
+      customParameters: Array.isArray(customParameters)
+        ? customParameters
+            .map((p: { name?: string; value?: string }) => ({ name: String(p?.name ?? "").trim(), value: String(p?.value ?? "").trim() }))
+            .filter((p: { name: string; value: string }) => p.name || p.value)
+        : [],
       notes:         notes        || "",
       status:        "draft",
       lastChangedBy: { userId: session.userId, name: authorName, email: session.email, changedAt: now },

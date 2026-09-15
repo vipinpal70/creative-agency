@@ -54,6 +54,18 @@ export interface IContentDraft extends Document {
   cta:            string;
   landingUrl:     string;
   adCopy:         string;   // paid-media: standalone "Copy" field, separate from primary text (creativeCopy)
+
+  // Paid-media platform switch. "meta" (default) uses the Meta field set /
+  // preview; "google" uses the Google Ads field set / preview below.
+  adPlatform:     "meta" | "google";
+  // Google Ads-only fields (adPlatform === "google"). Headlines / descriptions /
+  // cta / landingUrl are shared with Meta; the rest are Google-specific.
+  businessName:   string;
+  longHeadline:   string;
+  trackingTemplate: string;
+  finalUrlSuffix:   string;
+  customParameters: { name: string; value: string }[];
+
   articleMode:    string;   // "with-creative" | "without-creative" | "" — only for article/copy media type
   articleCopy:    string;   // written article/copy text — only for article/copy media type
   notes:          string;
@@ -105,6 +117,15 @@ const contentDraftSchema = new Schema<IContentDraft>(
     cta:           { type: String, default: "" },
     landingUrl:    { type: String, default: "" },
     adCopy:        { type: String, default: "" },
+    adPlatform:    { type: String, enum: ["meta", "google"], default: "meta" },
+    businessName:  { type: String, default: "" },
+    longHeadline:  { type: String, default: "" },
+    trackingTemplate: { type: String, default: "" },
+    finalUrlSuffix:   { type: String, default: "" },
+    customParameters: {
+      type: [{ name: String, value: String }],
+      default: [],
+    },
     articleMode:   { type: String, default: "" },
     articleCopy:   { type: String, default: "" },
     notes:         { type: String, default: "" },

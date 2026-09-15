@@ -9,6 +9,7 @@ import { CopyList } from "@/components/writer/CopyList";
 import { VariantModal } from "@/components/writer/VariantModal";
 import type { VariantModalInitialData } from "@/components/writer/VariantModal";
 import { AdPreviewCard } from "@/components/writer/AdPreviewCard";
+import { GoogleAdPreviewCard } from "@/components/writer/GoogleAdPreviewCard";
 import { CAMPAIGN_PLATFORMS, FUNNEL_STAGES } from "@/components/writer/CampaignCreateView";
 import type { WriterCalendar, WriterDeliverable, CopyFormData, DraftSnapshot } from "@/components/writer/types";
 import { normalizeDraftStatus } from "@/lib/status-flow";
@@ -106,6 +107,12 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
           adCopy:       form.adCopy,
           videoType:    form.videoType,
           videoNotes:   form.videoNotes,
+          adPlatform:       form.adPlatform,
+          businessName:     form.businessName,
+          longHeadline:     form.longHeadline,
+          trackingTemplate: form.trackingTemplate,
+          finalUrlSuffix:   form.finalUrlSuffix,
+          customParameters: form.customParameters,
         }),
       }
     );
@@ -204,6 +211,12 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
         publishDate:  draft.publishDate ? draft.publishDate.slice(0, 10) : "",
         videoType:    draft.videoType ?? "",
         videoNotes:   draft.videoNotes ?? "",
+        adPlatform:       draft.adPlatform ?? "meta",
+        businessName:     draft.businessName ?? "",
+        longHeadline:     draft.longHeadline ?? "",
+        trackingTemplate: draft.trackingTemplate ?? "",
+        finalUrlSuffix:   draft.finalUrlSuffix ?? "",
+        customParameters: draft.customParameters ?? [],
       },
     });
   };
@@ -235,6 +248,12 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
             adCopy:       form.adCopy,
             videoType:    form.videoType,
             videoNotes:   form.videoNotes,
+            adPlatform:       form.adPlatform,
+            businessName:     form.businessName,
+            longHeadline:     form.longHeadline,
+            trackingTemplate: form.trackingTemplate,
+            finalUrlSuffix:   form.finalUrlSuffix,
+            customParameters: form.customParameters,
           }),
         }
       );
@@ -366,22 +385,35 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
                 <X className="h-4 w-4 text-white" />
               </button>
             </div>
-            <AdPreviewCard
-              mediaType={previewVariant.type}
-              primaryTexts={previewVariant.latestDraft.primaryTexts}
-              primaryText={previewVariant.latestDraft.creativeCopy}
-              frames={previewVariant.latestDraft.frames}
-              imageUrl={previewVariant.latestDraft.imageUrl}
-              videoUrl={previewVariant.latestDraft.videoUrl}
-              thumbnailUrl={previewVariant.latestDraft.thumbnailUrl}
-              headlines={previewVariant.latestDraft.headlines}
-              headline={previewVariant.latestDraft.headline}
-              descriptions={previewVariant.latestDraft.descriptions}
-              description={previewVariant.latestDraft.description}
-              cta={previewVariant.latestDraft.cta}
-              landingUrl={previewVariant.latestDraft.landingUrl}
-              adCopy={previewVariant.latestDraft.adCopy}
-            />
+            {previewVariant.latestDraft.adPlatform === "google" ? (
+              <GoogleAdPreviewCard
+                businessName={previewVariant.latestDraft.businessName}
+                headlines={previewVariant.latestDraft.headlines}
+                longHeadline={previewVariant.latestDraft.longHeadline}
+                descriptions={previewVariant.latestDraft.descriptions}
+                frames={previewVariant.latestDraft.frames}
+                imageUrl={previewVariant.latestDraft.imageUrl}
+                cta={previewVariant.latestDraft.cta}
+                landingUrl={previewVariant.latestDraft.landingUrl}
+              />
+            ) : (
+              <AdPreviewCard
+                mediaType={previewVariant.type}
+                primaryTexts={previewVariant.latestDraft.primaryTexts}
+                primaryText={previewVariant.latestDraft.creativeCopy}
+                frames={previewVariant.latestDraft.frames}
+                imageUrl={previewVariant.latestDraft.imageUrl}
+                videoUrl={previewVariant.latestDraft.videoUrl}
+                thumbnailUrl={previewVariant.latestDraft.thumbnailUrl}
+                headlines={previewVariant.latestDraft.headlines}
+                headline={previewVariant.latestDraft.headline}
+                descriptions={previewVariant.latestDraft.descriptions}
+                description={previewVariant.latestDraft.description}
+                cta={previewVariant.latestDraft.cta}
+                landingUrl={previewVariant.latestDraft.landingUrl}
+                adCopy={previewVariant.latestDraft.adCopy}
+              />
+            )}
           </div>
         </div>
       )}

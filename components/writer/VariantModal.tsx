@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Save, X, History, ChevronDown, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { isReelOrVideoType } from "@/lib/status-flow";
 import { AdPreviewCard } from "./AdPreviewCard";
+import { GoogleAdPreviewCard } from "./GoogleAdPreviewCard";
 import { RepeatableList } from "./RepeatableList";
-import type { CopyFormData, CarouselFrame, HistoryEntry } from "./types";
+import type { CopyFormData, CarouselFrame, HistoryEntry, AdPlatform, CustomParameter } from "./types";
 import { VIDEO_TYPE_OPTIONS } from "./types";
 
 // An "ad copy" is a paid-media copy inside a campaign — the paid-media
@@ -22,6 +23,13 @@ import { VIDEO_TYPE_OPTIONS } from "./types";
 
 export const VARIANT_MEDIA_TYPES = ["Static", "Carousel", "Video"] as const;
 export const VARIANT_CTAS = ["Sign Up", "Learn More", "Shop Now", "Get Quote", "Download", "Book Demo"] as const;
+// Google Ads uses its own CTA vocabulary.
+export const GOOGLE_CTAS = ["Get Quote", "Learn More", "Sign Up", "Contact Us", "Shop Now"] as const;
+
+export const AD_PLATFORMS: { id: AdPlatform; label: string }[] = [
+  { id: "meta",   label: "Meta" },
+  { id: "google", label: "Google" },
+];
 
 export interface VariantModalInitialData {
   mediaType?: string;
@@ -39,6 +47,13 @@ export interface VariantModalInitialData {
   publishDate?: string;    // launch date
   videoType?: string;
   videoNotes?: string;
+  // Paid-media platform + Google Ads-only fields
+  adPlatform?: AdPlatform;
+  businessName?: string;
+  longHeadline?: string;
+  trackingTemplate?: string;
+  finalUrlSuffix?: string;
+  customParameters?: CustomParameter[];
 }
 
 interface Props {
@@ -84,9 +99,20 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
     ? initialData.frames
     : Array.from({ length: 3 }, (_, i) => ({ frameNo: i + 1, copy: "", imageUrl: "" }));
 
+  const [adPlatform,   setAdPlatform]   = useState<AdPlatform>(initialData?.adPlatform ?? "meta");
   const [mediaType,    setMediaType]    = useState(initialData?.mediaType ?? "");
   const [referenceUrl, setReferenceUrl] = useState(initialData?.referenceUrl ?? "");
   const [adCopy,       setAdCopy]       = useState(initialData?.adCopy ?? "");
+  // Google Ads-only fields
+  const [businessName,     setBusinessName]     = useState(initialData?.businessName ?? "");
+  const [longHeadline,     setLongHeadline]     = useState(initialData?.longHeadline ?? "");
+  const [trackingTemplate, setTrackingTemplate] = useState(initialData?.trackingTemplate ?? "");
+  const [finalUrlSuffix,   setFinalUrlSuffix]   = useState(initialData?.finalUrlSuffix ?? "");
+  const [customParameters, setCustomParameters] = useState<CustomParameter[]>(initialData?.customParameters ?? []);
+  const [urlOptionsOpen,   setUrlOptionsOpen]   = useState(
+    Boolean(initialData?.trackingTemplate || initialData?.finalUrlSuffix || initialData?.customParameters?.length)
+  );
+  const isGoogle = adPlatform === "google";
   // Meta-style multi-value fields (up to 5 each). Fall back to the legacy
   // scalar value for drafts created before these were arrays.
   const [primaryTexts, setPrimaryTexts] = useState<string[]>(
@@ -158,20 +184,48 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
     }
   };
 
+  const handlePlatformChange = (val: AdPlatform) => {
+    setAdPlatform(val);
+    // Google requires at least one description row; seed an empty one so the
+    // required list surfaces an input instead of only the "Add" button.
+    if (val === "google" && descriptions.length === 0) setDescriptions([""]);
+    // Keep the CTA within the target platform's vocabulary.
+    const allowed: readonly string[] = val === "google" ? GOOGLE_CTAS : VARIANT_CTAS;
+    if (!allowed.includes(cta)) setCta(allowed[0]);
+  };
+
+  const addCustomParameter    = () => setCustomParameters((p) => [...p, { name: "", value: "" }]);
+  const removeCustomParameter = (i: number) => setCustomParameters((p) => p.filter((_, idx) => idx !== i));
+  const updateCustomParameter = (i: number, patch: Partial<CustomParameter>) =>
+    setCustomParameters((p) => p.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+
   const carouselFramesFilled = isCarousel
     ? Array.from({ length: frameCount }, (_, i) => getFrame(i + 1)).every((f) => f.copy.trim())
     : true;
 
-  const hasPrimary  = primaryTexts.some((t) => t.trim());
-  const hasHeadline = headlines.some((h) => h.trim());
+  const hasPrimary     = primaryTexts.some((t) => t.trim());
+  const hasHeadline    = headlines.some((h) => h.trim());
+  const hasDescription = descriptions.some((d) => d.trim());
 
-  const isValid =
-    mediaType.trim() &&
-    adCopy.trim() &&
-    (isCarousel ? carouselFramesFilled : true) &&
-    hasPrimary &&
-    hasHeadline &&
-    launchDate;
+  const isValid = isGoogle
+    ? Boolean(
+        mediaType.trim() &&
+        businessName.trim() &&
+        adCopy.trim() &&
+        hasHeadline &&
+        longHeadline.trim() &&
+        hasDescription &&
+        cta &&
+        launchDate
+      )
+    : Boolean(
+        mediaType.trim() &&
+        adCopy.trim() &&
+        (isCarousel ? carouselFramesFilled : true) &&
+        hasPrimary &&
+        hasHeadline &&
+        launchDate
+      );
 
   const resolvedFrames = isCarousel
     ? Array.from({ length: frameCount }, (_, i) => getFrame(i + 1))
@@ -184,9 +238,14 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
       const primaryTextsClean = primaryTexts.map((t) => t.trim()).filter(Boolean);
       const headlinesClean    = headlines.map((h) => h.trim()).filter(Boolean);
       const descriptionsClean = descriptions.map((d) => d.trim()).filter(Boolean);
+      // Google carries no primary text; keep it empty so the scalar mirror the
+      // rest of the pipeline reads stays consistent. Copy (adCopy) is shared.
+      const customParametersClean = customParameters
+        .map((p) => ({ name: p.name.trim(), value: p.value.trim() }))
+        .filter((p) => p.name || p.value);
       await onSave({
         mediaType,
-        creativeCopy: primaryTextsClean[0] ?? "",
+        creativeCopy: isGoogle ? "" : primaryTextsClean[0] ?? "",
         frames:       resolvedFrames,
         caption:      "",
         hashtags:     "",
@@ -198,13 +257,20 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
         adCopy,
         headline:     headlinesClean[0] ?? "",
         description:  descriptionsClean[0] ?? "",
-        primaryTexts: primaryTextsClean,
+        primaryTexts: isGoogle ? [] : primaryTextsClean,
         headlines:    headlinesClean,
         descriptions: descriptionsClean,
         cta,
         landingUrl:   landingUrl.trim(),
         videoType:    isVideo ? videoType  : undefined,
         videoNotes:   isVideo ? videoNotes : undefined,
+        // Paid-media platform + Google Ads-only fields
+        adPlatform,
+        businessName:     isGoogle ? businessName.trim()     : "",
+        longHeadline:     isGoogle ? longHeadline.trim()     : "",
+        trackingTemplate: isGoogle ? trackingTemplate.trim() : "",
+        finalUrlSuffix:   isGoogle ? finalUrlSuffix.trim()   : "",
+        customParameters: isGoogle ? customParametersClean   : [],
       });
     } finally {
       setSaving(false);
@@ -237,6 +303,31 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
 
         {/* Body */}
         <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
+
+          {/* 0 — Ad Platform (Meta vs Google) */}
+          <div className="space-y-2">
+            <label className={LABEL}>Ad Platform *</label>
+            <div className="flex flex-wrap gap-2">
+              {AD_PLATFORMS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handlePlatformChange(p.id)}
+                  disabled={mode === "edit"}
+                  className={`text-sm px-4 py-1.5 rounded-full border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                    adPlatform === p.id
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {mode === "edit" && (
+              <p className="text-[11px] text-muted-foreground">Ad platform cannot be changed after creation.</p>
+            )}
+          </div>
 
           {/* 1 — Media Type */}
           <div className="space-y-2">
@@ -307,7 +398,19 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
             />
           </div>
 
-          {/* 2b — Copy (standalone, required) — sits above Primary Text */}
+          {/* Google — Business Name (required) */}
+          {isGoogle && (
+            <div className="space-y-2">
+              <label className={LABEL}>Business Name *</label>
+              <Input
+                placeholder="Your business name"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* 2b — Copy (standalone, required) — shown for both Meta & Google */}
           <div className="space-y-2">
             <label className={LABEL}>Copy *</label>
             <Textarea
@@ -318,16 +421,18 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
             />
           </div>
 
-          {/* 3 — Primary Texts (Meta allows up to 5) */}
-          <RepeatableList
-            label="Primary Text"
-            addLabel="Add primary text"
-            values={primaryTexts}
-            onChange={setPrimaryTexts}
-            required
-            multiline
-            placeholder="The main body copy of the ad…"
-          />
+          {/* 3 — Primary Texts (Meta allows up to 5; not used by Google) */}
+          {!isGoogle && (
+            <RepeatableList
+              label="Primary Text"
+              addLabel="Add primary text"
+              values={primaryTexts}
+              onChange={setPrimaryTexts}
+              required
+              multiline
+              placeholder="The main body copy of the ad…"
+            />
+          )}
 
           {/* Carousel Frames */}
           {isCarousel && (
@@ -433,23 +538,107 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
             placeholder="Short attention-grabbing headline"
           />
 
-          {/* 5 — Descriptions (optional, up to 5) */}
+          {/* Google — Long Headline (required) */}
+          {isGoogle && (
+            <div className="space-y-2">
+              <label className={LABEL}>Long Headline *</label>
+              <Textarea
+                placeholder="A longer headline shown in larger placements…"
+                className="min-h-[60px]"
+                value={longHeadline}
+                onChange={(e) => setLongHeadline(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* 5 — Descriptions (up to 5; required for Google) */}
           <RepeatableList
             label="Description"
             addLabel="Add description"
             values={descriptions}
             onChange={setDescriptions}
+            required={isGoogle}
             placeholder="Supporting description line"
           />
+
+          {/* Google — Add URL options (optional) */}
+          {isGoogle && (
+            <div className="rounded-xl border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setUrlOptionsOpen((o) => !o)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/50 transition-colors"
+              >
+                <span className={LABEL}>
+                  Add URL Options <span className="normal-case font-normal text-muted-foreground">(optional)</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${urlOptionsOpen ? "rotate-180" : ""}`} />
+              </button>
+              {urlOptionsOpen && (
+                <div className="px-4 pb-4 pt-1 space-y-4 border-t border-border">
+                  <div className="space-y-2">
+                    <label className={LABEL}>Tracking Template</label>
+                    <Input
+                      placeholder="{lpurl}?utm_source=google"
+                      value={trackingTemplate}
+                      onChange={(e) => setTrackingTemplate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={LABEL}>Final URL Suffix</label>
+                    <Input
+                      placeholder="key=value&key2=value2"
+                      value={finalUrlSuffix}
+                      onChange={(e) => setFinalUrlSuffix(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={LABEL}>
+                      Custom Parameter <span className="normal-case font-normal text-muted-foreground">(optional)</span>
+                    </label>
+                    {customParameters.map((row, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          placeholder="name"
+                          value={row.name}
+                          onChange={(e) => updateCustomParameter(i, { name: e.target.value })}
+                        />
+                        <Input
+                          placeholder="value"
+                          value={row.value}
+                          onChange={(e) => updateCustomParameter(i, { value: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCustomParameter(i)}
+                          title="Remove custom parameter"
+                          className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addCustomParameter}
+                      className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 6+7 — CTA & Landing URL */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className={LABEL}>CTA</label>
+              <label className={LABEL}>{isGoogle ? "Call to Action Text" : "CTA"}</label>
               <Select value={cta} onValueChange={setCta}>
                 <SelectTrigger><SelectValue placeholder="Select CTA" /></SelectTrigger>
                 <SelectContent>
-                  {VARIANT_CTAS.map((c) => (
+                  {(isGoogle ? GOOGLE_CTAS : VARIANT_CTAS).map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
@@ -584,16 +773,28 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
                 <X className="h-4 w-4 text-white" />
               </button>
             </div>
-            <AdPreviewCard
-              mediaType={mediaType}
-              primaryTexts={primaryTexts}
-              frames={resolvedFrames}
-              headlines={headlines}
-              descriptions={descriptions}
-              cta={cta}
-              landingUrl={landingUrl}
-              adCopy={adCopy}
-            />
+            {isGoogle ? (
+              <GoogleAdPreviewCard
+                businessName={businessName}
+                headlines={headlines}
+                longHeadline={longHeadline}
+                descriptions={descriptions}
+                frames={resolvedFrames}
+                cta={cta}
+                landingUrl={landingUrl}
+              />
+            ) : (
+              <AdPreviewCard
+                mediaType={mediaType}
+                primaryTexts={primaryTexts}
+                frames={resolvedFrames}
+                headlines={headlines}
+                descriptions={descriptions}
+                cta={cta}
+                landingUrl={landingUrl}
+                adCopy={adCopy}
+              />
+            )}
           </div>
         </div>
       )}

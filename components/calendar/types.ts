@@ -27,6 +27,12 @@ export interface CalendarDraft {
   cta: string;
   landingUrl: string;
   adCopy: string;
+  adPlatform?: "meta" | "google";
+  businessName?: string;
+  longHeadline?: string;
+  trackingTemplate?: string;
+  finalUrlSuffix?: string;
+  customParameters?: { name: string; value: string }[];
   notes: string;
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";

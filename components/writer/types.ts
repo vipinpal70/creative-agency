@@ -13,6 +13,15 @@ export interface CarouselFrame {
   imageUrl: string;  // optional — designer fills post-creation
 }
 
+// Paid-media platform ("meta" | "google") — selected when adding an ad copy.
+export type AdPlatform = "meta" | "google";
+
+// Google Ads URL-option custom parameter row.
+export interface CustomParameter {
+  name: string;
+  value: string;
+}
+
 export interface CopyFormData {
   mediaType: string;
   creativeCopy: string;      // used for non-carousel posts
@@ -38,6 +47,13 @@ export interface CopyFormData {
   primaryTexts?: string[];
   headlines?: string[];
   descriptions?: string[];
+  // Paid-media platform + Google Ads-only fields
+  adPlatform?: AdPlatform;
+  businessName?: string;
+  longHeadline?: string;
+  trackingTemplate?: string;
+  finalUrlSuffix?: string;
+  customParameters?: CustomParameter[];
 }
 
 export interface LastChangedBy {
@@ -93,6 +109,12 @@ export interface DraftSnapshot {
   primaryTexts?: string[];
   headlines?: string[];
   descriptions?: string[];
+  adPlatform?: AdPlatform;
+  businessName?: string;
+  longHeadline?: string;
+  trackingTemplate?: string;
+  finalUrlSuffix?: string;
+  customParameters?: CustomParameter[];
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";
   rejectionNote?: string;

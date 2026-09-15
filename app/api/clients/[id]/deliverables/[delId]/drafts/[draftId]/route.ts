@@ -117,7 +117,16 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       articleMode, articleCopy, referenceUrl, videoType, videoNotes,
       headline, description, cta, landingUrl, adCopy,
       primaryTexts, headlines, descriptions,
+      adPlatform, businessName, longHeadline,
+      trackingTemplate, finalUrlSuffix, customParameters,
     } = body;
+
+    const customParametersClean =
+      customParameters !== undefined
+        ? (Array.isArray(customParameters) ? customParameters : [])
+            .map((p: { name?: string; value?: string }) => ({ name: String(p?.name ?? "").trim(), value: String(p?.value ?? "").trim() }))
+            .filter((p: { name: string; value: string }) => p.name || p.value)
+        : undefined;
 
     // Meta-style multi-value fields: clean incoming arrays and mirror [0] to the
     // scalar fields the rest of the pipeline reads.
@@ -154,6 +163,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       cta:           draft.cta,
       landingUrl:    draft.landingUrl,
       adCopy:        draft.adCopy,
+      adPlatform:       draft.adPlatform,
+      businessName:     draft.businessName,
+      longHeadline:     draft.longHeadline,
+      trackingTemplate: draft.trackingTemplate,
+      finalUrlSuffix:   draft.finalUrlSuffix,
+      customParameters: draft.customParameters,
     };
 
     if (mediaType !== undefined)     draft.mediaType    = mediaType;
@@ -168,6 +183,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (cta !== undefined)           draft.cta          = cta;
     if (landingUrl !== undefined)    draft.landingUrl   = landingUrl;
     if (adCopy !== undefined)        draft.adCopy       = adCopy;
+    if (adPlatform !== undefined)    draft.adPlatform   = adPlatform === "google" ? "google" : "meta";
+    if (businessName !== undefined)  draft.businessName = businessName;
+    if (longHeadline !== undefined)  draft.longHeadline = longHeadline;
+    if (trackingTemplate !== undefined) draft.trackingTemplate = trackingTemplate;
+    if (finalUrlSuffix !== undefined)   draft.finalUrlSuffix   = finalUrlSuffix;
+    if (customParametersClean !== undefined) draft.customParameters = customParametersClean;
     // Multi-value arrays take precedence over their scalar mirror.
     if (primaryTextsClean !== undefined) { draft.primaryTexts = primaryTextsClean; draft.creativeCopy = primaryTextsClean[0] ?? ""; }
     if (headlinesClean    !== undefined) { draft.headlines    = headlinesClean;    draft.headline     = headlinesClean[0]    ?? ""; }
@@ -310,6 +331,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (cta !== undefined)               newValues.cta          = cta;
     if (landingUrl !== undefined)        newValues.landingUrl   = landingUrl;
     if (adCopy !== undefined)            newValues.adCopy       = adCopy;
+    if (businessName !== undefined)      newValues.businessName = businessName;
+    if (longHeadline !== undefined)      newValues.longHeadline = longHeadline;
+    if (trackingTemplate !== undefined)  newValues.trackingTemplate = trackingTemplate;
+    if (finalUrlSuffix !== undefined)    newValues.finalUrlSuffix   = finalUrlSuffix;
+    if (customParametersClean !== undefined) newValues.customParameters = customParametersClean;
     if (primaryTextsClean !== undefined) newValues.primaryTexts = primaryTextsClean;
     if (headlinesClean    !== undefined) newValues.headlines    = headlinesClean;
     if (descriptionsClean !== undefined) newValues.descriptions = descriptionsClean;

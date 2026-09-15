@@ -33,6 +33,12 @@ export interface ApprovalCopy {
   cta: string;
   landingUrl: string;
   adCopy: string;
+  adPlatform: "meta" | "google";
+  businessName: string;
+  longHeadline: string;
+  trackingTemplate: string;
+  finalUrlSuffix: string;
+  customParameters: { name: string; value: string }[];
   notes: string;
   rejectionNote: string;
   title: string;
@@ -80,6 +86,12 @@ export function toCalendarCopy(copy: ApprovalCopy): CalendarCopy {
     cta: copy.cta,
     landingUrl: copy.landingUrl,
     adCopy: copy.adCopy,
+    adPlatform: copy.adPlatform || "meta",
+    businessName: copy.businessName,
+    longHeadline: copy.longHeadline,
+    trackingTemplate: copy.trackingTemplate,
+    finalUrlSuffix: copy.finalUrlSuffix,
+    customParameters: copy.customParameters ?? [],
     notes: copy.notes,
     status: copy.status as CalendarDraft["status"],
     rejectionNote: copy.rejectionNote,

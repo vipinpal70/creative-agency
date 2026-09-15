@@ -7,6 +7,11 @@ import type { WriterDeliverable } from "./types";
 import { ModuleTag } from "@/components/ui/ModuleTag";
 import { STATUS_LABEL, STATUS_COLOR, normalizeDraftStatus } from "@/lib/status-flow";
 
+// Display label for a paid ad copy's own platform (Meta vs Google), which is
+// chosen per ad copy and is the source of truth for paid cards — not the
+// campaign-inherited platform list on the deliverable.
+const AD_PLATFORM_LABEL: Record<string, string> = { meta: "Meta", google: "Google" };
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60_000);
@@ -132,10 +137,16 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                     {draft?.publishTime ? ` at ${draft.publishTime}` : ""}
                   </span>
                 )}
-                {copy.platforms && copy.platforms.length > 0 && (
+                {module === "paid" && draft?.adPlatform ? (
                   <span className="flex items-center gap-1">
-                    {copy.platforms.join(", ")}
+                    {AD_PLATFORM_LABEL[draft.adPlatform] ?? draft.adPlatform}
                   </span>
+                ) : (
+                  copy.platforms && copy.platforms.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      {copy.platforms.join(", ")}
+                    </span>
+                  )
                 )}
                 <span className="flex items-center gap-1">
                   <Image className="h-3 w-3" />

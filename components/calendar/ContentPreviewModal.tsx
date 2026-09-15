@@ -39,6 +39,7 @@ import {
 import type { DraftStatus } from "@/lib/status-flow";
 import { FeedbackModal } from "@/components/ui/feedback-modal";
 import { AdPreviewCard } from "@/components/writer/AdPreviewCard";
+import { GoogleAdPreviewCard } from "@/components/writer/GoogleAdPreviewCard";
 import { PaidDetailsForm } from "./PaidDetailsForm";
 import { useAuth } from "@/hooks/useAuth";
 import type { CalendarCopy, CalendarDraft } from "./types";
@@ -579,6 +580,20 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
     }
 
     if (item.module === "paid") {
+      if (draft?.adPlatform === "google") {
+        return (
+          <GoogleAdPreviewCard
+            businessName={draft?.businessName}
+            headlines={draft?.headlines}
+            longHeadline={draft?.longHeadline}
+            descriptions={draft?.descriptions}
+            frames={draft?.frames}
+            imageUrl={draft?.imageUrl}
+            cta={draft?.cta}
+            landingUrl={draft?.landingUrl}
+          />
+        );
+      }
       return (
         <AdPreviewCard
           mediaType={draft?.mediaType || item.type}
@@ -948,6 +963,12 @@ export function ContentPreviewModal({
           descriptions: d.descriptions?.length ? d.descriptions : d.description ? [d.description] : [],
           cta:          d.cta,
           landingUrl:   d.landingUrl,
+          adPlatform:       d.adPlatform ?? "meta",
+          businessName:     d.businessName ?? "",
+          longHeadline:     d.longHeadline ?? "",
+          trackingTemplate: d.trackingTemplate ?? "",
+          finalUrlSuffix:   d.finalUrlSuffix ?? "",
+          customParameters: d.customParameters ?? [],
         });
       }
       setFeedbackOpen(false);
@@ -994,6 +1015,11 @@ export function ContentPreviewModal({
               videoNotes:   form.videoNotes,
               notes:        form.notes,
               referenceUrl: form.referenceUrl,
+              businessName:     form.businessName,
+              longHeadline:     form.longHeadline,
+              trackingTemplate: form.trackingTemplate,
+              finalUrlSuffix:   form.finalUrlSuffix,
+              customParameters: form.customParameters,
             }
           : {
               caption:      form.caption,
