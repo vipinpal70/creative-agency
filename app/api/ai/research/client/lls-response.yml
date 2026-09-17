@@ -1,0 +1,1263 @@
+{
+  clientId: ObjectId('6a670231be56f995394b795b'),
+  initiatedBy: ObjectId('6a670231be56f995394b795b'),
+  type: 'client_onboarding',
+  status: 'completed',
+  promptVersion: NumberInt('1'),
+  promptUsed: 'Research this client and identify their business, services, target audience and top competitors.',
+  inputSnapshot: {
+    client: {
+      clientId: '6a670231be56f995394b795b',
+      business: {
+        name: 'BioPure India',
+        brandName: 'BioPure',
+        industry: 'FMCG',
+        website: 'https://biopureindia.co/',
+        aboutBrand: '',
+        requirementNotes: ''
+      },
+      competitors: [],
+      socialMediaPresence: [],
+      assignedTeam: [
+        ObjectId('6a5f177a1b8aa95e8a09038c'),
+        ObjectId('6a5f133d1b8aa95e8a09037f'),
+        ObjectId('6a5f171d1b8aa95e8a09038a'),
+        ObjectId('6a5f14641b8aa95e8a090383'),
+        ObjectId('6a5f16d01b8aa95e8a090387')
+      ],
+      documents: [
+        {
+          id: '6a7edc4f3edc26c7a5b10843',
+          name: '15_august-01.jpg',
+          fileUrl: '/uploads/biopure_india/1786698831828-15_august-01.jpg',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1786698831828-15_august-01.jpg',
+          fileSize: NumberInt('260472'),
+          uploadedAt: ISODate('2026-08-14T09:13:51.829Z'),
+          uploadedBy: '6a5f133d1b8aa95e8a09037f'
+        },
+        {
+          id: '6a7edc543edc26c7a5b10856',
+          name: '15_august-02.jpg',
+          fileUrl: '/uploads/biopure_india/1786698836468-15_august-02.jpg',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1786698836468-15_august-02.jpg',
+          fileSize: NumberInt('247159'),
+          uploadedAt: ISODate('2026-08-14T09:13:56.483Z'),
+          uploadedBy: '6a5f133d1b8aa95e8a09037f'
+        },
+        {
+          id: '6a7edc5d3edc26c7a5b10869',
+          name: '15_august-03.jpg',
+          fileUrl: '/uploads/biopure_india/1786698845859-15_august-03.jpg',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1786698845859-15_august-03.jpg',
+          fileSize: NumberInt('264165'),
+          uploadedAt: ISODate('2026-08-14T09:14:05.869Z'),
+          uploadedBy: '6a5f133d1b8aa95e8a09037f'
+        },
+        {
+          id: '6a7edc633edc26c7a5b1087c',
+          name: '15_august-04.jpg',
+          fileUrl: '/uploads/biopure_india/1786698851846-15_august-04.jpg',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1786698851846-15_august-04.jpg',
+          fileSize: NumberInt('238501'),
+          uploadedAt: ISODate('2026-08-14T09:14:11.848Z'),
+          uploadedBy: '6a5f133d1b8aa95e8a09037f'
+        },
+        {
+          id: '6a7edc683edc26c7a5b1088f',
+          name: '15_august-05.jpg',
+          fileUrl: '/uploads/biopure_india/1786698856188-15_august-05.jpg',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1786698856188-15_august-05.jpg',
+          fileSize: NumberInt('272034'),
+          uploadedAt: ISODate('2026-08-14T09:14:16.190Z'),
+          uploadedBy: '6a5f133d1b8aa95e8a09037f'
+        },
+        {
+          id: '6a7edc6d3edc26c7a5b108a2',
+          name: '15_august-06.jpg',
+          fileUrl: '/uploads/biopure_india/1786698861092-15_august-06.jpg',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1786698861092-15_august-06.jpg',
+          fileSize: NumberInt('230816'),
+          uploadedAt: ISODate('2026-08-14T09:14:21.093Z'),
+          uploadedBy: '6a5f133d1b8aa95e8a09037f'
+        },
+        {
+          id: '6a7edc723edc26c7a5b108b5',
+          name: '15_august-07.jpg',
+          fileUrl: '/uploads/biopure_india/1786698866274-15_august-07.jpg',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1786698866274-15_august-07.jpg',
+          fileSize: NumberInt('335034'),
+          uploadedAt: ISODate('2026-08-14T09:14:26.276Z'),
+          uploadedBy: '6a5f133d1b8aa95e8a09037f'
+        },
+        {
+          id: '6a7f104b3edc26c7a5b109cd',
+          name: '15_august-07.jpg',
+          fileUrl: '/uploads/biopure_india/1786712139263-15_august-07.jpg',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1786712139263-15_august-07.jpg',
+          fileSize: NumberInt('265706'),
+          uploadedAt: ISODate('2026-08-14T12:55:39.280Z'),
+          uploadedBy: '6a5f133d1b8aa95e8a09037f'
+        },
+        {
+          id: '6a8415743edc26c7a5b10cf3',
+          name: '19-August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787041140226-19-August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787041140226-19-August-post1.png',
+          fileSize: NumberInt('1931947'),
+          uploadedAt: ISODate('2026-08-18T08:19:00.241Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a844ec93edc26c7a5b10d6f',
+          name: '20August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787055816905-20August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787055816905-20August-post1.png',
+          fileSize: NumberInt('2176277'),
+          uploadedAt: ISODate('2026-08-18T12:23:37.042Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a844ecc3edc26c7a5b10d7a',
+          name: '20August-post2.png',
+          fileUrl: '/uploads/biopure_india/1787055820644-20August-post2.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787055820644-20August-post2.png',
+          fileSize: NumberInt('1789067'),
+          uploadedAt: ISODate('2026-08-18T12:23:40.664Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a844ed03edc26c7a5b10d85',
+          name: '20August-post3.png',
+          fileUrl: '/uploads/biopure_india/1787055824114-20August-post3.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787055824114-20August-post3.png',
+          fileSize: NumberInt('2174797'),
+          uploadedAt: ISODate('2026-08-18T12:23:44.213Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a86adf488ae48c5e0ad95d3',
+          name: '30-August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787211251988-30-August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787211251988-30-August-post1.png',
+          fileSize: NumberInt('755250'),
+          uploadedAt: ISODate('2026-08-20T07:34:12.035Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a86ae6f88ae48c5e0ad95dd',
+          name: '25-August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787211375532-25-August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787211375532-25-August-post1.png',
+          fileSize: NumberInt('1456092'),
+          uploadedAt: ISODate('2026-08-20T07:36:15.596Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a86e0c4e734f9e7c87a7e30',
+          name: '26-August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787224260576-26-August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787224260576-26-August-post1.png',
+          fileSize: NumberInt('722476'),
+          uploadedAt: ISODate('2026-08-20T11:11:00.579Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a86e0c8e734f9e7c87a7e3d',
+          name: '26-August-post2.png',
+          fileUrl: '/uploads/biopure_india/1787224264380-26-August-post2.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787224264380-26-August-post2.png',
+          fileSize: NumberInt('725811'),
+          uploadedAt: ISODate('2026-08-20T11:11:04.384Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a86e0cde734f9e7c87a7e4a',
+          name: '26-August-post3.png',
+          fileUrl: '/uploads/biopure_india/1787224269406-26-August-post3.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787224269406-26-August-post3.png',
+          fileSize: NumberInt('709570'),
+          uploadedAt: ISODate('2026-08-20T11:11:09.408Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a86e0d3e734f9e7c87a7e57',
+          name: '26-August-post4.png',
+          fileUrl: '/uploads/biopure_india/1787224275875-26-August-post4.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787224275875-26-August-post4.png',
+          fileSize: NumberInt('927319'),
+          uploadedAt: ISODate('2026-08-20T11:11:15.881Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a8803c7e734f9e7c87a7ee5',
+          name: '23-August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787298759103-23-August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787298759103-23-August-post1.png',
+          fileSize: NumberInt('1759453'),
+          uploadedAt: ISODate('2026-08-21T07:52:39.149Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a8803cce734f9e7c87a7ef4',
+          name: '23-August-post2.png',
+          fileUrl: '/uploads/biopure_india/1787298764911-23-August-post2.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787298764911-23-August-post2.png',
+          fileSize: NumberInt('1511208'),
+          uploadedAt: ISODate('2026-08-21T07:52:44.925Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a8803d2e734f9e7c87a7f03',
+          name: '23-August-post3.png',
+          fileUrl: '/uploads/biopure_india/1787298770668-23-August-post3.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787298770668-23-August-post3.png',
+          fileSize: NumberInt('1763912'),
+          uploadedAt: ISODate('2026-08-21T07:52:50.695Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a8803d8e734f9e7c87a7f12',
+          name: '23-August-post4.png',
+          fileUrl: '/uploads/biopure_india/1787298776129-23-August-post4.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787298776129-23-August-post4.png',
+          fileSize: NumberInt('1639465'),
+          uploadedAt: ISODate('2026-08-21T07:52:56.145Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a8803dce734f9e7c87a7f21',
+          name: '23-August-post5.png',
+          fileUrl: '/uploads/biopure_india/1787298780431-23-August-post5.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787298780431-23-August-post5.png',
+          fileSize: NumberInt('1682741'),
+          uploadedAt: ISODate('2026-08-21T07:53:00.449Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a884b1fe734f9e7c87a7fe9',
+          name: '29-August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787317023320-29-August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787317023320-29-August-post1.png',
+          fileSize: NumberInt('2534545'),
+          uploadedAt: ISODate('2026-08-21T12:57:03.346Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a884b23e734f9e7c87a7ffa',
+          name: '29-August-post2.png',
+          fileUrl: '/uploads/biopure_india/1787317027662-29-August-post2.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787317027662-29-August-post2.png',
+          fileSize: NumberInt('2650578'),
+          uploadedAt: ISODate('2026-08-21T12:57:07.695Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a884b28e734f9e7c87a800b',
+          name: '29-August-post3.png',
+          fileUrl: '/uploads/biopure_india/1787317031911-29-August-post3.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787317031911-29-August-post3.png',
+          fileSize: NumberInt('2611627'),
+          uploadedAt: ISODate('2026-08-21T12:57:12.011Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a884b2fe734f9e7c87a801c',
+          name: '29-August-post4.png',
+          fileUrl: '/uploads/biopure_india/1787317039380-29-August-post4.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787317039380-29-August-post4.png',
+          fileSize: NumberInt('3041729'),
+          uploadedAt: ISODate('2026-08-21T12:57:19.479Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a884b34e734f9e7c87a802d',
+          name: '29-August-post5.png',
+          fileUrl: '/uploads/biopure_india/1787317044151-29-August-post5.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787317044151-29-August-post5.png',
+          fileSize: NumberInt('2155739'),
+          uploadedAt: ISODate('2026-08-21T12:57:24.170Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a884b39e734f9e7c87a803e',
+          name: '29-August-post6.png',
+          fileUrl: '/uploads/biopure_india/1787317049315-29-August-post6.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787317049315-29-August-post6.png',
+          fileSize: NumberInt('1916340'),
+          uploadedAt: ISODate('2026-08-21T12:57:29.324Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a8be0ede734f9e7c87a8199',
+          name: '25-August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787551981083-25-August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787551981083-25-August-post1.png',
+          fileSize: NumberInt('1464610'),
+          uploadedAt: ISODate('2026-08-24T06:13:01.106Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a8bf8a0e734f9e7c87a81c7',
+          name: '30-2-August-post1.png',
+          fileUrl: '/uploads/biopure_india/1787558048656-30-2-August-post1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787558048656-30-2-August-post1.png',
+          fileSize: NumberInt('1653738'),
+          uploadedAt: ISODate('2026-08-24T07:54:08.699Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6a902c1f2af48d5a9f33cbda',
+          name: '30-2-August-post2.png',
+          fileUrl: '/uploads/biopure_india/1787833375903-30-2-August-post2.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1787833375903-30-2-August-post2.png',
+          fileSize: NumberInt('1775414'),
+          uploadedAt: ISODate('2026-08-27T12:22:55.917Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa910f27f08329275045fa5',
+          name: '15-Sept.-carousel1.png',
+          fileUrl: '/uploads/biopure_india/1789464818037-15-Sept.-carousel1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789464818037-15-Sept.-carousel1.png',
+          fileSize: NumberInt('1471721'),
+          uploadedAt: ISODate('2026-09-15T09:33:38.045Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa910fe7f08329275045fae',
+          name: '15-Sept.-carousel2.png',
+          fileUrl: '/uploads/biopure_india/1789464830827-15-Sept.-carousel2.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789464830827-15-Sept.-carousel2.png',
+          fileSize: NumberInt('1329641'),
+          uploadedAt: ISODate('2026-09-15T09:33:50.832Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa911727f08329275045fc4',
+          name: 'KINDA-CHIC6.png',
+          fileUrl: '/uploads/biopure_india/1789464946542-KINDA-CHIC6.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789464946542-KINDA-CHIC6.png',
+          fileSize: NumberInt('1518113'),
+          uploadedAt: ISODate('2026-09-15T09:35:46.551Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa9117c7f08329275045fd5',
+          name: 'KINDA-CHIC1.png',
+          fileUrl: '/uploads/biopure_india/1789464956276-KINDA-CHIC1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789464956276-KINDA-CHIC1.png',
+          fileSize: NumberInt('1877220'),
+          uploadedAt: ISODate('2026-09-15T09:35:56.283Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa911e87f08329275045fe6',
+          name: 'KINDA-CHIC2.png',
+          fileUrl: '/uploads/biopure_india/1789465064714-KINDA-CHIC2.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789465064714-KINDA-CHIC2.png',
+          fileSize: NumberInt('1918059'),
+          uploadedAt: ISODate('2026-09-15T09:37:44.728Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa911ec7f08329275045ff7',
+          name: 'KINDA-CHIC3.png',
+          fileUrl: '/uploads/biopure_india/1789465068859-KINDA-CHIC3.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789465068859-KINDA-CHIC3.png',
+          fileSize: NumberInt('1930466'),
+          uploadedAt: ISODate('2026-09-15T09:37:48.863Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa911f07f08329275046008',
+          name: 'KINDA-CHIC4.png',
+          fileUrl: '/uploads/biopure_india/1789465072293-KINDA-CHIC4.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789465072293-KINDA-CHIC4.png',
+          fileSize: NumberInt('1958457'),
+          uploadedAt: ISODate('2026-09-15T09:37:52.302Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa911f37f08329275046019',
+          name: 'KINDA-CHIC5.png',
+          fileUrl: '/uploads/biopure_india/1789465075544-KINDA-CHIC5.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789465075544-KINDA-CHIC5.png',
+          fileSize: NumberInt('2212953'),
+          uploadedAt: ISODate('2026-09-15T09:37:55.572Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aa911f77f0832927504602a',
+          name: 'KINDA-CHIC6.png',
+          fileUrl: '/uploads/biopure_india/1789465079512-KINDA-CHIC6.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789465079512-KINDA-CHIC6.png',
+          fileSize: NumberInt('1518113'),
+          uploadedAt: ISODate('2026-09-15T09:37:59.519Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aaa64cf7f08329275046272',
+          name: '3rd-Sep.-StaticArtboard-1.png',
+          fileUrl: '/uploads/biopure_india/1789551823207-3rd-Sep.-StaticArtboard-1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789551823207-3rd-Sep.-StaticArtboard-1.png',
+          fileSize: NumberInt('1722271'),
+          uploadedAt: ISODate('2026-09-16T09:43:43.212Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aaa65337f08329275046281',
+          name: '9-Sept.-Statics-carousel1.png',
+          fileUrl: '/uploads/biopure_india/1789551923239-9-Sept.-Statics-carousel1.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789551923239-9-Sept.-Statics-carousel1.png',
+          fileSize: NumberInt('1818071'),
+          uploadedAt: ISODate('2026-09-16T09:45:23.244Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aaa65367f08329275046290',
+          name: '9-Sept.-Statics-carousel2.png',
+          fileUrl: '/uploads/biopure_india/1789551926927-9-Sept.-Statics-carousel2.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789551926927-9-Sept.-Statics-carousel2.png',
+          fileSize: NumberInt('1606500'),
+          uploadedAt: ISODate('2026-09-16T09:45:26.930Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aaa653b7f0832927504629f',
+          name: '9-Sept.-Statics-carousel3.png',
+          fileUrl: '/uploads/biopure_india/1789551931668-9-Sept.-Statics-carousel3.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789551931668-9-Sept.-Statics-carousel3.png',
+          fileSize: NumberInt('1672082'),
+          uploadedAt: ISODate('2026-09-16T09:45:31.670Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aaa65407f083292750462ae',
+          name: '9-Sept.-Statics-carousel4.png',
+          fileUrl: '/uploads/biopure_india/1789551936051-9-Sept.-Statics-carousel4.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789551936051-9-Sept.-Statics-carousel4.png',
+          fileSize: NumberInt('2038948'),
+          uploadedAt: ISODate('2026-09-16T09:45:36.083Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        },
+        {
+          id: '6aaa65447f083292750462bd',
+          name: '9-Sept.-Statics-carousel5.png',
+          fileUrl: '/uploads/biopure_india/1789551940577-9-Sept.-Statics-carousel5.png',
+          filePath: '/home/ubuntu/creative-agency/public/uploads/biopure_india/1789551940577-9-Sept.-Statics-carousel5.png',
+          fileSize: NumberInt('1606627'),
+          uploadedAt: ISODate('2026-09-16T09:45:40.605Z'),
+          uploadedBy: '6a5f14641b8aa95e8a090383'
+        }
+      ],
+      meetingLogs: []
+    }
+  },
+  businessSearch: {
+    queries: [],
+    results: []
+  },
+  competitorSearch: {
+    queries: [],
+    results: []
+  },
+  competitorAnalysis: [
+    {
+      name: 'Koparo Clean',
+      website: 'https://koparoclean.com',
+      location: 'New Delhi, India',
+      industry: 'FMCG - Eco-friendly Cleaning Products',
+      services: [
+        'Floor cleaners',
+        'Dishwashing liquids',
+        'Laundry detergents',
+        'Toilet cleaners',
+        'Hand washes',
+        'Air fresheners',
+        'All-purpose cleaners',
+        'Fabric conditioners'
+      ],
+      targetAudience: [
+        'Urban millennial parents',
+        'Pet owners',
+        'Health-conscious families',
+        'Eco-conscious consumers',
+        'Households with children and pets',
+        'Direct-to-consumer e-commerce shoppers'
+      ],
+      positioning: 'India\'s leading brand in eco-friendly, pet-safe, and child-friendly cleaning products. Positioned as a toxin-free alternative to chemical-laden cleaners, emphasizing science-backed formulations and transparency.',
+      valuePropositions: [
+        'Plant-based, biodegradable, non-toxic formulations',
+        'Pet-safe and child-friendly (dermatologically tested)',
+        'Coconut-based surfactants',
+        'Science-backed, effective cleaning power',
+        'Transparency and ingredient disclosure',
+        'Safe for all fabric types including baby clothes'
+      ],
+      contentThemes: [
+        'Pet and child safety',
+        'Health dangers of conventional cleaners',
+        'Transparency and trust-building',
+        'Family wellness',
+        'Environmental sustainability',
+        'Science-backed efficacy',
+        'Conscious living'
+      ],
+      socialPlatforms: [
+        'Instagram',
+        'Facebook',
+        'YouTube',
+        'LinkedIn'
+      ],
+      strengths: [
+        'Shark Tank India investment and brand visibility',
+        'Reached 800,000 homes by 2024',
+        'Strong founder story (mother-founded)',
+        'Post-Shark Tank valuation of ~₹124 crores',
+        'Monthly revenue of ₹3 crores reported',
+        'Omnichannel distribution (D2C, e-commerce, retail)',
+        'Strong digital marketing and influencer partnerships',
+        'PETA certification (100% vegan and cruelty-free)'
+      ],
+      weaknesses: [
+        'Premium pricing positioning may limit mass-market reach',
+        'Earlier monthly losses reported (₹21 lakh at Shark Tank pitch)',
+        'Relatively newer entrant compared to established brands',
+        'Coconut-based formulations may have regional availability constraints'
+      ],
+      differentiation: 'Founder-led trust narrative combined with science-backed coconut-based formulations. Strong emphasis on toxin-free positioning and safety certification. Largest reach among eco-friendly cleaning brands in India with proven market traction post-Shark Tank.',
+      sources: [
+        {
+          title: 'Koparo Clean: Funding, Team & Investors',
+          url: 'https://startupintros.com/orgs/koparo-clean'
+        },
+        {
+          title: 'Koparo Clean - About Us',
+          url: 'https://koparoclean.com/pages/about-us'
+        },
+        {
+          title: 'Koparo Clean Digital Marketing Strategies',
+          url: 'https://gtbinstitute.com/gtbblog/koparo-clean-india-digital-marketing-strategies/'
+        }
+      ]
+    },
+    {
+      name: 'The Better Home (GlobalBees)',
+      website: 'https://thebetterhome.com',
+      location: 'New Delhi, India',
+      industry: 'FMCG - Sustainable Home Care & Cleaning',
+      services: [
+        'Floor cleaners',
+        'Laundry liquid detergents',
+        'All-purpose cleaners',
+        'Toilet cleaners',
+        'Multi-surface cleaners',
+        'Innovative dissolvable capsule concentrates',
+        'Refillable packaging options',
+        'Home care accessories'
+      ],
+      targetAudience: [
+        'Sustainability-focused families',
+        'Eco-conscious urban consumers',
+        'Pet and child-safe product seekers',
+        'D2C e-commerce customers',
+        'Zero-waste lifestyle adopters',
+        'Subscription-model repeat buyers'
+      ],
+      positioning: 'Premium sustainable home care brand owned by GlobalBees. Positioned as a family-safe, biodegradable solution that prioritizes circular economy through recycling programs and sustainable packaging innovation.',
+      valuePropositions: [
+        '100% natural, organic, chemical-free formulations',
+        'Bio-active enzymes for natural cleaning',
+        'Family-safe and biodegradable',
+        'Pioneering recycling and packaging take-back program',
+        'Natural ingredients (Neem, Tea Tree, Aloe Vera)',
+        'Innovative dissolvable capsule technology',
+        'Sustainability-first approach'
+      ],
+      contentThemes: [
+        'Sustainability and zero-waste living',
+        'Circular economy and recycling',
+        'Family safety and wellness',
+        'Natural ingredient benefits',
+        'Environmental responsibility',
+        'Packaging innovation',
+        'Pet and child safety'
+      ],
+      socialPlatforms: [
+        'Instagram',
+        'Facebook',
+        'YouTube',
+        'Blog/Content Marketing'
+      ],
+      strengths: [
+        'Part of GlobalBees, a well-funded house of brands platform',
+        'Over 70,000 customers in 600+ cities',
+        'First brand to implement take-back and recycling program at scale in India',
+        '50% repeat order rate with successful subscription model',
+        'Innovative dissolvable capsule concentrate products',
+        'Strong sustainability narrative and certifications',
+        'Available on major e-commerce and own platform'
+      ],
+      weaknesses: [
+        'Less founder-led narrative compared to newer competitors',
+        'Ownership by GlobalBees may dilute brand authenticity',
+        'Premium pricing positioning',
+        'Recycling program may require customer participation'
+      ],
+      differentiation: 'Emphasis on circular economy and recycling innovation. The Better Home pioneered the take-back and recycling program at scale. Offers innovative dissolvable capsule technology. Strong commitment to packaging sustainability sets them apart in sustainability messaging.',
+      sources: [
+        {
+          title: 'GlobalBees acquires The Better Home',
+          url: 'https://thebetterhome.com/products/the-better-home-all-purpose-cleaner-concentrate-1000000045299'
+        },
+        {
+          title: 'The Better Home Floor Cleaner',
+          url: 'https://shop.globalbees.com/products/the-better-home-family-safe-floor-cleaner-liquid-5-1000000002943'
+        },
+        {
+          title: 'The Better Home - GlobalBees Acquisition',
+          url: 'https://tvwnewsindia.com/2021/08/31/globalbees-acquires-sustainable-home-care-company-the-better-home/'
+        }
+      ]
+    },
+    {
+      name: 'Born Good',
+      website: 'https://www.borngood.in',
+      location: 'Bengaluru, India',
+      industry: 'FMCG - Plant-Based Home Care Products',
+      services: [
+        'Liquid detergents',
+        'Floor cleaners',
+        'Dishwashing gels',
+        'Fabric conditioners',
+        'Laundry detergents (specialized formulas)',
+        'All-purpose cleaners',
+        'Concentrate cleaners in glass packaging',
+        'Refill packs'
+      ],
+      targetAudience: [
+        'Health and environmentally conscious consumers',
+        'Families seeking transparent ingredient disclosure',
+        'Pet and child-safe product seekers',
+        'Consumers concerned about ocean and environmental impact',
+        'Tech-savvy consumers valuing certifications',
+        'Premium eco-conscious market'
+      ],
+      positioning: 'India\'s first USDA-certified plant-based home care brand. Positioned as the transparency leader with scientifically-proven efficacy equivalent to traditional cleaners. Strong emphasis on certification, ingredient clarity, and environmental responsibility.',
+      valuePropositions: [
+        'India\'s first USDA-certified plant-based cleaning products',
+        'Transparent ingredient disclosure with QR codes',
+        'Lab-tested efficacy (Bureau Veritas certified)',
+        'Plant-based ingredients (coconut extracts, sugarcane glycerine)',
+        'Zero toxins and safe for kids, pets, and skin',
+        '2X EPR certified (recycles twice as much plastic as sold)',
+        'Manufacturing partners on ZDHC gateway'
+      ],
+      contentThemes: [
+        'Transparency and ingredient honesty',
+        'Scientific certification and lab-tested efficacy',
+        'Ocean and environmental protection',
+        'Health safety for families',
+        'Sustainability and circular economy',
+        'Debunking myths about plant-based cleaning power',
+        'Plastic reduction and recycling'
+      ],
+      socialPlatforms: [
+        'Instagram (@borngoodofficial)',
+        'Twitter/X',
+        'Blog/Website'
+      ],
+      strengths: [
+        'First and only USDA-certified plant-based cleaning range in India',
+        'Rigorous third-party certifications and transparency',
+        'Bureau Veritas testing confirms equal or better efficacy than traditional cleaners',
+        '2X EPR certified - pioneering plastic recycling commitment',
+        'Strong scientific narrative with detailed ingredient breakdown',
+        'Innovative products (Shade Revive, Anti-Microbial detergents)',
+        'ZDHC manufacturing partnership ensures environmental safety',
+        'Clear competitive differentiation through certifications'
+      ],
+      weaknesses: [
+        'Premium pricing positioning limits mass-market accessibility',
+        'Less mainstream brand awareness compared to Koparo Clean',
+        'Reliance on certifications may be complex for average consumers',
+        'Smaller customer base relative to larger competitors'
+      ],
+      differentiation: 'Unmatched transparency through USDA certification with BioBased scoring visible on products. Scientific credibility through Bureau Veritas testing. Innovative products for specific needs (color restoration, antimicrobial activewear). Strong environmental commitment through 2X EPR certification.',
+      sources: [
+        {
+          title: 'Born Good - About Us',
+          url: 'https://www.borngood.in/pages/about'
+        },
+        {
+          title: 'Born Good USDA Certification',
+          url: 'https://www.borngood.in/blogs/the-good-blog/eco-friendly-home-cleaning-products'
+        },
+        {
+          title: 'Born Good Company Profile',
+          url: 'https://yourstory.com/companies/borngood'
+        }
+      ]
+    },
+    {
+      name: 'Greenworx',
+      website: 'Not readily available',
+      location: 'Ahmedabad, India',
+      industry: 'FMCG - Plant-Based Cleaning Products',
+      services: [
+        'Floor cleaners',
+        'Bathroom cleaners',
+        'Laundry cleaners',
+        'Dishwashing liquids',
+        'Plant-based multi-surface solutions'
+      ],
+      targetAudience: [
+        'Eco-conscious consumers',
+        'Health-aware households',
+        'Consumers avoiding harsh chemical scents',
+        'Sustainability-focused buyers'
+      ],
+      positioning: 'Consumer-facing startup delivering plant-based, non-toxic, and eco-friendly cleaning products. Positioned as effective cleaning solutions without harsh chemical odors, appealing to health-conscious consumers.',
+      valuePropositions: [
+        'Plant-based, non-toxic formulations',
+        'Eco-friendly cleaning solutions',
+        'No harsh chemical scents',
+        'Effective cleaning performance',
+        'Health-friendly alternatives'
+      ],
+      contentThemes: [
+        'Health and wellness benefits',
+        'Natural cleaning power',
+        'Eco-consciousness',
+        'Chemical-free living'
+      ],
+      socialPlatforms: [
+        'Social media presence (platforms not specified)'
+      ],
+      strengths: [
+        'Early mover in Ahmedabad eco-cleaning market',
+        'Strong appeal to health-conscious consumers',
+        'Comprehensive product range across cleaning categories'
+      ],
+      weaknesses: [
+        'Limited information available publicly',
+        'Regional focus may limit expansion',
+        'Less brand visibility compared to major competitors',
+        'No prominent certifications mentioned'
+      ],
+      differentiation: 'Regional startup positioning with focus on health benefits and chemical-free messaging. Appeals to consumers specifically seeking non-chemical odor solutions.',
+      sources: [
+        {
+          title: 'Eco-Friendly Cleaning Products in India',
+          url: 'https://changestarted.com/cleaning-the-right-way-eco-friendly-cleaning-products-in-india/'
+        }
+      ]
+    }
+  ],
+  sources: [
+    {
+      title: 'BioPure India Official Website',
+      url: 'https://biopureindia.co',
+      _id: ObjectId('6aaa7f4cc7f72d93f8d190c1')
+    },
+    {
+      title: 'Koparo Clean Official Website',
+      url: 'https://koparoclean.com',
+      _id: ObjectId('6aaa7f4cc7f72d93f8d190c2')
+    },
+    {
+      title: 'The Better Home Official Website',
+      url: 'https://thebetterhome.com',
+      _id: ObjectId('6aaa7f4cc7f72d93f8d190c3')
+    },
+    {
+      title: 'Born Good Official Website',
+      url: 'https://www.borngood.in',
+      _id: ObjectId('6aaa7f4cc7f72d93f8d190c4')
+    },
+    {
+      title: 'India Eco-Friendly Home Hygiene Products Market Size Report',
+      url: 'https://www.researchandmarkets.com/report/india-green-cleaning-market',
+      _id: ObjectId('6aaa7f4cc7f72d93f8d190c5')
+    },
+    {
+      title: 'Eco-Friendly Cleaning Products in India Analysis',
+      url: 'https://changestarted.com/cleaning-the-right-way-eco-friendly-cleaning-products-in-india/',
+      _id: ObjectId('6aaa7f4cc7f72d93f8d190c6')
+    },
+    {
+      title: 'Top 100 Green Cleaning Companies in India',
+      url: 'https://ensun.io/search/green-cleaning/india',
+      _id: ObjectId('6aaa7f4cc7f72d93f8d190c7')
+    }
+  ],
+  createdAt: ISODate('2026-09-16T11:35:52.363Z'),
+  updatedAt: ISODate('2026-09-16T11:36:44.003Z'),
+  __v: NumberInt('0'),
+  businessAnalysis: {
+    businessSummary: 'BioPure India is an eco-friendly FMCG brand specializing in organic, chemical-free cleaning products powered by eco-enzymes. The company offers a comprehensive range of sustainable household cleaners positioned as safe alternatives to conventional chemical-laden products.',
+    industry: 'FMCG (Fast-Moving Consumer Goods) - Household Cleaning Products',
+    services: [
+      'Hand wash products',
+      'Dish wash / Culinary care products',
+      'Floor cleaner',
+      'Glass cleaner',
+      'Toilet cleaner',
+      'Laundry wash products',
+      'Multi-surface cleaning solutions'
+    ],
+    targetAudience: [
+      'Health-conscious consumers',
+      'Eco-aware households',
+      'Families with children and pets',
+      'Urban millennials and Gen Z',
+      'Sustainability-focused consumers',
+      'Consumers seeking toxin-free alternatives'
+    ],
+    positioning: 'BioPure positions itself as India\'s premium eco-enzyme powered cleaning brand, offering chemical-free, family-safe, and biodegradable cleaning solutions. The brand emphasizes safety for families and the environment without compromising on cleaning efficacy.',
+    valuePropositions: [
+      '100% chemical-free formulations',
+      'Eco-enzyme powered technology',
+      'Safe for children and pets',
+      'Biodegradable and vegan products',
+      'Free from SLS, parabens, HCL and bleach',
+      'Multi-category product range for complete home cleaning',
+      'Family-safe alternative to conventional cleaners'
+    ],
+    brandTone: [
+      'Safety-conscious and reassuring',
+      'Environmentally responsible',
+      'Modern and health-focused',
+      'Transparent about ingredients',
+      'Community-oriented'
+    ],
+    contentThemes: [
+      'Health and safety benefits',
+      'Environmental sustainability',
+      'Family wellness',
+      'Pet safety',
+      'Eco-enzyme technology education',
+      'Ingredient transparency',
+      'Clean home, clean planet messaging'
+    ]
+  },
+  finalAnalysis: {
+    businessAnalysis: {
+      businessSummary: 'BioPure India is an eco-friendly FMCG brand specializing in organic, chemical-free cleaning products powered by eco-enzymes. The company offers a comprehensive range of sustainable household cleaners positioned as safe alternatives to conventional chemical-laden products.',
+      industry: 'FMCG (Fast-Moving Consumer Goods) - Household Cleaning Products',
+      services: [
+        'Hand wash products',
+        'Dish wash / Culinary care products',
+        'Floor cleaner',
+        'Glass cleaner',
+        'Toilet cleaner',
+        'Laundry wash products',
+        'Multi-surface cleaning solutions'
+      ],
+      targetAudience: [
+        'Health-conscious consumers',
+        'Eco-aware households',
+        'Families with children and pets',
+        'Urban millennials and Gen Z',
+        'Sustainability-focused consumers',
+        'Consumers seeking toxin-free alternatives'
+      ],
+      positioning: 'BioPure positions itself as India\'s premium eco-enzyme powered cleaning brand, offering chemical-free, family-safe, and biodegradable cleaning solutions. The brand emphasizes safety for families and the environment without compromising on cleaning efficacy.',
+      valuePropositions: [
+        '100% chemical-free formulations',
+        'Eco-enzyme powered technology',
+        'Safe for children and pets',
+        'Biodegradable and vegan products',
+        'Free from SLS, parabens, HCL and bleach',
+        'Multi-category product range for complete home cleaning',
+        'Family-safe alternative to conventional cleaners'
+      ],
+      brandTone: [
+        'Safety-conscious and reassuring',
+        'Environmentally responsible',
+        'Modern and health-focused',
+        'Transparent about ingredients',
+        'Community-oriented'
+      ],
+      contentThemes: [
+        'Health and safety benefits',
+        'Environmental sustainability',
+        'Family wellness',
+        'Pet safety',
+        'Eco-enzyme technology education',
+        'Ingredient transparency',
+        'Clean home, clean planet messaging'
+      ]
+    },
+    competitors: [
+      {
+        name: 'Koparo Clean',
+        website: 'https://koparoclean.com',
+        location: 'New Delhi, India',
+        industry: 'FMCG - Eco-friendly Cleaning Products',
+        services: [
+          'Floor cleaners',
+          'Dishwashing liquids',
+          'Laundry detergents',
+          'Toilet cleaners',
+          'Hand washes',
+          'Air fresheners',
+          'All-purpose cleaners',
+          'Fabric conditioners'
+        ],
+        targetAudience: [
+          'Urban millennial parents',
+          'Pet owners',
+          'Health-conscious families',
+          'Eco-conscious consumers',
+          'Households with children and pets',
+          'Direct-to-consumer e-commerce shoppers'
+        ],
+        positioning: 'India\'s leading brand in eco-friendly, pet-safe, and child-friendly cleaning products. Positioned as a toxin-free alternative to chemical-laden cleaners, emphasizing science-backed formulations and transparency.',
+        valuePropositions: [
+          'Plant-based, biodegradable, non-toxic formulations',
+          'Pet-safe and child-friendly (dermatologically tested)',
+          'Coconut-based surfactants',
+          'Science-backed, effective cleaning power',
+          'Transparency and ingredient disclosure',
+          'Safe for all fabric types including baby clothes'
+        ],
+        contentThemes: [
+          'Pet and child safety',
+          'Health dangers of conventional cleaners',
+          'Transparency and trust-building',
+          'Family wellness',
+          'Environmental sustainability',
+          'Science-backed efficacy',
+          'Conscious living'
+        ],
+        socialPlatforms: [
+          'Instagram',
+          'Facebook',
+          'YouTube',
+          'LinkedIn'
+        ],
+        strengths: [
+          'Shark Tank India investment and brand visibility',
+          'Reached 800,000 homes by 2024',
+          'Strong founder story (mother-founded)',
+          'Post-Shark Tank valuation of ~₹124 crores',
+          'Monthly revenue of ₹3 crores reported',
+          'Omnichannel distribution (D2C, e-commerce, retail)',
+          'Strong digital marketing and influencer partnerships',
+          'PETA certification (100% vegan and cruelty-free)'
+        ],
+        weaknesses: [
+          'Premium pricing positioning may limit mass-market reach',
+          'Earlier monthly losses reported (₹21 lakh at Shark Tank pitch)',
+          'Relatively newer entrant compared to established brands',
+          'Coconut-based formulations may have regional availability constraints'
+        ],
+        differentiation: 'Founder-led trust narrative combined with science-backed coconut-based formulations. Strong emphasis on toxin-free positioning and safety certification. Largest reach among eco-friendly cleaning brands in India with proven market traction post-Shark Tank.',
+        sources: [
+          {
+            title: 'Koparo Clean: Funding, Team & Investors',
+            url: 'https://startupintros.com/orgs/koparo-clean'
+          },
+          {
+            title: 'Koparo Clean - About Us',
+            url: 'https://koparoclean.com/pages/about-us'
+          },
+          {
+            title: 'Koparo Clean Digital Marketing Strategies',
+            url: 'https://gtbinstitute.com/gtbblog/koparo-clean-india-digital-marketing-strategies/'
+          }
+        ]
+      },
+      {
+        name: 'The Better Home (GlobalBees)',
+        website: 'https://thebetterhome.com',
+        location: 'New Delhi, India',
+        industry: 'FMCG - Sustainable Home Care & Cleaning',
+        services: [
+          'Floor cleaners',
+          'Laundry liquid detergents',
+          'All-purpose cleaners',
+          'Toilet cleaners',
+          'Multi-surface cleaners',
+          'Innovative dissolvable capsule concentrates',
+          'Refillable packaging options',
+          'Home care accessories'
+        ],
+        targetAudience: [
+          'Sustainability-focused families',
+          'Eco-conscious urban consumers',
+          'Pet and child-safe product seekers',
+          'D2C e-commerce customers',
+          'Zero-waste lifestyle adopters',
+          'Subscription-model repeat buyers'
+        ],
+        positioning: 'Premium sustainable home care brand owned by GlobalBees. Positioned as a family-safe, biodegradable solution that prioritizes circular economy through recycling programs and sustainable packaging innovation.',
+        valuePropositions: [
+          '100% natural, organic, chemical-free formulations',
+          'Bio-active enzymes for natural cleaning',
+          'Family-safe and biodegradable',
+          'Pioneering recycling and packaging take-back program',
+          'Natural ingredients (Neem, Tea Tree, Aloe Vera)',
+          'Innovative dissolvable capsule technology',
+          'Sustainability-first approach'
+        ],
+        contentThemes: [
+          'Sustainability and zero-waste living',
+          'Circular economy and recycling',
+          'Family safety and wellness',
+          'Natural ingredient benefits',
+          'Environmental responsibility',
+          'Packaging innovation',
+          'Pet and child safety'
+        ],
+        socialPlatforms: [
+          'Instagram',
+          'Facebook',
+          'YouTube',
+          'Blog/Content Marketing'
+        ],
+        strengths: [
+          'Part of GlobalBees, a well-funded house of brands platform',
+          'Over 70,000 customers in 600+ cities',
+          'First brand to implement take-back and recycling program at scale in India',
+          '50% repeat order rate with successful subscription model',
+          'Innovative dissolvable capsule concentrate products',
+          'Strong sustainability narrative and certifications',
+          'Available on major e-commerce and own platform'
+        ],
+        weaknesses: [
+          'Less founder-led narrative compared to newer competitors',
+          'Ownership by GlobalBees may dilute brand authenticity',
+          'Premium pricing positioning',
+          'Recycling program may require customer participation'
+        ],
+        differentiation: 'Emphasis on circular economy and recycling innovation. The Better Home pioneered the take-back and recycling program at scale. Offers innovative dissolvable capsule technology. Strong commitment to packaging sustainability sets them apart in sustainability messaging.',
+        sources: [
+          {
+            title: 'GlobalBees acquires The Better Home',
+            url: 'https://thebetterhome.com/products/the-better-home-all-purpose-cleaner-concentrate-1000000045299'
+          },
+          {
+            title: 'The Better Home Floor Cleaner',
+            url: 'https://shop.globalbees.com/products/the-better-home-family-safe-floor-cleaner-liquid-5-1000000002943'
+          },
+          {
+            title: 'The Better Home - GlobalBees Acquisition',
+            url: 'https://tvwnewsindia.com/2021/08/31/globalbees-acquires-sustainable-home-care-company-the-better-home/'
+          }
+        ]
+      },
+      {
+        name: 'Born Good',
+        website: 'https://www.borngood.in',
+        location: 'Bengaluru, India',
+        industry: 'FMCG - Plant-Based Home Care Products',
+        services: [
+          'Liquid detergents',
+          'Floor cleaners',
+          'Dishwashing gels',
+          'Fabric conditioners',
+          'Laundry detergents (specialized formulas)',
+          'All-purpose cleaners',
+          'Concentrate cleaners in glass packaging',
+          'Refill packs'
+        ],
+        targetAudience: [
+          'Health and environmentally conscious consumers',
+          'Families seeking transparent ingredient disclosure',
+          'Pet and child-safe product seekers',
+          'Consumers concerned about ocean and environmental impact',
+          'Tech-savvy consumers valuing certifications',
+          'Premium eco-conscious market'
+        ],
+        positioning: 'India\'s first USDA-certified plant-based home care brand. Positioned as the transparency leader with scientifically-proven efficacy equivalent to traditional cleaners. Strong emphasis on certification, ingredient clarity, and environmental responsibility.',
+        valuePropositions: [
+          'India\'s first USDA-certified plant-based cleaning products',
+          'Transparent ingredient disclosure with QR codes',
+          'Lab-tested efficacy (Bureau Veritas certified)',
+          'Plant-based ingredients (coconut extracts, sugarcane glycerine)',
+          'Zero toxins and safe for kids, pets, and skin',
+          '2X EPR certified (recycles twice as much plastic as sold)',
+          'Manufacturing partners on ZDHC gateway'
+        ],
+        contentThemes: [
+          'Transparency and ingredient honesty',
+          'Scientific certification and lab-tested efficacy',
+          'Ocean and environmental protection',
+          'Health safety for families',
+          'Sustainability and circular economy',
+          'Debunking myths about plant-based cleaning power',
+          'Plastic reduction and recycling'
+        ],
+        socialPlatforms: [
+          'Instagram (@borngoodofficial)',
+          'Twitter/X',
+          'Blog/Website'
+        ],
+        strengths: [
+          'First and only USDA-certified plant-based cleaning range in India',
+          'Rigorous third-party certifications and transparency',
+          'Bureau Veritas testing confirms equal or better efficacy than traditional cleaners',
+          '2X EPR certified - pioneering plastic recycling commitment',
+          'Strong scientific narrative with detailed ingredient breakdown',
+          'Innovative products (Shade Revive, Anti-Microbial detergents)',
+          'ZDHC manufacturing partnership ensures environmental safety',
+          'Clear competitive differentiation through certifications'
+        ],
+        weaknesses: [
+          'Premium pricing positioning limits mass-market accessibility',
+          'Less mainstream brand awareness compared to Koparo Clean',
+          'Reliance on certifications may be complex for average consumers',
+          'Smaller customer base relative to larger competitors'
+        ],
+        differentiation: 'Unmatched transparency through USDA certification with BioBased scoring visible on products. Scientific credibility through Bureau Veritas testing. Innovative products for specific needs (color restoration, antimicrobial activewear). Strong environmental commitment through 2X EPR certification.',
+        sources: [
+          {
+            title: 'Born Good - About Us',
+            url: 'https://www.borngood.in/pages/about'
+          },
+          {
+            title: 'Born Good USDA Certification',
+            url: 'https://www.borngood.in/blogs/the-good-blog/eco-friendly-home-cleaning-products'
+          },
+          {
+            title: 'Born Good Company Profile',
+            url: 'https://yourstory.com/companies/borngood'
+          }
+        ]
+      },
+      {
+        name: 'Greenworx',
+        website: 'Not readily available',
+        location: 'Ahmedabad, India',
+        industry: 'FMCG - Plant-Based Cleaning Products',
+        services: [
+          'Floor cleaners',
+          'Bathroom cleaners',
+          'Laundry cleaners',
+          'Dishwashing liquids',
+          'Plant-based multi-surface solutions'
+        ],
+        targetAudience: [
+          'Eco-conscious consumers',
+          'Health-aware households',
+          'Consumers avoiding harsh chemical scents',
+          'Sustainability-focused buyers'
+        ],
+        positioning: 'Consumer-facing startup delivering plant-based, non-toxic, and eco-friendly cleaning products. Positioned as effective cleaning solutions without harsh chemical odors, appealing to health-conscious consumers.',
+        valuePropositions: [
+          'Plant-based, non-toxic formulations',
+          'Eco-friendly cleaning solutions',
+          'No harsh chemical scents',
+          'Effective cleaning performance',
+          'Health-friendly alternatives'
+        ],
+        contentThemes: [
+          'Health and wellness benefits',
+          'Natural cleaning power',
+          'Eco-consciousness',
+          'Chemical-free living'
+        ],
+        socialPlatforms: [
+          'Social media presence (platforms not specified)'
+        ],
+        strengths: [
+          'Early mover in Ahmedabad eco-cleaning market',
+          'Strong appeal to health-conscious consumers',
+          'Comprehensive product range across cleaning categories'
+        ],
+        weaknesses: [
+          'Limited information available publicly',
+          'Regional focus may limit expansion',
+          'Less brand visibility compared to major competitors',
+          'No prominent certifications mentioned'
+        ],
+        differentiation: 'Regional startup positioning with focus on health benefits and chemical-free messaging. Appeals to consumers specifically seeking non-chemical odor solutions.',
+        sources: [
+          {
+            title: 'Eco-Friendly Cleaning Products in India',
+            url: 'https://changestarted.com/cleaning-the-right-way-eco-friendly-cleaning-products-in-india/'
+          }
+        ]
+      }
+    ],
+    differentiationOpportunities: [
+      'Develop specialized product lines for Indian cuisine-related stains (curry, spices, coconut oil) that most competitors don\'t specifically address',
+      'Create partnerships with Indian wellness and Ayurvedic practitioners to emphasize ancient botanical ingredients in formulations',
+      'Develop a comprehensive subscription model with curated seasonal cleaning bundles to capture recurring revenue like competitors',
+      'Establish a certification program (similar to USDA or ECOCERT) specifically validating eco-enzyme technology efficacy to create competitive moat',
+      'Create educational content around proper eco-enzyme formulation and DIY options to empower consumers while building brand authority',
+      'Develop concentrated refill packaging with lower plastic footprint to compete on sustainability vs. The Better Home',
+      'Position BioPure as the \'Indian-made eco-solution\' leveraging Ayurvedic and traditional Indian ingredients vs. imported alternatives',
+      'Build a community-driven loyalty program focused on environmental impact tracking (water saved, plastic prevented, etc.)',
+      'Develop niche products addressing specific Indian household needs (temple cleanliness products, natural fragrance preferences)',
+      'Create transparent certification documentation matching or exceeding Born Good\'s transparency standards',
+      'Leverage the eco-enzyme angle more prominently in marketing - most competitors emphasize plant-based but not enzyme-specific technology',
+      'Establish B2B bulk purchasing program for Indian households and small businesses to achieve scale faster',
+      'Develop strategic partnerships with Indian retailers and e-commerce platforms for faster distribution vs. D2C-only competitors'
+    ],
+    verifiedFacts: [
+      {
+        fact: 'India\'s eco-friendly home hygiene products market was valued at USD 14.25 billion in 2024 and is expected to reach USD 28.44 billion by 2030, growing at a CAGR of 12.21%',
+        source: 'Research and Markets',
+        url: 'https://www.researchandmarkets.com/report/india-green-cleaning-market'
+      },
+      {
+        fact: 'BioPure offers chemical-free, eco-enzyme powered cleaning products including hand wash, dish wash, floor cleaner, glass cleaner, toilet cleaner, and laundry wash',
+        source: 'BioPure Official Website',
+        url: 'https://biopureindia.co/collections/all'
+      },
+      {
+        fact: 'Koparo Clean reached 800,000 homes across India by 2024 and secured Shark Tank India funding',
+        source: 'Startup Intros',
+        url: 'https://startupintros.com/orgs/koparo-clean'
+      },
+      {
+        fact: 'The Better Home was acquired by GlobalBees and had over 70,000 customers in 600+ cities with 50% repeat order rate',
+        source: 'TVW News India',
+        url: 'https://tvwnewsindia.com/2021/08/31/globalbees-acquires-sustainable-home-care-company-the-better-home/'
+      },
+      {
+        fact: 'Born Good is India\'s first USDA-certified plant-based cleaning products range with radio-carbon dating analysis for BioBased content verification',
+        source: 'Born Good Official Website',
+        url: 'https://www.borngood.in/pages/about'
+      },
+      {
+        fact: 'The India eco-friendly cleaning market is expanding due to rising consumer awareness of environmental sustainability and health hazards of conventional cleaners',
+        source: 'Research and Markets',
+        url: 'https://www.researchandmarkets.com/report/india-green-cleaning-market'
+      }
+    ],
+    sources: [
+      {
+        title: 'BioPure India Official Website',
+        url: 'https://biopureindia.co'
+      },
+      {
+        title: 'Koparo Clean Official Website',
+        url: 'https://koparoclean.com'
+      },
+      {
+        title: 'The Better Home Official Website',
+        url: 'https://thebetterhome.com'
+      },
+      {
+        title: 'Born Good Official Website',
+        url: 'https://www.borngood.in'
+      },
+      {
+        title: 'India Eco-Friendly Home Hygiene Products Market Size Report',
+        url: 'https://www.researchandmarkets.com/report/india-green-cleaning-market'
+      },
+      {
+        title: 'Eco-Friendly Cleaning Products in India Analysis',
+        url: 'https://changestarted.com/cleaning-the-right-way-eco-friendly-cleaning-products-in-india/'
+      },
+      {
+        title: 'Top 100 Green Cleaning Companies in India',
+        url: 'https://ensun.io/search/green-cleaning/india'
+      }
+    ]
+  }
+}

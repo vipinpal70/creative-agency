@@ -10,6 +10,7 @@
     "clean-db": "node scripts/clean-db.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.126.0",
     "@clerk/nextjs": "^7.5.1",
     "@radix-ui/react-accordion": "^1.2.14",
     "@radix-ui/react-checkbox": "^1.3.5",
@@ -20,6 +21,7 @@
     "@radix-ui/react-slot": "^1.3.0",
     "@radix-ui/react-tabs": "^1.1.15",
     "@svar-ui/react-gantt": "^2.7.1",
+    "ai": "^7.0.102",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

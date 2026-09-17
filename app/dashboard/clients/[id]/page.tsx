@@ -7,8 +7,10 @@ import {
   ExternalLink, Eye, EyeOff, Copy, PlusCircle, FolderOpen,
   MessageSquare, ClipboardList, FileDown, Globe, Award, UserCheck,
   Save, ChevronDown, ChevronUp, Calendar as CalendarIcon,
-  ShieldAlert, KeyRound, Check, AlertCircle, X,
+  ShieldAlert, KeyRound, Check, AlertCircle, X, Sparkles,
 } from "lucide-react";
+
+import AIResearchModal from "@/components/dashboard/AIResearchModal";
 
 import instagram from "@/app/assets/instagram.png";
 import facebook from "@/app/assets/facebook.png";
@@ -429,6 +431,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [showAddTaskReq, setShowAddTaskReq] = useState(false);
   const [newTaskReq, setNewTaskReq] = useState({ title: "", description: "", dueDate: "" });
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+
+  // AI client research modal
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   // Profile tab competitor / social state
   const [newComp, setNewComp] = useState({ name: "", websiteLink: "", socialMediaLink: "" });
@@ -907,8 +912,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <p className="text-xs text-gray-500 mt-1">Contract: {new Date(client.contractStart).toLocaleDateString()} → {client.contractEnd ? new Date(client.contractEnd).toLocaleDateString() : "Ongoing"}</p>
             </div>
           </div>
+          <button
+            onClick={() => setAiModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-br from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 text-xs font-semibold rounded-lg shadow-sm shrink-0 self-start"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> AI
+          </button>
         </div>
       </div>
+
+      <AIResearchModal open={aiModalOpen} clientId={clientId} onClose={() => setAiModalOpen(false)} />
 
       {/* Tabs */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-gray-200">
