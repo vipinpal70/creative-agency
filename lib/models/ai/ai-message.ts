@@ -17,6 +17,8 @@ export interface IAIMessage {
 
   toolName?: string;
 
+  taskType?: string;
+
   metadata?: Record<string, any>;
 
   createdAt: Date;
@@ -70,6 +72,10 @@ const AIMessageSchema = new Schema<IAIMessage>(
     },
 
     toolName: {
+      type: String,
+    },
+
+    taskType: {
       type: String,
     },
 

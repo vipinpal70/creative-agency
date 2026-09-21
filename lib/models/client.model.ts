@@ -61,6 +61,7 @@ export interface IClient extends Document {
   credentials: ICredential[];
   documents: IDocument[];
   meetingLogs: IMeetingLog[];
+  llmResponse?: string;
   createdAt: Date;
   updatedAt: Date;
 }

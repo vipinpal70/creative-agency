@@ -7,6 +7,9 @@ export interface IAIProject extends Document {
   status: "active" | "archived";
   createdBy: mongoose.Types.ObjectId;
   lastActivityAt?: Date;
+  context: any; // store the JSON context
+  contextStatus: "pending" | "ready"; // pending -> run generation, ready -> use for chat
+  contextGeneratedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +33,19 @@ const AIProjectSchema = new Schema<IAIProject>(
       type: String,
       required: true,
       trim: true,
+    },
+    context: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
+    contextStatus: {
+      type: String,
+      enum: ["pending", "ready"],
+      default: "pending",
+    },
+    contextGeneratedAt: {
+      type: Date,
+      default: null,
     },
 
     status: {
