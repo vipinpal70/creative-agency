@@ -275,9 +275,15 @@ export async function POST(req: NextRequest) {
       // 12. Update project activity
       // ------------------------------------------------
 
+      // Persist the structured result onto the project itself — not just the
+      // AIResearch audit record — so it becomes reusable project memory. This
+      // is what the copywriting / chat flows read (contextStatus "ready").
       await AIProject.findByIdAndUpdate(
         project._id,
         {
+          context: aiResponse.result,
+          contextStatus: "ready",
+          contextGeneratedAt: new Date(),
           lastActivityAt: new Date(),
         }
       );

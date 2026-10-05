@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
   ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck, ChevronDown,
-  Pen, Pencil, Trash2, Calendar, X, Sliders,
+  Pen, Pencil, Trash2, Calendar, X, Sliders, Sparkles,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -25,6 +25,8 @@ import { BucketsStep } from "@/components/writer/BucketsStep";
 import { CopyList } from "@/components/writer/CopyList";
 import { CopyModal } from "@/components/writer/CopyModal";
 import type { CopyModalInitialData } from "@/components/writer/CopyModal";
+import { AiWriterModal } from "@/components/writer/AiWriterModal";
+import type { AiPushPayload, ContentCategory } from "@/components/writer/AiWriterModal";
 import { CalendarCreateView } from "@/components/writer/CalendarCreateView";
 import { CalendarEditDialog } from "@/components/writer/CalendarEditDialog";
 import { CampaignEditDialog } from "@/components/writer/CampaignEditDialog";
@@ -83,6 +85,9 @@ export default function WriterDashboard() {
 
   // ── Copy modal (create or edit) ──
   const [copyModal, setCopyModal] = useState<CopyModalState>(null);
+
+  // ── Write with AI modal ──
+  const [aiWriterOpen, setAiWriterOpen] = useState(false);
 
 function getTodayString(): string {
   const d = new Date();
@@ -297,6 +302,72 @@ function getTodayString(): string {
 
     setCopies((prev) => [...prev, { ...del, latestDraft: draftRes.ok ? draft : null }]);
     toast({ title: "Copy added to calendar" });
+  };
+
+  // ── Push AI-generated content into a NEW copy (deliverable + draft) ──
+  // Mirrors addCopy so the AI copy lands in the same calendar the writer is
+  // working in and behaves identically to a manually-created copy downstream.
+  // Media type mirrors CopyModal's freeform labels so isCarousel/scope matching
+  // stays consistent. scheduledDate defaults to now — the writer can change it
+  // afterward via Edit.
+  const AI_CATEGORY_TO_TYPE: Record<ContentCategory, string> = {
+    reel: "Reel",
+    static_image: "Static",
+    carousel: "Carousel",
+    // "Blog" (not an article/* type) so the pushed copy renders as plain
+    // creativeCopy rather than triggering CopyModal's article mode.
+    article: "Blog",
+  };
+
+  const pushAiCopy = async ({ category, copy, caption, hashtags, frames }: AiPushPayload) => {
+    if (!activeCalendar) throw new Error("No active calendar");
+
+    const mediaType = AI_CATEGORY_TO_TYPE[category];
+    const isCarousel = category === "carousel";
+    const carouselFrames = isCarousel && Array.isArray(frames) ? frames : [];
+
+    const title =
+      (isCarousel ? carouselFrames[0]?.copy.trim().slice(0, 80) : copy.trim().slice(0, 80)) ||
+      caption.trim().slice(0, 80) ||
+      `${mediaType} – AI`;
+
+    const delRes = await fetch(`/api/clients/${activeCalendar.clientId}/deliverables`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        calendarId:    activeCalendar.id,
+        module:        activeCalendar.module,
+        type:          mediaType,
+        platforms:     [],
+        title,
+        buckets:       [],
+        scheduledDate: new Date().toISOString(),
+        notes:         "",
+      }),
+    });
+    const del = await delRes.json();
+    if (!delRes.ok) throw new Error(del.error || "Failed to create copy");
+
+    const draftRes = await fetch(
+      `/api/clients/${activeCalendar.clientId}/deliverables/${del.id}/drafts`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // Carousel stores slide text in `frames`, not creativeCopy.
+          creativeCopy: isCarousel ? "" : copy,
+          frames: isCarousel ? carouselFrames : [],
+          caption,
+          hashtags,
+          mediaType,
+        }),
+      }
+    );
+    const draft = await draftRes.json();
+    if (!draftRes.ok) throw new Error(draft.error || "Failed to save copy content");
+
+    setCopies((prev) => [...prev, { ...del, latestDraft: draft }]);
+    toast({ title: "Copy added via AI" });
   };
 
   // ── Submit one copy for internal review ──
@@ -649,7 +720,7 @@ function getTodayString(): string {
                 </div>
 
                 <div className="relative" ref={addMenuRef}>
-                  <Button size="sm" onClick={() => setAddMenuOpen((o) => !o)}>
+                  <Button size="sm" className="bg-green-700 text-white hover:bg-green-800 transition-colors" onClick={() => setAddMenuOpen((o) => !o)}>
                     <Plus className="h-4 w-4 mr-1.5" /> Add New
                     <ChevronDown className={`h-4 w-4 ml-1.5 transition-transform ${addMenuOpen ? "rotate-180" : ""}`} />
                   </Button>
@@ -967,8 +1038,11 @@ function getTodayString(): string {
                         </div>
                       ) : (
                         <>
-                          <div className="flex justify-end">
-                            <Button onClick={() => setCopyModal({ mode: "create" })}>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setAiWriterOpen(true)}>
+                              <Sparkles className="h-4 w-4 mr-1.5" /> Write with AI
+                            </Button>
+                            <Button onClick={() => setCopyModal({ mode: "create" })} className="bg-green-700 text-white hover:bg-green-800 transition-colors">
                               <Plus className="h-4 w-4 mr-1.5" /> Add New Copy
                             </Button>
                           </div>
@@ -1087,6 +1161,15 @@ function getTodayString(): string {
           plannedItems={calPlannedItems}
           onClose={() => setCopyModal(null)}
           onSave={handleModalSave}
+        />
+      )}
+
+      {/* ── Write with AI modal ── */}
+      {aiWriterOpen && activeCalendar && (
+        <AiWriterModal
+          clientId={activeCalendar.clientId}
+          onPushToCopy={pushAiCopy}
+          onClose={() => setAiWriterOpen(false)}
         />
       )}
 

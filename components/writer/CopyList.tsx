@@ -75,11 +75,11 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
             <CardTitle className="text-base">{title ?? `Calendar Copies`} ({copies.length})</CardTitle>
             <CardDescription>{draftCopies.length} draft(s) ready for review</CardDescription>
           </div>
-          {draftCopies.length > 1 && (
+            {draftCopies.length > 1 && (
             <Button onClick={onSubmitAll} size="sm">
-              <Send className="h-3.5 w-3.5 mr-1" /> Submit All for Review
-            </Button>
-          )}
+                <Send className="h-3.5 w-3.5 mr-1" /> Submit All for Review
+              </Button>
+            )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -235,7 +235,7 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                 )}
                 {isDraft && (
                   <Button variant="destructive" size="sm" onClick={() => onRemove(copy.id)}>
-                    <Trash2 className="h-3 w-3 mr-1" /> Remove
+                    <Trash2 className="h-3 w-3 mr-1 text-white" /> <span className="text-white">Remove</span>
                   </Button>
                 )}
               </div>

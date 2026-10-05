@@ -12,6 +12,7 @@ export interface IAIUsage {
   operation:
     | "client_research"
     | "copy_generation"
+    | "social_copywriting"
     | "image_generation"
     | "chat";
 
@@ -62,6 +63,7 @@ const AIUsageSchema = new Schema<IAIUsage>(
       enum: [
         "client_research",
         "copy_generation",
+        "social_copywriting",
         "image_generation",
         "chat",
       ],
