@@ -13,6 +13,7 @@ export interface IAIUsage {
     | "client_research"
     | "copy_generation"
     | "social_copywriting"
+    | "paid_copywriting"
     | "image_generation"
     | "chat";
 
@@ -64,6 +65,7 @@ const AIUsageSchema = new Schema<IAIUsage>(
         "client_research",
         "copy_generation",
         "social_copywriting",
+        "paid_copywriting",
         "image_generation",
         "chat",
       ],

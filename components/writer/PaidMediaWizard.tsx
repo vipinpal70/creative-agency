@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Megaphone, Target, X, Pencil } from "lucide-react";
+import { Loader2, Plus, Megaphone, Target, X, Pencil, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { CopyList } from "@/components/writer/CopyList";
 import { VariantModal } from "@/components/writer/VariantModal";
 import type { VariantModalInitialData } from "@/components/writer/VariantModal";
+import { AiPaidWriterModal } from "@/components/writer/AiPaidWriterModal";
+import type { AiPaidPushPayload } from "@/components/writer/AiPaidWriterModal";
 import { AdPreviewCard } from "@/components/writer/AdPreviewCard";
 import { GoogleAdPreviewCard } from "@/components/writer/GoogleAdPreviewCard";
 import { CAMPAIGN_PLATFORMS, FUNNEL_STAGES } from "@/components/writer/CampaignCreateView";
@@ -35,6 +37,7 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
   const [loading, setLoading]       = useState(true);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [modal, setModal]           = useState<VariantModalState>(null);
+  const [aiWriterOpen, setAiWriterOpen] = useState(false);
   const [previewVariant, setPreviewVariant] = useState<WriterDeliverable | null>(null);
 
   const clientId = campaign.clientId;
@@ -119,6 +122,39 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
     const draft = await draftRes.json();
     setVariants((prev) => [...prev, { ...del, latestDraft: draftRes.ok ? draft : null }]);
     toast({ title: "Ad copy added to campaign" });
+  };
+
+  // ── Push AI-generated ad copy as a new draft variant ──
+  // Mirrors addVariant but builds the form from the AI payload, branching the
+  // fields by platform (Meta vs Google) the same way VariantModal does on save.
+  const pushAiAdCopy = async (payload: AiPaidPushPayload) => {
+    const isGoogle = payload.adPlatform === "google";
+    const form: CopyFormData = {
+      mediaType:    payload.mediaType,
+      creativeCopy: isGoogle ? "" : payload.primaryTexts[0] ?? "",
+      frames:       [],
+      caption:      "",
+      hashtags:     "",
+      publishDate:  new Date().toISOString().slice(0, 10),
+      publishTime:  "",
+      contentBucket: "",
+      platforms:    [],
+      adCopy:       payload.adCopy,
+      headline:     payload.headlines[0] ?? "",
+      description:  isGoogle ? payload.descriptions[0] ?? "" : "",
+      primaryTexts: isGoogle ? [] : payload.primaryTexts,
+      headlines:    payload.headlines,
+      descriptions: isGoogle ? payload.descriptions : [],
+      cta:          "Learn More",
+      landingUrl:   "",
+      adPlatform:   payload.adPlatform,
+      businessName: "",
+      longHeadline: isGoogle ? payload.longHeadline : "",
+      trackingTemplate: "",
+      finalUrlSuffix:   "",
+      customParameters: [],
+    };
+    await addVariant(form);
   };
 
   // ── Submit a variant for internal review ──
@@ -311,7 +347,10 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
         </div>
       ) : (
         <>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setAiWriterOpen(true)}>
+              <Sparkles className="h-4 w-4 mr-1.5" /> Write with AI
+            </Button>
             <Button onClick={() => setModal({ mode: "create", index: variants.length + 1 })}>
               <Plus className="h-4 w-4 mr-1.5" /> Add Ad Copy
             </Button>
@@ -367,6 +406,14 @@ export function PaidCampaignWorkspace({ campaign, me, onEditCampaign }: Props) {
           }
           onClose={() => setModal(null)}
           onSave={handleModalSave}
+        />
+      )}
+
+      {aiWriterOpen && (
+        <AiPaidWriterModal
+          clientId={clientId}
+          onPushToCopy={pushAiAdCopy}
+          onClose={() => setAiWriterOpen(false)}
         />
       )}
 

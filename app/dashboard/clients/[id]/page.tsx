@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import AIResearchModal from "@/components/dashboard/AIResearchModal";
+import { LlmInsights } from "@/components/client/LlmInsights";
 
 import instagram from "@/app/assets/instagram.png";
 import facebook from "@/app/assets/facebook.png";
@@ -1060,6 +1061,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 })}
               </div>
             </div>
+
+            {/* LLM Insights — saved client-research context */}
+            <LlmInsights clientId={clientId} />
           </div>
 
           {/* Right col */}
