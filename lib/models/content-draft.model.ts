@@ -22,7 +22,8 @@ export interface IContentDraft extends Document {
   clientId:       mongoose.Types.ObjectId;
   calendarId:     mongoose.Types.ObjectId;
   deliverableId:  mongoose.Types.ObjectId;
-  version:        number;          // auto-incremented per deliverable
+  version:        number;          // auto-incremented per deliverable (draft identity)
+  revision:       number;          // minor edit-version; bumps on copy/creative changes (display: v1.<revision>)
   createdBy:      mongoose.Types.ObjectId;
   lastChangedBy:  ILastChangedBy | null;
 
@@ -90,6 +91,7 @@ const contentDraftSchema = new Schema<IContentDraft>(
     calendarId:    { type: Schema.Types.ObjectId, ref: "Calendar",    required: true },
     deliverableId: { type: Schema.Types.ObjectId, ref: "Deliverable", required: true },
     version:       { type: Number, required: true, default: 1 },
+    revision:      { type: Number, required: true, default: 0 },
     createdBy:     { type: Schema.Types.ObjectId, ref: "User",        required: true },
 
     mediaType:     { type: String, default: "" },

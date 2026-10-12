@@ -385,10 +385,11 @@ export default function ContentCalendar({
   }, [monthFiltered]);
 
   // Group by status for kanban (legacy statuses & merged columns fold into active columns)
+  // Scoped to the current cursor month so the prev/next buttons affect kanban too
   const byStatus = useMemo(() => {
     const map = new Map<string, CalendarCopy[]>();
     DELIVERABLE_STATUSES.forEach(({ key }) => map.set(key, []));
-    filtered.forEach((i) => {
+    monthFiltered.forEach((i) => {
       let key = normalizeDeliverableStatus(i.status);
       if (key === "in_progress" || key === "draft") key = "pending";
       if (key === "content_req_change") key = "content_internal_review";
@@ -398,7 +399,7 @@ export default function ContentCalendar({
       map.set(key, bucket);
     });
     return map;
-  }, [filtered]);
+  }, [monthFiltered]);
 
   const { offset, days } = getMonthGrid(cursor.getFullYear(), cursor.getMonth());
   const monthLabel = cursor.toLocaleString("en-US", {
@@ -545,7 +546,7 @@ export default function ContentCalendar({
           </Button>
         </div>
 
-        {mainTab === "calendar" && (
+        {(mainTab === "calendar" || mainTab === "kanban") && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

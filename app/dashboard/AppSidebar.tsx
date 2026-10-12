@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import {Briefcase, ChartBarStacked, Calendar, CheckSquare, BarChart3, Palette, Archive, FolderOpen, LogOut, Loader2 } from "lucide-react";
+import {Briefcase, ChartBarStacked, Calendar, CheckSquare, BarChart3, Palette, Archive, FolderOpen, LogOut, Loader2, Zap } from "lucide-react";
 import logo from "@/public/CO-logo.png";
 import shortLogo from "@/public/CO-short-logo.png";
 
@@ -51,6 +51,9 @@ const Icon = {
   ),
   Designer: () => (
     <Palette width="17" height="17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  ),
+  Adhoc: () => (
+    <Zap width="17" height="17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
   Archive: () => (
     <Archive width="17" height="17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -121,6 +124,7 @@ const NAV_GROUPS = [
     items: [
       { title: "Writer's Workspace", href: "/dashboard/writer", icon: Icon.Writer },
       { title: "Designer's Workspace", href: "/dashboard/designer", icon: Icon.Designer },
+      { title: "Adhoc", href: "/dashboard/adhoc", icon: Icon.Adhoc },
     ],
   },
   {

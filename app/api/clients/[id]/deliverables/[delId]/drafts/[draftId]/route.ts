@@ -22,6 +22,20 @@ import type { DraftStatus } from "@/lib/status-flow";
 
 type Ctx = { params: Promise<{ id: string; delId: string; draftId: string }> };
 
+// Fields whose change counts as a copy/creative edit and advances the minor
+// revision (v1 → v1.1). Copy text + creative files only — scheduling metadata
+// (publishDate/Time, notes, videoType/Notes, referenceUrl, tracking params) and
+// workflow moves (status) deliberately don't bump the version.
+const VERSIONED_FIELDS = new Set<string>([
+  // copy text
+  "creativeCopy", "articleCopy", "caption", "hashtags",
+  "headline", "description", "cta", "adCopy",
+  "primaryTexts", "headlines", "descriptions",
+  "businessName", "longHeadline",
+  // creative files
+  "imageUrl", "videoUrl", "thumbnailUrl", "audioUrl", "frames",
+]);
+
 // GET /api/clients/[id]/deliverables/[delId]/drafts/[draftId]
 export async function GET(req: NextRequest, { params }: Ctx) {
   try {
@@ -346,6 +360,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     const changes = computeChanges(oldValues, newValues);
 
+    // Edit-version bump: a change to the copy text/content or the creative file
+    // advances the minor revision (v1 → v1.1 → v1.2 …). Pure workflow moves
+    // (status, schedule, assignment) and scheduling metadata don't bump it.
+    const isVersionedChange = changes.some((c) => VERSIONED_FIELDS.has(c.field));
+    if (isVersionedChange) {
+      draft.revision = (draft.revision ?? 0) + 1;
+    }
+
     // Determine action label
     const action: "edited" | "submitted" | "approved" | "rejected" =
       (normalizedStatus && historyActionForStatus(normalizedStatus)) || "edited";
@@ -363,6 +385,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         deliverableId: delId,
         draftId:       draft._id,
         draftVersion:  draft.version,
+        revision:      draft.revision ?? 0,
         action,
         changedBy:     { userId: session.userId, name: editorName, email: session.email },
         changedAt:     now,

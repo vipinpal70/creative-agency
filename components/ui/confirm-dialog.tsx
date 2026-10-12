@@ -77,6 +77,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
+          className="text-white"
             variant={destructive ? "destructive" : "default"}
             size="sm"
             onClick={onConfirm}

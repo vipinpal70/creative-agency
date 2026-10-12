@@ -14,7 +14,8 @@ export interface IDraftHistory extends Document {
   calendarId:    mongoose.Types.ObjectId;
   deliverableId: mongoose.Types.ObjectId;
   draftId:       mongoose.Types.ObjectId;
-  draftVersion:  number;
+  draftVersion:  number;          // the draft's identity version (deliverable-scoped)
+  revision:      number;          // the draft's edit-revision at the time of this entry (display: v1.<revision>)
   action:        HistoryAction;
   changedBy: {
     userId: string;
@@ -42,6 +43,7 @@ const draftHistorySchema = new Schema<IDraftHistory>(
     deliverableId: { type: Schema.Types.ObjectId, ref: "Deliverable", required: true },
     draftId:       { type: Schema.Types.ObjectId, ref: "ContentDraft", required: true },
     draftVersion:  { type: Number, required: true },
+    revision:      { type: Number, required: true, default: 0 },
     action:        {
       type:     String,
       enum:     ["created", "edited", "submitted", "approved", "rejected"],
@@ -60,6 +62,12 @@ const draftHistorySchema = new Schema<IDraftHistory>(
 
 draftHistorySchema.index({ draftId: 1, changedAt: -1 });
 draftHistorySchema.index({ deliverableId: 1, changedAt: -1 });
+
+// Recompile on dev hot-reload so newly added schema fields (e.g. `revision`)
+// aren't silently dropped by Mongoose's cached model. See content-draft.model.ts.
+if (process.env.NODE_ENV !== "production" && mongoose.models.DraftHistory) {
+  mongoose.deleteModel("DraftHistory");
+}
 
 const DraftHistory: Model<IDraftHistory> =
   mongoose.models.DraftHistory ||

@@ -14,6 +14,7 @@ const TONE: Record<string, string> = {
   influencer: "bg-[hsl(var(--mod-influencer)/0.12)] text-[hsl(var(--mod-influencer))]",
   video: "bg-[hsl(var(--mod-video)/0.12)] text-[hsl(var(--mod-video))]",
   design: "bg-[hsl(var(--mod-design)/0.12)] text-[hsl(var(--mod-design))]",
+  adhoc: "bg-[hsl(var(--mod-custom)/0.12)] text-[hsl(var(--mod-custom))]",
   custom: "bg-[hsl(var(--mod-custom)/0.12)] text-[hsl(var(--mod-custom))]",
 };
 

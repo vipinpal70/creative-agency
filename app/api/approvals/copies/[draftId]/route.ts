@@ -210,6 +210,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       deliverableId: draft.deliverableId,
       draftId:       draft._id,
       draftVersion:  draft.version,
+      revision:      draft.revision ?? 0,
       action:        historyAction,
       changedBy:     { userId: session.userId, name: reviewerName, email: session.email },
       changedAt:     now,

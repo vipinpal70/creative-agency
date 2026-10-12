@@ -23,6 +23,7 @@ import {
   MessageCircle,
   AlertTriangle,
   ExternalLink,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/lib/types";
@@ -57,6 +58,7 @@ interface HistoryEntry {
   changedBy: { userId: string; name: string; email: string };
   changedAt: string;
   draftVersion: number;
+  revision?: number;
   changes: HistoryChange[];
 }
 
@@ -86,6 +88,54 @@ function timeAgo(dateStr: string): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   return d < 7 ? `${d}d ago` : new Date(dateStr).toLocaleDateString();
+}
+
+// Edit-version label. The major stays at 1; the minor is the stored revision,
+// so v1 (initial) → v1.1 → v1.2 … as copy/creative is modified.
+function formatVersion(revision?: number): string {
+  const r = revision ?? 0;
+  return r > 0 ? `v1.${r}` : "v1";
+}
+
+// History change fields that hold a creative file URL. For these we surface the
+// previous and new files as download links (so a reuploaded creative keeps the
+// prior file retrievable) instead of printing the raw URL.
+const CREATIVE_URL_FIELDS = new Set([
+  "imageUrl",
+  "videoUrl",
+  "thumbnailUrl",
+  "audioUrl",
+]);
+
+// A compact download link for a stored creative file.
+function CreativeFileLink({
+  url,
+  label,
+  tone,
+}: {
+  url: string;
+  label: string;
+  tone: "old" | "new";
+}) {
+  return (
+    <a
+      href={url}
+      download
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium hover:underline",
+        tone === "old"
+          ? "bg-destructive/10 text-destructive/80"
+          : "bg-primary/10 text-primary"
+      )}
+      title={url}
+    >
+      <Download className="h-2.5 w-2.5" />
+      {label}
+    </a>
+  );
 }
 
 function getMediaCategory(
@@ -803,8 +853,18 @@ function HistoryTab({
       </p>
     );
 
+  const currentVersion = formatVersion(history[0]?.revision);
+
   return (
     <div className="space-y-3">
+      <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          Current version
+        </span>
+        <span className="text-[11px] font-semibold text-foreground">
+          {currentVersion}
+        </span>
+      </div>
       {history.map((entry, ei) => {
         const key = entry.id ?? `h-${ei}`;
         return (
@@ -825,8 +885,8 @@ function HistoryTab({
                 <p className="text-xs font-medium text-foreground">
                   {ACTION_LABEL[entry.action] ?? entry.action}
                 </p>
-                <span className="text-[10px] text-muted-foreground">
-                  v{entry.draftVersion}
+                <span className="text-[10px] font-medium text-muted-foreground rounded bg-muted px-1.5 py-0.5">
+                  {formatVersion(entry.revision)}
                 </span>
               </div>
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
@@ -839,6 +899,48 @@ function HistoryTab({
                 <div className="mt-1.5 space-y-1">
                   {entry.changes.map((ch, ci) => {
                     const eKey = `${key}-${ci}`;
+
+                    // Creative file fields: render the previous and new files as
+                    // download links so a reuploaded creative keeps the prior
+                    // file retrievable, instead of dumping the raw URL.
+                    if (CREATIVE_URL_FIELDS.has(ch.field)) {
+                      return (
+                        <div
+                          key={ci}
+                          className="text-[10px] rounded bg-muted/60 px-2 py-1"
+                        >
+                          <span className="font-medium text-muted-foreground">
+                            {ch.label}:{" "}
+                          </span>
+                          <span className="inline-flex flex-wrap items-center gap-1.5 align-middle">
+                            {ch.from ? (
+                              <CreativeFileLink
+                                url={ch.from}
+                                label="Previous creative"
+                                tone="old"
+                              />
+                            ) : (
+                              <span className="text-muted-foreground">
+                                (none)
+                              </span>
+                            )}
+                            <span className="text-muted-foreground">→</span>
+                            {ch.to ? (
+                              <CreativeFileLink
+                                url={ch.to}
+                                label="New creative"
+                                tone="new"
+                              />
+                            ) : (
+                              <span className="text-muted-foreground">
+                                (removed)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    }
+
                     const isSeeMore =
                       ch.to.length > 80 || ch.from.length > 80;
                     const isExpanded = expanded.has(eKey);

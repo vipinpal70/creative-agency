@@ -165,6 +165,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       deliverableId: delId,
       draftId:       draft._id,
       draftVersion:  nextVersion,
+      revision:      0,
       action:        "created",
       changedBy:     { userId: session.userId, name: authorName, email: session.email },
       changedAt:     now,

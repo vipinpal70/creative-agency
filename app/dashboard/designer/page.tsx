@@ -274,6 +274,11 @@ const CopyCard = memo(function CopyCard({
 		copy.title ||
 		"—";
 
+	// An in-progress copy may be handed to a different designer by a lead / admin /
+	// account manager, or by the designer who currently owns it. The current owner
+	// is excluded from the pick list (reassigning to themselves is a no-op).
+	const canReassign = isWorking && (canAllocate || isMine);
+
 	const patchDraft = async (body: Record<string, unknown>) => {
 		const res = await fetch(
 			`/api/clients/${copy.clientId}/deliverables/${copy.deliverableId}/drafts/${copy.draftId}`,
@@ -523,6 +528,68 @@ const CopyCard = memo(function CopyCard({
 		}
 	};
 
+	// Shared "Allocate / Reassign to…" dropdown. `excludeId` hides a team member
+	// from the list (used to drop the current owner on a reassignment).
+	const renderAllocatePicker = (label: string, excludeId?: string) => (
+		<div className="relative" ref={allocateRef}>
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={allocating || starting}
+				onClick={() => setAllocateOpen((o) => !o)}
+			>
+				{allocating ? (
+					<Loader2 className="h-3 w-3 mr-1 animate-spin" />
+				) : (
+					<UserPlus className="h-3 w-3 mr-1" />
+				)}
+				{label}
+				<ChevronDown
+					className={`h-3.5 w-3.5 ml-1 text-muted-foreground transition-transform ${allocateOpen ? "rotate-180" : ""}`}
+				/>
+			</Button>
+
+			{allocateOpen && (
+				<div className="absolute left-0 mt-1 w-60 rounded-xl border border-gray-200 bg-white p-2 shadow-lg z-50 animate-in fade-in-50 zoom-in-95 duration-100">
+					{designers.length > 5 && (
+						<input
+							type="text"
+							value={allocateSearch}
+							onChange={(e) => setAllocateSearch(e.target.value)}
+							placeholder="Search team…"
+							className="w-full mb-2 px-2.5 py-1.5 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 bg-white"
+						/>
+					)}
+					<div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+						{(() => {
+							const q = allocateSearch.trim().toLowerCase();
+							const list = designers
+								.filter((d) => d.id !== excludeId)
+								.filter((d) => (q ? d.name.toLowerCase().includes(q) : true));
+							if (list.length === 0) {
+								return (
+									<p className="text-xs text-gray-400 py-3 text-center">
+										No team members
+									</p>
+								);
+							}
+							return list.map((d) => (
+								<button
+									key={d.id}
+									type="button"
+									onClick={() => handleAllocate(d.id)}
+									className="w-full text-left px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-50 truncate"
+								>
+									{d.name}
+								</button>
+							));
+						})()}
+					</div>
+				</div>
+			)}
+		</div>
+	);
+
 	return (
 		<Card
 			className="cursor-pointer hover:shadow-md hover:border-primary/20 transition-all"
@@ -746,67 +813,15 @@ const CopyCard = memo(function CopyCard({
 							</Button>
 
 							{/* Allocate to another designer — leads / admin / account managers only. */}
-							{canAllocate && (
-								<div className="relative" ref={allocateRef}>
-									<Button
-										variant="outline"
-										size="sm"
-										disabled={allocating || starting}
-										onClick={() => setAllocateOpen((o) => !o)}
-									>
-										{allocating ? (
-											<Loader2 className="h-3 w-3 mr-1 animate-spin" />
-										) : (
-											<UserPlus className="h-3 w-3 mr-1" />
-										)}
-										Allocate to…
-										<ChevronDown
-											className={`h-3.5 w-3.5 ml-1 text-muted-foreground transition-transform ${allocateOpen ? "rotate-180" : ""}`}
-										/>
-									</Button>
+							{canAllocate && renderAllocatePicker("Allocate to…")}
+						</div>
+					)}
 
-									{allocateOpen && (
-										<div className="absolute left-0 mt-1 w-60 rounded-xl border border-gray-200 bg-white p-2 shadow-lg z-50 animate-in fade-in-50 zoom-in-95 duration-100">
-											{designers.length > 5 && (
-												<input
-													type="text"
-													value={allocateSearch}
-													onChange={(e) => setAllocateSearch(e.target.value)}
-													placeholder="Search team…"
-													className="w-full mb-2 px-2.5 py-1.5 text-xs rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary text-gray-900 bg-white"
-												/>
-											)}
-											<div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
-												{(() => {
-													const q = allocateSearch.trim().toLowerCase();
-													const list = q
-														? designers.filter((d) =>
-																d.name.toLowerCase().includes(q),
-															)
-														: designers;
-													if (list.length === 0) {
-														return (
-															<p className="text-xs text-gray-400 py-3 text-center">
-																No team members
-															</p>
-														);
-													}
-													return list.map((d) => (
-														<button
-															key={d.id}
-															type="button"
-															onClick={() => handleAllocate(d.id)}
-															className="w-full text-left px-2 py-1.5 rounded-md text-xs text-gray-700 hover:bg-gray-50 truncate"
-														>
-															{d.name}
-														</button>
-													));
-												})()}
-											</div>
-										</div>
-									)}
-								</div>
-							)}
+					{/* Reassign an in-progress design to a different designer. Open to
+              leads / admin / account managers, and to the current owner. */}
+					{canReassign && (
+						<div className="flex items-center gap-2 flex-wrap">
+							{renderAllocatePicker("Reassign to…", claimer?.userId)}
 						</div>
 					)}
 
@@ -918,7 +933,7 @@ const CopyCard = memo(function CopyCard({
 								<Button
 									variant="outline"
 									size="sm"
-									className="h-8 text-[11px]"
+									className="h-8 text-[11px] text-amber-600 hover:text-amber-700 border border-amber-600 cursor-pointer hover:bg-red-50"
 									disabled={archiving}
 									onClick={() => handleArchiveToggle("archive")}
 								>
@@ -950,7 +965,7 @@ const CopyCard = memo(function CopyCard({
 								<Button
 									variant="ghost"
 									size="sm"
-									className="h-8 text-[11px] text-red-600 hover:text-red-700 hover:bg-red-50"
+									className="h-8 text-[11px] text-red-600 hover:text-red-700 border border-red-600 cursor-pointer hover:bg-red-50"
 									disabled={deleting}
 									onClick={() => setConfirmDelete(true)}
 								>
@@ -973,7 +988,7 @@ const CopyCard = memo(function CopyCard({
 					<>
 						This removes the copy, all attached files (images, videos,
 						documents), and its history.{" "}
-						<span className="font-medium text-red-600">
+						<span className="font-medium text-red-700">
 							This cannot be undone.
 						</span>
 					</>

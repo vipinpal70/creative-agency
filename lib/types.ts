@@ -12,6 +12,7 @@ export type ModuleKey =
   | "influencer"
   | "video"
   | "design"
+  | "adhoc"
   | "custom";
 
 export interface ModuleMeta {
@@ -33,6 +34,7 @@ export const MODULES: ModuleMeta[] = [
   { key: "influencer", label: "Influencer", tone: "influencer", description: "Creator partnerships" },
   { key: "video", label: "Video", tone: "video", description: "Shoots, edits, motion" },
   { key: "design", label: "Design", tone: "design", description: "Branding, collateral" },
+  { key: "adhoc", label: "Adhoc", tone: "custom", description: "One-off requests outside a calendar" },
   { key: "custom", label: "Custom", tone: "custom", description: "Bespoke service line" },
 ];
 
@@ -101,6 +103,7 @@ export const DEFAULT_SCOPE_TEMPLATES: Record<ModuleKey, { label: string; unit?: 
     { label: "Static creatives", unit: "12" },
     { label: "Brand collaterals", unit: "4" },
   ],
+  adhoc: [],
   custom: [],
 };
 
