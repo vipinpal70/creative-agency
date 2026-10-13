@@ -53,6 +53,12 @@ export interface IContentDraft extends Document {
 
   status:         DraftStatus;
   rejectionNote:  string;
+  // Which part of the copy the latest "request changes" feedback concerns.
+  // Drives the rework cycle: "copy" → writer, "creative" → designer, "both" →
+  // writer first then designer. "" when no change has been requested.
+  feedbackCategory: "" | "copy" | "creative" | "both";
+  // Staff-toggled high-priority flag; surfaces a tag + filter in both workspaces.
+  highPriority:   boolean;
   designStartedBy: IDesignStartedBy | null;
 
   // Soft-archive: when set, the copy is hidden from active lists but retained
@@ -123,6 +129,12 @@ const contentDraftSchema = new Schema<IContentDraft>(
       default: "draft",
     },
     rejectionNote: { type: String, default: "" },
+    feedbackCategory: {
+      type: String,
+      enum: ["", "copy", "creative", "both"],
+      default: "",
+    },
+    highPriority:  { type: Boolean, default: false },
 
     lastChangedBy: {
       type: {

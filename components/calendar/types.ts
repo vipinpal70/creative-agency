@@ -23,6 +23,8 @@ export interface CalendarDraft {
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";
   rejectionNote: string;
+  feedbackCategory?: "" | "copy" | "creative" | "both";
+  highPriority?: boolean;
   lastChangedBy: {
     userId: string;
     name: string;

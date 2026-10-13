@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Image as ImageIcon, Film,
   Send, Upload, ShieldCheck, Palette, User, MessageSquare, Play,
-  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X, RotateCcw, Clock, UserPlus,
+  History, ChevronDown, ChevronUp, Lock, Archive, ArchiveRestore, Trash2, X, RotateCcw, Clock, UserPlus, Flag,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
@@ -33,18 +33,12 @@ const STAGES = [
   { key: "design_internal_review", label: "Internal Review" },
   { key: "design_client_review",   label: "Client Review" },
   { key: "publishing",             label: "Schedule" },
-  { key: "history",                label: "History" },
+  { key: "rework",                 label: "Rework" },
+  { key: "rejected",               label: "Rejected" },
+  { key: "design_approved",        label: "Approved" },
 ] as const;
 
 type StageKey = (typeof STAGES)[number]["key"];
-
-// The History tab splits into two status buckets.
-const HISTORY_SUBS = [
-  { key: "design_approved", label: "Approved" },
-  { key: "rejected",        label: "Rejected" },
-] as const;
-
-type HistorySub = (typeof HISTORY_SUBS)[number]["key"];
 
 function isVideoType(mediaType: string, fileType?: string) {
   if (fileType) return fileType.startsWith("video/");
@@ -166,6 +160,7 @@ const CopyCard = memo(function CopyCard({
   onRemove: (draftId: string) => void;
 }) {
   const [starting, setStarting] = useState(false);
+  const [togglingPriority, setTogglingPriority] = useState(false);
   const [allocating, setAllocating] = useState(false);
   const [allocateOpen, setAllocateOpen] = useState(false);
   const [allocateSearch, setAllocateSearch] = useState("");
@@ -231,6 +226,23 @@ const CopyCard = memo(function CopyCard({
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
     return data;
+  };
+
+  // Toggle the high-priority flag. Updates the card in place (no refetch) so
+  // it keeps its position; the filter decides whether it stays in view.
+  const handleTogglePriority = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !copy.highPriority;
+    setTogglingPriority(true);
+    try {
+      await patchDraft({ highPriority: next });
+      onPatch(copy.draftId, { highPriority: next });
+      toast.success(next ? "Marked high priority" : "Priority removed");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update priority");
+    } finally {
+      setTogglingPriority(false);
+    }
   };
 
   const handleStartWork = async () => {
@@ -463,11 +475,39 @@ const CopyCard = memo(function CopyCard({
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-medium text-foreground whitespace-pre-wrap line-clamp-2 flex-1 min-w-0">{copyText}</p>
           <div className="flex flex-col items-end gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={handleTogglePriority}
+              disabled={togglingPriority}
+              title={copy.highPriority ? "Remove high priority" : "Mark high priority"}
+              className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap transition-colors disabled:opacity-60 ${
+                copy.highPriority
+                  ? "bg-red-100 text-red-700 hover:bg-red-200"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              <Flag className={`h-3 w-3 ${copy.highPriority ? "fill-red-600 text-red-600" : ""}`} />
+              {copy.highPriority ? "High Priority" : "Priority"}
+            </button>
             <span
               className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
             >
               {STATUS_LABEL[copy.status] || copy.status}
             </span>
+            {copy.status === "design_req_change" && (
+              <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-orange-100 text-orange-700">
+                <RotateCcw className="h-3 w-3" /> Rework
+              </span>
+            )}
+            {copy.feedbackCategory && copy.status === "design_req_change" && (
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-amber-50 text-amber-700">
+                {copy.feedbackCategory === "both"
+                  ? "Copy + Creative"
+                  : copy.feedbackCategory === "copy"
+                  ? "Copy change"
+                  : "Creative change"}
+              </span>
+            )}
             {isArchived && (
               <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-zinc-200 text-zinc-700">
                 <Archive className="h-3 w-3" /> Archived
@@ -1033,7 +1073,6 @@ function MultiSelectDropdown({
 export default function DesignerPage() {
   const { user } = useAuth();
   const [stage, setStage] = useState<StageKey>("content_approved");
-  const [historySub, setHistorySub] = useState<HistorySub>("design_approved");
   const [copies, setCopies] = useState<ApprovalCopy[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
@@ -1042,6 +1081,7 @@ export default function DesignerPage() {
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
   const [selectedDesigners, setSelectedDesigners] = useState<string[]>([]);
+  const [priorityOnly, setPriorityOnly] = useState(false);
   const [startDate, setStartDate] = useState<string>(getTodayString);
   const [endDate, setEndDate] = useState<string>("");
 
@@ -1052,11 +1092,10 @@ export default function DesignerPage() {
   const canAllocate = isAdmin || isCreativeLead || isAccountManager;
   const canArchive = user?.role === "admin" || user?.role === "member";
 
-  // The tab drives which DB status we list. "history" is a UI-only tab whose
-  // sub-tabs map to real statuses.
-  const activeStatus: string = stage === "history" ? historySub : stage;
-  // The Rejected sub-tab also surfaces archived copies (with an Archived badge).
-  const inRejectedView = stage === "history" && historySub === "rejected";
+  // The tab drives which DB status we list directly.
+  const activeStatus: string = stage;
+  // The Rejected tab also surfaces archived copies (with an Archived badge).
+  const inRejectedView = stage === "rejected";
 
   // Per-status cache for instant tab switches (stale-while-revalidate).
   const cacheRef = useRef<Record<string, ApprovalCopy[]>>({});
@@ -1076,13 +1115,13 @@ export default function DesignerPage() {
     }
     reqRef.current = s;
     try {
-      // The rejected bucket additionally includes archived copies. The In
-      // Progress tab also surfaces designs sent back with change requests.
+      // The rejected bucket additionally includes archived copies. Designs sent
+      // back with change requests live in their own Rework tab (design_req_change).
       const qs =
         s === "rejected"
           ? `status=design_rejected&includeArchived=1`
-          : s === "design_in_progress"
-          ? `status=design_in_progress,design_req_change`
+          : s === "rework"
+          ? `status=design_req_change`
           : s === "publishing"
           ? `status=design_approved,scheduled`
           : `status=${s}`;
@@ -1217,6 +1256,9 @@ export default function DesignerPage() {
         if (!owner || !selectedDesigners.includes(owner)) return false;
       }
 
+      // 2c. High-priority filter
+      if (priorityOnly && !copy.highPriority) return false;
+
       // 3. Date range filter (Start Date default current date, End Date picker)
       const rawDate = copy.publishDate || copy.scheduledDate || copy.updatedAt;
       if (rawDate) {
@@ -1234,12 +1276,13 @@ export default function DesignerPage() {
 
       return true;
     });
-  }, [copies, selectedClients, selectedMediaTypes, selectedDesigners, startDate, endDate]);
+  }, [copies, selectedClients, selectedMediaTypes, selectedDesigners, priorityOnly, startDate, endDate]);
 
   const hasActiveFilters =
     selectedClients.length > 0 ||
     selectedMediaTypes.length > 0 ||
     selectedDesigners.length > 0 ||
+    priorityOnly ||
     startDate !== getTodayString() ||
     endDate !== "";
 
@@ -1247,6 +1290,7 @@ export default function DesignerPage() {
     setSelectedClients([]);
     setSelectedMediaTypes([]);
     setSelectedDesigners([]);
+    setPriorityOnly(false);
     setStartDate(getTodayString());
     setEndDate("");
   };
@@ -1281,18 +1325,6 @@ export default function DesignerPage() {
                 ))}
               </TabsList>
             </Tabs>
-
-            {stage === "history" && (
-              <Tabs value={historySub} onValueChange={(v) => setHistorySub(v as HistorySub)}>
-                <TabsList>
-                  {HISTORY_SUBS.map((s) => (
-                    <TabsTrigger key={s.key} value={s.key}>
-                      {s.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-            )}
           </div>
         </div>
 
@@ -1323,6 +1355,21 @@ export default function DesignerPage() {
             selectedValues={selectedDesigners}
             onChange={setSelectedDesigners}
           />
+
+          {/* High-Priority toggle filter */}
+          <button
+            type="button"
+            onClick={() => setPriorityOnly((v) => !v)}
+            title="Show only high-priority copies"
+            className={`flex items-center gap-1.5 text-xs font-medium rounded-lg px-2.5 py-1.5 border transition-colors ${
+              priorityOnly
+                ? "bg-red-100 text-red-700 border-red-200"
+                : "bg-gray-50/80 text-gray-600 border-gray-200 hover:bg-gray-100"
+            }`}
+          >
+            <Flag className={`h-3.5 w-3.5 ${priorityOnly ? "fill-red-600 text-red-600" : "text-gray-400"}`} />
+            High Priority
+          </button>
 
           {/* Date Range Filter (Start Date default current date, End Date picker) */}
           <div className="flex items-center gap-1.5 bg-gray-50/80 border border-gray-200 rounded-lg px-2.5 py-1">
@@ -1394,6 +1441,8 @@ export default function DesignerPage() {
                 ? "No approved copies to schedule."
                 : activeStatus === "design_approved"
                 ? "No approved copies yet."
+                : activeStatus === "rework"
+                ? "No copies in rework."
                 : activeStatus === "rejected"
                 ? "No rejected copies."
                 : `No copies in ${STAGES.find((s) => s.key === stage)?.label.toLowerCase()}.`}

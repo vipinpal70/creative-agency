@@ -12,7 +12,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
-import { FeedbackModal } from "@/components/ui/feedback-modal";
+import { FeedbackModal, type FeedbackCategory } from "@/components/ui/feedback-modal";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 
@@ -126,13 +126,17 @@ function CopyApprovalCard({
     copy.title ||
     "—";
 
-  const act = async (action: "approve" | "reject" | "request_change", note?: string) => {
+  const act = async (
+    action: "approve" | "reject" | "request_change",
+    note?: string,
+    category?: FeedbackCategory
+  ) => {
     setBusy(true);
     try {
       const res = await fetch(`/api/approvals/copies/${copy.draftId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note }),
+        body: JSON.stringify({ action, note, category }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Action failed");
@@ -268,6 +272,7 @@ function CopyApprovalCard({
       <FeedbackModal
         open={!!rejectMode}
         busy={busy}
+        showCategory={rejectMode === "request_changes" && isDesignStage}
         title={
           rejectMode === "reject"
             ? isDesignStage
@@ -292,11 +297,13 @@ function CopyApprovalCard({
               ? "Reason for rejecting this design…"
               : "Reason for rejecting this copy…"
             : isDesignStage
-            ? "Explain what needs to change in the design…"
+            ? "Explain what needs to change…"
             : "Explain what needs to change in the copy…"
         }
         onCancel={() => setRejectMode(null)}
-        onConfirm={(feedback) => act(rejectMode === "reject" ? "reject" : "request_change", feedback)}
+        onConfirm={(feedback, category) =>
+          act(rejectMode === "reject" ? "reject" : "request_change", feedback, category)
+        }
       />
     </Card>
   );

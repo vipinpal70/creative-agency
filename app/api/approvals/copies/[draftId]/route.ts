@@ -18,6 +18,7 @@ import {
   timelineForStatus,
   historyActionForStatus,
 } from "@/lib/status-flow";
+import type { DraftStatus } from "@/lib/status-flow";
 import { serializeCopy } from "@/lib/serialize-copy";
 import { purgeDraft } from "@/lib/copy-cleanup";
 import { isClient, resolveClientId, forbidden, notFound } from "@/lib/authz";
@@ -54,7 +55,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       return NextResponse.json({ error: "Invalid draft ID" }, { status: 400 });
     }
 
-    const { action, note } = await req.json();
+    const { action, note, category } = await req.json();
+    const feedbackCategory: "" | "copy" | "creative" | "both" =
+      category === "copy" || category === "creative" || category === "both" ? category : "";
     if (
       action !== "approve" &&
       action !== "reject" &&
@@ -106,18 +109,26 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       : session.email;
     const now = new Date();
 
-    let next;
+    let next: DraftStatus;
     let timelineStatus;
     let historyAction: "submitted" | "approved" | "rejected" | "edited";
     if (action === "approve") {
       // Applies the design-skip rule: article/copy without a creative goes
       // straight from content client approval to design_approved (final).
-      next = approveTargetFor(current, draft);
-      if (!next) {
+      const approved = approveTargetFor(current, draft);
+      if (!approved) {
         return NextResponse.json(
           { error: `Copy in status "${current}" is not awaiting review` },
           { status: 409 }
         );
+      }
+      next = approved;
+      // "Both" feedback routing: once the writer's revised copy is re-approved
+      // and the item already had a design pass, it re-enters the design rework
+      // cycle for the creative fix rather than the fresh-design queue.
+      if (next === "content_approved" && draft.feedbackCategory === "both" && draft.designStartedBy) {
+        next = "design_req_change";
+        draft.feedbackCategory = "creative";
       }
       timelineStatus = next;
       historyAction = historyActionForStatus(next) ?? "edited";
@@ -168,12 +179,23 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       //          creative surfaces in the designer's Rejected tab and stays with
       //          the assigned designer (designStartedBy is preserved) instead of
       //          falling back to the writer via the content-coupled "rejected".
-      next =
-        action === "request_change"
-          ? reworkTarget
-          : current.startsWith("design_")
-          ? ("design_rejected" as const)
-          : ("rejected" as const);
+      const inDesignPhase = current.startsWith("design_");
+      if (action === "request_change") {
+        // In the design phase the feedback category routes the rework: "copy"
+        // or "both" go back to the writer (content_req_change); "creative" (or
+        // an unspecified category) stays in the design cycle. In the content
+        // phase there's no creative yet, so feedback is always about the copy.
+        if (inDesignPhase && (feedbackCategory === "copy" || feedbackCategory === "both")) {
+          next = "content_req_change";
+        } else {
+          next = reworkTarget;
+        }
+        draft.feedbackCategory = inDesignPhase ? (feedbackCategory || "creative") : "copy";
+      } else {
+        // reject → content phase: legacy hard "rejected"; design phase:
+        // "design_rejected" (surfaces in the designer's Rejected tab).
+        next = inDesignPhase ? ("design_rejected" as const) : ("rejected" as const);
+      }
       timelineStatus = next;
       historyAction = "rejected";
       draft.rejectionNote = note?.trim() || "";

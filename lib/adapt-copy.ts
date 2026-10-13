@@ -27,6 +27,8 @@ export interface ApprovalCopy {
   referenceUrl: string;
   notes: string;
   rejectionNote: string;
+  feedbackCategory: "" | "copy" | "creative" | "both";
+  highPriority: boolean;
   title: string;
   platforms: string[];
   buckets: string[];
@@ -67,6 +69,8 @@ export function toCalendarCopy(copy: ApprovalCopy): CalendarCopy {
     notes: copy.notes,
     status: copy.status as CalendarDraft["status"],
     rejectionNote: copy.rejectionNote,
+    feedbackCategory: copy.feedbackCategory,
+    highPriority: copy.highPriority,
     lastChangedBy: copy.lastChangedBy,
     designStartedBy: copy.designStartedBy,
   };

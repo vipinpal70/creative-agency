@@ -23,6 +23,7 @@ import {
   MessageCircle,
   AlertTriangle,
   ExternalLink,
+  Flag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/lib/types";
@@ -37,7 +38,7 @@ import {
   RESUBMIT_TRANSITIONS,
 } from "@/lib/status-flow";
 import type { DraftStatus } from "@/lib/status-flow";
-import { FeedbackModal } from "@/components/ui/feedback-modal";
+import { FeedbackModal, type FeedbackCategory } from "@/components/ui/feedback-modal";
 import { useAuth } from "@/hooks/useAuth";
 import type { CalendarCopy, CalendarDraft } from "./types";
 
@@ -855,6 +856,7 @@ export function ContentPreviewModal({
   const [saving, setSaving]     = useState(false);
   const [actioning, setActioning] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [togglingPriority, setTogglingPriority] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const { user } = useAuth();
   // Only admin / account manager may mark a scheduled copy as published (final).
@@ -966,12 +968,33 @@ export function ContentPreviewModal({
     }
   };
 
-  const handleAction = async (newStatus: DraftStatus, feedback?: string) => {
+  const handleTogglePriority = async () => {
+    if (!item?.draft) return;
+    const next = !item.draft.highPriority;
+    setTogglingPriority(true);
+    try {
+      const updated = await patchDraft({ highPriority: next });
+      if (updated) {
+        onUpdate(item.deliverableId, { ...item.draft, ...updated, id: item.draft.id });
+      }
+    } catch {
+      /* surfaced by the badge not flipping */
+    } finally {
+      setTogglingPriority(false);
+    }
+  };
+
+  const handleAction = async (
+    newStatus: DraftStatus,
+    feedback?: string,
+    category?: FeedbackCategory
+  ) => {
     if (!item?.draft) return;
     setActioning(true);
     try {
       const body: Record<string, unknown> = { status: newStatus };
       if (feedback) body.rejectionNote = feedback;
+      if (category) body.feedbackCategory = category;
       const updated = await patchDraft(body);
       if (updated) {
         onUpdate(item.deliverableId, {
@@ -1069,6 +1092,28 @@ export function ContentPreviewModal({
                     {DELIVERABLE_STATUS_LABEL[item.status] ?? item.status}
                   </span>
                 )}
+                {/* High-priority toggle (staff) / badge (read-only clients) */}
+                {draft && !readOnly ? (
+                  <button
+                    type="button"
+                    onClick={handleTogglePriority}
+                    disabled={togglingPriority}
+                    title={draft.highPriority ? "Remove high priority" : "Mark high priority"}
+                    className={cn(
+                      "flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full transition-colors disabled:opacity-60",
+                      draft.highPriority
+                        ? "bg-red-100 text-red-700 hover:bg-red-200"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                  >
+                    <Flag className={cn("h-3 w-3", draft.highPriority && "fill-red-600 text-red-600")} />
+                    {draft.highPriority ? "High Priority" : "Priority"}
+                  </button>
+                ) : draft?.highPriority ? (
+                  <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
+                    <Flag className="h-3 w-3 fill-red-600 text-red-600" /> High Priority
+                  </span>
+                ) : null}
               </div>
             </div>
 
@@ -1615,19 +1660,34 @@ export function ContentPreviewModal({
     <FeedbackModal
       open={feedbackOpen}
       busy={actioning}
-      title={isDesignReject ? "Request design changes" : "Request content changes"}
+      showCategory={isDesignReject}
+      title={isDesignReject ? "Request changes" : "Request content changes"}
       description={
         isDesignReject
-          ? "Your feedback is sent to the designer, who will rework and resubmit the creative."
+          ? "Pick what needs changing — copy goes back to the writer, creative to the designer. “Both” reworks the copy first, then the creative."
           : "Your feedback is sent to the writer, who will revise and resubmit the copy."
       }
       placeholder={
         isDesignReject
-          ? "Explain what needs to change in the design…"
+          ? "Explain what needs to change…"
           : "Explain what needs to change in the copy…"
       }
       onCancel={() => setFeedbackOpen(false)}
-      onConfirm={(feedback) => rejectTarget && handleAction(rejectTarget, feedback)}
+      onConfirm={(feedback, category) => {
+        if (!normDraftStatus) return;
+        // Design review: the category routes the rework. "creative" stays in
+        // the design cycle; "copy"/"both" go back to the writer first.
+        // Content review: no category — feedback is always about the copy.
+        const target: DraftStatus | undefined = isDesignReject
+          ? category === "creative"
+            ? "design_req_change"
+            : "content_req_change"
+          : rejectTarget;
+        const cat: FeedbackCategory | undefined = isDesignReject
+          ? category
+          : "copy";
+        if (target) handleAction(target, feedback, cat);
+      }}
     />
     </>
   );

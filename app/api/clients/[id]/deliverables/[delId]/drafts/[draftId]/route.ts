@@ -113,6 +113,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const {
       mediaType, creativeCopy, frames, caption, hashtags,
       publishDate, publishTime, notes, status, rejectionNote,
+      feedbackCategory, highPriority,
       imageUrl, videoUrl, thumbnailUrl, audioUrl,
       articleMode, articleCopy,
       headline, description, cta, landingUrl,
@@ -160,6 +161,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (notes !== undefined)         draft.notes        = notes;
     if (publishTime !== undefined)   draft.publishTime  = publishTime;
     if (rejectionNote !== undefined) draft.rejectionNote = rejectionNote;
+    if (feedbackCategory !== undefined) draft.feedbackCategory = feedbackCategory;
+    if (highPriority !== undefined)  draft.highPriority = !!highPriority;
     if (publishDate !== undefined)   draft.publishDate  = publishDate ? new Date(publishDate) : null;
     if (Array.isArray(hashtags))     draft.hashtags     = hashtags;
 
@@ -178,6 +181,20 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       // instead of entering the designer queue.
       if (normalizedStatus === "content_approved" && skipsDesignPhase(draft)) {
         normalizedStatus = "design_approved";
+      }
+
+      // "Both" feedback routing: a copy sent back for both copy and creative
+      // changes goes to the writer first (content_req_change). Once the revised
+      // copy is re-approved (content_approved) and the item already had a design
+      // pass, it re-enters the design rework cycle for the creative fix instead
+      // of the fresh-design queue. The remaining work is now creative-only.
+      if (
+        normalizedStatus === "content_approved" &&
+        draft.feedbackCategory === "both" &&
+        draft.designStartedBy
+      ) {
+        normalizedStatus = "design_req_change";
+        draft.feedbackCategory = "creative";
       }
 
       // Post-approval publishing pipeline: design_approved → scheduled → published.

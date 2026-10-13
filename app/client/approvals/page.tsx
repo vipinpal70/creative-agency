@@ -6,7 +6,7 @@ import { toast, Toaster } from "sonner";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
-import { FeedbackModal } from "@/components/ui/feedback-modal";
+import { FeedbackModal, type FeedbackCategory } from "@/components/ui/feedback-modal";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 
@@ -45,13 +45,18 @@ export default function ClientApprovalsPage() {
 
   useEffect(() => { load(tab); }, [tab, load]);
 
-  const act = async (draftId: string, action: "approve" | "request_change", note?: string) => {
+  const act = async (
+    draftId: string,
+    action: "approve" | "request_change",
+    note?: string,
+    category?: FeedbackCategory
+  ) => {
     setBusyId(draftId);
     try {
       const res = await fetch(`/api/approvals/copies/${draftId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note }),
+        body: JSON.stringify({ action, note, category }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Action failed");
@@ -183,15 +188,18 @@ export default function ClientApprovalsPage() {
       <FeedbackModal
         open={!!rejectingId}
         busy={busyId === rejectingId}
-        title={tab === "design" ? "Request design changes" : "Request content changes"}
+        showCategory={tab === "design"}
+        title={tab === "design" ? "Request changes" : "Request content changes"}
         description={
           tab === "design"
-            ? "Your feedback is sent to the designer, who will rework and resubmit the creative."
+            ? "Pick what needs changing — copy goes to the writer, creative to the designer. “Both” reworks the copy first, then the creative."
             : "Your feedback is sent to the writer, who will revise and resubmit the copy."
         }
         placeholder="What changes would you like?"
         onCancel={() => setRejectingId(null)}
-        onConfirm={(feedback) => rejectingId && act(rejectingId, "request_change", feedback)}
+        onConfirm={(feedback, category) =>
+          rejectingId && act(rejectingId, "request_change", feedback, category)
+        }
       />
     </div>
   );
