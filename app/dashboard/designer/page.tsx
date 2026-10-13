@@ -35,6 +35,7 @@ import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ModuleTag } from "@/components/ui/ModuleTag";
+import { UrgentTag } from "@/components/ui/UrgentTag";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 import { useAuth } from "@/hooks/useAuth";
@@ -607,6 +608,7 @@ const CopyCard = memo(function CopyCard({
 							{STATUS_LABEL[copy.status] || copy.status}
 						</span>
 						<ModuleTag module={copy.module} />
+						{copy.highPriority && <UrgentTag />}
 						{isArchived && (
 							<span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap bg-zinc-200 text-zinc-700">
 								<Archive className="h-3 w-3" /> Archived

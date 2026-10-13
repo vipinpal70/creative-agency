@@ -83,6 +83,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const body = await req.json();
     await connectDB();
 
+    // A pure "mark urgent" toggle: any agency member may flip priority, so it is
+    // exempt from the design-phase ownership lock below (it touches no copy/
+    // creative content and never changes workflow state).
+    const isPriorityOnly =
+      Object.keys(body).length === 1 && body.highPriority !== undefined;
+
     const draft = await ContentDraft.findOne({ _id: draftId, deliverableId: delId });
     if (!draft) {
       return NextResponse.json({ error: "Draft not found" }, { status: 404 });
@@ -102,6 +108,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     // enforces that only the owner can trigger the Re-work transition
     // (design_rejected → design_in_progress).
     if (
+      !isPriorityOnly &&
       (draft.status === "design_in_progress" ||
         draft.status === "design_req_change" ||
         draft.status === "design_rejected") &&
@@ -133,6 +140,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       primaryTexts, headlines, descriptions,
       adPlatform, businessName, longHeadline,
       trackingTemplate, finalUrlSuffix, customParameters,
+      highPriority,
     } = body;
 
     const customParametersClean =
@@ -216,6 +224,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (notes !== undefined)         draft.notes        = notes;
     if (publishTime !== undefined)   draft.publishTime  = publishTime;
     if (rejectionNote !== undefined) draft.rejectionNote = rejectionNote;
+    if (highPriority !== undefined)  draft.highPriority  = Boolean(highPriority);
     if (publishDate !== undefined)   draft.publishDate  = publishDate ? new Date(publishDate) : null;
     if (Array.isArray(hashtags))     draft.hashtags     = hashtags;
 

@@ -24,8 +24,10 @@ import {
   AlertTriangle,
   ExternalLink,
   Download,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UrgentTag } from "@/components/ui/UrgentTag";
 import { MODULES } from "@/lib/types";
 import {
   STATUS_LABEL,
@@ -1003,6 +1005,7 @@ export function ContentPreviewModal({
   const [form, setForm] = useState<Partial<CalendarDraft>>({});
   const [saving, setSaving]     = useState(false);
   const [actioning, setActioning] = useState(false);
+  const [togglingPriority, setTogglingPriority] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const { user } = useAuth();
@@ -1174,6 +1177,25 @@ export function ContentPreviewModal({
     }
   };
 
+  // High-priority toggle. Any agency member may flag/unflag urgency; it's a
+  // priority-only PATCH, so the server exempts it from the design-phase lock.
+  const handleTogglePriority = async () => {
+    if (!item?.draft) return;
+    setTogglingPriority(true);
+    try {
+      const updated = await patchDraft({ highPriority: !item.draft.highPriority });
+      if (updated) {
+        onUpdate(item.deliverableId, {
+          ...item.draft,
+          ...updated,
+          id: item.draft.id,
+        });
+      }
+    } finally {
+      setTogglingPriority(false);
+    }
+  };
+
   if (!open || !item) return null;
 
   const draft = item.draft;
@@ -1257,11 +1279,36 @@ export function ContentPreviewModal({
                     {DELIVERABLE_STATUS_LABEL[item.status] ?? item.status}
                   </span>
                 )}
+                {/* Internal urgency signal — never shown to clients (read-only). */}
+                {!readOnly && draft?.highPriority && <UrgentTag className="text-[10px]" />}
               </div>
             </div>
 
-            {/* Header controls: Prev / Next / Close */}
+            {/* Header controls: Priority / Prev / Next / Close */}
             <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Urgent toggle — any agency member can flag priority; hidden in
+                  the read-only client portal. */}
+              {!readOnly && draft && (
+                <button
+                  onClick={handleTogglePriority}
+                  disabled={togglingPriority}
+                  title={draft.highPriority ? "Remove urgent flag" : "Mark as urgent"}
+                  aria-pressed={!!draft.highPriority}
+                  className={cn(
+                    "mr-1 flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+                    draft.highPriority
+                      ? "bg-red-100 text-red-700 hover:bg-red-200"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {togglingPriority ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Flame className="h-3.5 w-3.5" />
+                  )}
+                  {draft.highPriority ? "Urgent" : "Mark urgent"}
+                </button>
+              )}
               {(onNavigatePrev || onNavigateNext) && (
                 <div className="flex items-center gap-1 mr-1 border-r border-border pr-2">
                   <button

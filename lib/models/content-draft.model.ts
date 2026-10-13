@@ -75,6 +75,10 @@ export interface IContentDraft extends Document {
   rejectionNote:  string;
   designStartedBy: IDesignStartedBy | null;
 
+  // High-priority flag. Any agency member can toggle it; when true the card
+  // shows an "Urgent" tag. Internal signal — never surfaced to clients.
+  highPriority:   boolean;
+
   // Soft-archive: when set, the copy is hidden from active lists but retained
   // (and still visible in the designer Rejected tab / Archived page) until it is
   // permanently deleted — manually by an admin or automatically 14 days later.
@@ -157,6 +161,7 @@ const contentDraftSchema = new Schema<IContentDraft>(
       default: "draft",
     },
     rejectionNote: { type: String, default: "" },
+    highPriority:  { type: Boolean, default: false },
 
     lastChangedBy: {
       type: {

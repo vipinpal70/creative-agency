@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Send, Trash2, Calendar, Image, Hash, Loader2, Pencil, Clock, MessageSquare, RotateCcw, Eye } from "lucide-react";
 import type { WriterDeliverable } from "./types";
 import { ModuleTag } from "@/components/ui/ModuleTag";
+import { UrgentTag } from "@/components/ui/UrgentTag";
 import { STATUS_LABEL, STATUS_COLOR, normalizeDraftStatus } from "@/lib/status-flow";
 
 // Display label for a paid ad copy's own platform (Meta vs Google), which is
@@ -124,6 +125,7 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                     {label}
                   </span>
                   <ModuleTag module={module} />
+                  {draft?.highPriority && <UrgentTag />}
                 </div>
               </div>
 

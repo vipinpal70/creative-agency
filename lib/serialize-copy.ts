@@ -56,6 +56,7 @@ export function serializeCopy(draft: any) {
     customParameters: draft.customParameters ?? [],
     notes: draft.notes,
     rejectionNote: draft.rejectionNote,
+    highPriority: draft.highPriority ?? false,
     title: deliverable?.title ?? "",
     platforms: deliverable?.platforms ?? [],
     buckets: deliverable?.buckets ?? [],

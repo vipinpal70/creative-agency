@@ -14,6 +14,7 @@ import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
 import { FeedbackModal } from "@/components/ui/feedback-modal";
 import { ModuleTag } from "@/components/ui/ModuleTag";
+import { UrgentTag } from "@/components/ui/UrgentTag";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 
@@ -168,6 +169,7 @@ function CopyApprovalCard({
               {STATUS_LABEL[copy.status] || copy.status}
             </span>
             <ModuleTag module={copy.module} />
+            {copy.highPriority && <UrgentTag />}
           </div>
         </div>
 

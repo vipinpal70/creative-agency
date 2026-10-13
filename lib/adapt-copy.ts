@@ -41,6 +41,7 @@ export interface ApprovalCopy {
   customParameters: { name: string; value: string }[];
   notes: string;
   rejectionNote: string;
+  highPriority: boolean;
   title: string;
   platforms: string[];
   buckets: string[];
@@ -95,6 +96,7 @@ export function toCalendarCopy(copy: ApprovalCopy): CalendarCopy {
     notes: copy.notes,
     status: copy.status as CalendarDraft["status"],
     rejectionNote: copy.rejectionNote,
+    highPriority: copy.highPriority ?? false,
     lastChangedBy: copy.lastChangedBy,
     designStartedBy: copy.designStartedBy,
   };
