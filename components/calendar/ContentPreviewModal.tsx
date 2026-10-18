@@ -1298,7 +1298,7 @@ export function ContentPreviewModal({
                     "mr-1 flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
                     draft.highPriority
                       ? "bg-red-100 text-red-700 hover:bg-red-200"
-                      : "text-muted-foreground hover:bg-muted"
+                      : "text-muted-foreground hover:bg-muted border"
                   )}
                 >
                   {togglingPriority ? (
@@ -1306,7 +1306,7 @@ export function ContentPreviewModal({
                   ) : (
                     <Flame className="h-3.5 w-3.5" />
                   )}
-                  {draft.highPriority ? "Urgent" : "Mark urgent"}
+                  {draft.highPriority ? "On Priority" : "Mark On Priority"}
                 </button>
               )}
               {(onNavigatePrev || onNavigateNext) && (
@@ -1382,7 +1382,13 @@ export function ContentPreviewModal({
                     )}
                     {!readOnly && (
                       <TabsTrigger value="approve" className="flex-1">
-                        Client Feedback
+                        {normDraftStatus === "content_internal_review" ||
+                        normDraftStatus === "design_internal_review"
+                          ? "Internal Feedback"
+                          : normDraftStatus === "content_client_review" ||
+                            normDraftStatus === "design_client_review"
+                          ? "Client Feedback"
+                          : "Review"}
                       </TabsTrigger>
                     )}
                   </TabsList>

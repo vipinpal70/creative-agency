@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Film, Check, X, User,
   ShieldCheck, FileText, MessageSquare, Palette, Image as ImageIcon, ChevronDown,
@@ -44,6 +43,13 @@ const COPY_STAGES = [
 ] as const;
 
 type CopyStageKey = (typeof COPY_STAGES)[number]["key"];
+
+// Edit-version label — mirrors ContentPreviewModal's formatVersion so the card
+// (outside) and the preview (inside) agree: major stays 1, minor is the revision.
+function formatVersion(revision?: number): string {
+  const r = revision ?? 0;
+  return r > 0 ? `v1.${r}` : "v1";
+}
 
 const PRIORITY_COLOR: Record<string, string> = {
   LOW: "bg-gray-100 text-gray-600",
@@ -206,7 +212,7 @@ function CopyApprovalCard({
           <span className="flex items-center gap-1">
             <User className="h-3 w-3" /> {copy.writerName}
           </span>
-          <span className="text-muted-foreground/60">v{copy.version}</span>
+          <span className="text-muted-foreground/60">{formatVersion(copy.revision)}</span>
         </div>
 
         {/* Attached creative preview for design review stages */}
@@ -420,6 +426,17 @@ function getTodayString(): string {
   return `${year}-${month}-${day}`;
 }
 
+// Default "from" date for the date-range filter: one month before today, so
+// the list opens on at least a 1-month window (e.g. 14 Sep → 14 Oct).
+function getDefaultStartDate(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 interface MultiSelectOption {
   label: string;
   value: string;
@@ -593,7 +610,7 @@ export default function ApprovalsPage() {
   const [clientFilter, setClientFilter] = useState<string>("");
   const [moduleFilter, setModuleFilter] = useState<string>("");
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState<string>(getTodayString);
+  const [startDate, setStartDate] = useState<string>(getDefaultStartDate);
   const [endDate, setEndDate] = useState<string>("");
 
   const loadCopies = useCallback(async (stage: CopyStageKey) => {
@@ -674,6 +691,8 @@ export default function ApprovalsPage() {
     return copies.filter((copy) => {
       if (clientFilter && copy.clientId !== clientFilter) return false;
 
+      // Module filter: "" (All) shows every module including adhoc; otherwise
+      // match exactly (social / paid / adhoc).
       if (moduleFilter && copy.module !== moduleFilter) return false;
 
       if (selectedMediaTypes.length > 0) {
@@ -708,14 +727,14 @@ export default function ApprovalsPage() {
     clientFilter !== "" ||
     moduleFilter !== "" ||
     selectedMediaTypes.length > 0 ||
-    startDate !== getTodayString() ||
+    startDate !== getDefaultStartDate() ||
     endDate !== "";
 
   const handleResetFilters = () => {
     setClientFilter("");
     setModuleFilter("");
     setSelectedMediaTypes([]);
-    setStartDate(getTodayString());
+    setStartDate(getDefaultStartDate());
     setEndDate("");
   };
 
@@ -754,12 +773,13 @@ export default function ApprovalsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-gray-100">
-              {/* Social / Paid module filter */}
+              {/* Module filter: All / Social / Paid / Adhoc */}
               <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50/80 p-0.5">
                 {[
                   { value: "", label: "All" },
                   { value: "social", label: "Social Media" },
                   { value: "paid", label: "Paid Media" },
+                  { value: "adhoc", label: "Adhoc" },
                 ].map((opt) => {
                   const on = moduleFilter === opt.value;
                   return (

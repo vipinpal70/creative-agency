@@ -79,6 +79,10 @@ export interface IContentDraft extends Document {
   // shows an "Urgent" tag. Internal signal — never surfaced to clients.
   highPriority:   boolean;
 
+  // Adhoc-only: how the deliverable is produced/handed off. "" for normal
+  // (calendar) copies.
+  deliveryFormat: "" | "digital" | "printable";
+
   // Soft-archive: when set, the copy is hidden from active lists but retained
   // (and still visible in the designer Rejected tab / Archived page) until it is
   // permanently deleted — manually by an admin or automatically 14 days later.
@@ -162,6 +166,7 @@ const contentDraftSchema = new Schema<IContentDraft>(
     },
     rejectionNote: { type: String, default: "" },
     highPriority:  { type: Boolean, default: false },
+    deliveryFormat: { type: String, enum: ["", "digital", "printable"], default: "" },
 
     lastChangedBy: {
       type: {

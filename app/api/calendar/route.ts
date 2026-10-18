@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/db";
 import Calendar from "@/lib/models/calendar.model";
 import Deliverable from "@/lib/models/deliverable.model";
 import ContentDraft from "@/lib/models/content-draft.model";
+import { ADHOC_MODULE } from "@/lib/adhoc";
 import mongoose from "mongoose";
 
 // GET /api/calendar?clientId=&scopeId=
@@ -27,8 +28,10 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    // Fetch calendars for this client+scope
-    const calFilter: Record<string, unknown> = { clientId };
+    // Fetch calendars for this client+scope. Adhoc copies live under a hidden
+    // "adhoc" calendar and only run the approval cycle — they never appear in
+    // the content calendar.
+    const calFilter: Record<string, unknown> = { clientId, module: { $ne: ADHOC_MODULE } };
     if (scopeId) calFilter.scopeId = scopeId;
     const calendars = await Calendar.find(calFilter).lean();
 

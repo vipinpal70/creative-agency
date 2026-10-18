@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, X } from "lucide-react";
+import { TextShimmerWave } from "@/components/ui/aiLoading";
+import { Sparkles, Loader2, X, ArrowUp } from "lucide-react";
 import type { AdPlatform } from "./types";
 
 // Paid-media creative format — mirrors VARIANT_MEDIA_TYPES in VariantModal.tsx.
@@ -28,6 +29,23 @@ export interface AiPaidPushPayload {
   // Google only.
   longHeadline: string;
   descriptions: string[];
+}
+
+// Snapshot of one AI result, stored per chat turn so the transcript can show
+// what the AI actually produced (not just "updated ✓").
+interface ResultSnapshot {
+  adCopy: string;
+  headlines: string[];
+  primaryTexts: string[];
+  longHeadline: string;
+  descriptions: string[];
+}
+
+// One exchange in the refine conversation: the writer's instruction and the
+// result the AI returned for it.
+interface ChatTurn {
+  instruction: string;
+  result: ResultSnapshot;
 }
 
 const PLATFORM_OPTIONS: { value: AdPlatform; label: string }[] = [
@@ -68,23 +86,57 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
   ]);
   const [customPrompt, setCustomPrompt] = useState("");
 
+  // Live, editable copy of the latest result — what Push sends.
   const [adCopy, setAdCopy] = useState("");
   const [headlines, setHeadlines] = useState<string[]>([]);
   const [primaryTexts, setPrimaryTexts] = useState<string[]>([]);
   const [longHeadline, setLongHeadline] = useState("");
   const [descriptions, setDescriptions] = useState<string[]>([]);
-  const [hasResult, setHasResult] = useState(false);
 
   const isGoogle = adPlatform === "google";
+
+  // Refine chat: once there's a first result, the writer keeps the conversation
+  // going — each turn edits the existing ad copy instead of starting over.
+  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [feedback, setFeedback] = useState("");
+  // The instruction currently in flight, shown optimistically as a user bubble
+  // alongside the shimmer while the AI responds.
+  const [pendingInstruction, setPendingInstruction] = useState<string | null>(null);
 
   const [generating, setGenerating] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const hasResult = turns.length > 0;
+
+  // Auto-scroll the transcript to the newest message as it grows.
+  const bottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [turns.length, pendingInstruction, generating]);
+
   function toggleContext(key: ContextKey) {
     setSelectedContext((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
+  }
+
+  function normalizeResult(data: any): ResultSnapshot {
+    return {
+      adCopy: data.adCopy || "",
+      headlines: Array.isArray(data.headlines) ? data.headlines : [],
+      primaryTexts: Array.isArray(data.primaryTexts) ? data.primaryTexts : [],
+      longHeadline: data.longHeadline || "",
+      descriptions: Array.isArray(data.descriptions) ? data.descriptions : [],
+    };
+  }
+
+  function applyResult(result: ResultSnapshot) {
+    setAdCopy(result.adCopy);
+    setHeadlines(result.headlines);
+    setPrimaryTexts(result.primaryTexts);
+    setLongHeadline(result.longHeadline);
+    setDescriptions(result.descriptions);
   }
 
   async function handleGenerate() {
@@ -94,6 +146,7 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
     }
     setError(null);
     setGenerating(true);
+    setPendingInstruction(customPrompt.trim());
     try {
       const res = await fetch(`/api/clients/${clientId}/ai/paid-copywriting`, {
         method: "POST",
@@ -108,16 +161,56 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generation failed");
 
-      setAdCopy(data.adCopy || "");
-      setHeadlines(Array.isArray(data.headlines) ? data.headlines : []);
-      setPrimaryTexts(Array.isArray(data.primaryTexts) ? data.primaryTexts : []);
-      setLongHeadline(data.longHeadline || "");
-      setDescriptions(Array.isArray(data.descriptions) ? data.descriptions : []);
-      setHasResult(true);
+      const result = normalizeResult(data);
+      applyResult(result);
+      setTurns([{ instruction: customPrompt.trim(), result }]);
     } catch (err: any) {
       setError(err.message || "Something went wrong generating content.");
     } finally {
       setGenerating(false);
+      setPendingInstruction(null);
+    }
+  }
+
+  // Refine: send the current (possibly hand-edited) ad copy plus the writer's
+  // feedback so the AI revises it in place rather than starting over.
+  async function handleRefine() {
+    const instruction = feedback.trim();
+    if (!instruction) {
+      setError("Type what you'd like to change.");
+      return;
+    }
+    setError(null);
+    setGenerating(true);
+    setPendingInstruction(instruction);
+    setFeedback("");
+    try {
+      const res = await fetch(`/api/clients/${clientId}/ai/paid-copywriting`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adPlatform,
+          mediaType,
+          selectedContext,
+          mode: "refine",
+          instruction,
+          existing: isGoogle
+            ? { adCopy, headlines, longHeadline, descriptions }
+            : { adCopy, headlines, primaryTexts },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Refine failed");
+
+      const result = normalizeResult(data);
+      applyResult(result);
+      setTurns((prev) => [...prev, { instruction, result }]);
+    } catch (err: any) {
+      setError(err.message || "Something went wrong refining content.");
+      setFeedback(instruction); // restore so the writer doesn't lose their text
+    } finally {
+      setGenerating(false);
+      setPendingInstruction(null);
     }
   }
 
@@ -175,6 +268,80 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
     );
   }
 
+  const platformLabel =
+    PLATFORM_OPTIONS.find((o) => o.value === adPlatform)?.label ?? adPlatform;
+
+  // Read-only rendering of a past turn's result in the transcript.
+  function ResultPreview({ result }: { result: ResultSnapshot }) {
+    const body = isGoogle ? result.descriptions : result.primaryTexts;
+    return (
+      <div className="space-y-2 text-sm text-foreground whitespace-pre-wrap">
+        {result.adCopy && <p>{result.adCopy}</p>}
+        {result.headlines.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">Headlines</p>
+            <p>{result.headlines.join("\n")}</p>
+          </div>
+        )}
+        {isGoogle && result.longHeadline && (
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">Long headline</p>
+            <p>{result.longHeadline}</p>
+          </div>
+        )}
+        {body.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">
+              {isGoogle ? "Descriptions" : "Primary text"}
+            </p>
+            <p>{body.join("\n")}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Editable rendering of the latest result — bound to live state, pushed as-is.
+  function EditableResult() {
+    return (
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <label className={LABEL}>Copy</label>
+          <Textarea value={adCopy} onChange={(e) => setAdCopy(e.target.value)} rows={2} />
+        </div>
+        {isGoogle ? (
+          <>
+            <ArrayField label="Headlines" values={headlines} onChange={setHeadlines} rows={4} />
+            <div className="space-y-1.5">
+              <label className={LABEL}>Long headline</label>
+              <Textarea
+                value={longHeadline}
+                onChange={(e) => setLongHeadline(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <ArrayField
+              label="Descriptions"
+              values={descriptions}
+              onChange={setDescriptions}
+              rows={4}
+            />
+          </>
+        ) : (
+          <>
+            <ArrayField
+              label="Primary text"
+              values={primaryTexts}
+              onChange={setPrimaryTexts}
+              rows={5}
+            />
+            <ArrayField label="Headlines" values={headlines} onChange={setHeadlines} rows={4} />
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-background rounded-xl border border-border w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl">
@@ -196,163 +363,238 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
           </button>
         </div>
 
-        {/* Body — scrollable */}
-        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
-          {/* Ad platform */}
-          <div className="space-y-2">
-            <label className={LABEL}>Ad platform *</label>
-            <div className="flex flex-wrap gap-2">
-              {PLATFORM_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setAdPlatform(opt.value)}
-                  className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
-                    adPlatform === opt.value
-                      ? "border-primary bg-primary/10 text-primary font-medium"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Media type */}
-          <div className="space-y-2">
-            <label className={LABEL}>Media type *</label>
-            <div className="flex flex-wrap gap-2">
-              {MEDIA_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setMediaType(opt.value)}
-                  className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
-                    mediaType === opt.value
-                      ? "border-primary bg-primary/10 text-primary font-medium"
-                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Context to include */}
-          <div className="space-y-2">
-            <label className={LABEL}>Context to include</label>
-            <div className="flex flex-wrap gap-2">
-              {CONTEXT_OPTIONS.map((opt) => {
-                const on = selectedContext.includes(opt.value);
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => toggleContext(opt.value)}
-                    className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
-                      on
-                        ? "border-primary bg-primary/10 text-primary font-medium"
-                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="space-y-2">
-            <label className={LABEL}>Your instructions *</label>
-            <Textarea
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              rows={3}
-              placeholder='e.g. "Create a Meta ad promoting our same-day dental implant offer for busy professionals."'
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <Button
-            onClick={handleGenerate}
-            disabled={generating || pushing}
-            className="bg-green-700 text-white hover:bg-green-800 transition-colors"
-          >
-            {generating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Generating…
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-1.5" /> {hasResult ? "Regenerate" : "Generate with AI"}
-              </>
-            )}
-          </Button>
-
-          {/* Result — editable before pushing */}
-          {hasResult && (
-            <div className="space-y-4 border-t border-border pt-4">
-              <div className="space-y-1.5">
-                <label className={LABEL}>Copy</label>
-                <Textarea value={adCopy} onChange={(e) => setAdCopy(e.target.value)} rows={2} />
+        {/* Setup phase — configure, then generate the first draft */}
+        {!hasResult ? (
+          <>
+            <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
+              {/* Ad platform */}
+              <div className="space-y-2">
+                <label className={LABEL}>Ad platform *</label>
+                <div className="flex flex-wrap gap-2">
+                  {PLATFORM_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setAdPlatform(opt.value)}
+                      className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                        adPlatform === opt.value
+                          ? "border-primary bg-primary/10 text-primary font-medium"
+                          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {isGoogle ? (
-                <>
-                  <ArrayField label="Headlines" values={headlines} onChange={setHeadlines} rows={4} />
-                  <div className="space-y-1.5">
-                    <label className={LABEL}>Long headline</label>
-                    <Textarea
-                      value={longHeadline}
-                      onChange={(e) => setLongHeadline(e.target.value)}
-                      rows={2}
-                    />
-                  </div>
-                  <ArrayField
-                    label="Descriptions"
-                    values={descriptions}
-                    onChange={setDescriptions}
-                    rows={4}
-                  />
-                </>
+              {/* Media type */}
+              <div className="space-y-2">
+                <label className={LABEL}>Media type *</label>
+                <div className="flex flex-wrap gap-2">
+                  {MEDIA_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setMediaType(opt.value)}
+                      className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                        mediaType === opt.value
+                          ? "border-primary bg-primary/10 text-primary font-medium"
+                          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Context to include */}
+              <div className="space-y-2">
+                <label className={LABEL}>Context to include</label>
+                <div className="flex flex-wrap gap-2">
+                  {CONTEXT_OPTIONS.map((opt) => {
+                    const on = selectedContext.includes(opt.value);
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => toggleContext(opt.value)}
+                        className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                          on
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="space-y-2">
+                <label className={LABEL}>Your instructions *</label>
+                <Textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  rows={3}
+                  placeholder='e.g. "Create a Meta ad promoting our same-day dental implant offer for busy professionals."'
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate();
+                  }}
+                />
+              </div>
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
+
+              {generating ? (
+                <div className="flex items-center gap-2 py-1">
+                  <Sparkles className="h-4 w-4 text-emerald-600" />
+                  <TextShimmerWave className="text-sm font-medium">
+                    Writing your ad copy…
+                  </TextShimmerWave>
+                </div>
               ) : (
-                <>
-                  <ArrayField
-                    label="Primary text"
-                    values={primaryTexts}
-                    onChange={setPrimaryTexts}
-                    rows={5}
-                  />
-                  <ArrayField label="Headlines" values={headlines} onChange={setHeadlines} rows={4} />
-                </>
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generating || pushing}
+                  className="bg-green-700 text-white hover:bg-green-800 transition-colors"
+                >
+                  <Sparkles className="h-4 w-4 mr-1.5" /> Generate with AI
+                </Button>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Footer — pinned */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border flex-shrink-0">
-          <Button variant="outline" onClick={onClose} disabled={pushing}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handlePush}
-            disabled={!hasResult || pushing || generating}
-            className="bg-green-700 text-white hover:bg-green-800 transition-colors"
-          >
-            {pushing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Pushing…
-              </>
-            ) : (
-              "Push to Ad Copy"
-            )}
-          </Button>
-        </div>
+            {/* Footer — pinned */}
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border flex-shrink-0">
+              <Button variant="outline" onClick={onClose} disabled={pushing}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        ) : (
+          /* Chat phase — iterate on the draft conversationally */
+          <>
+            {/* Collapsed config summary */}
+            <div className="flex flex-wrap items-center gap-1.5 px-6 py-2.5 border-b border-border flex-shrink-0 text-xs text-muted-foreground">
+              <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 font-medium">
+                {platformLabel}
+              </span>
+              <span className="rounded-full bg-muted px-2 py-0.5">{mediaType}</span>
+              {selectedContext.length > 0 && (
+                <span className="rounded-full bg-muted px-2 py-0.5">
+                  {selectedContext.length} context{selectedContext.length > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            {/* Transcript — scrollable */}
+            <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+              {turns.map((turn, i) => {
+                const isLatest = i === turns.length - 1;
+                return (
+                  <div key={i} className="space-y-3">
+                    {/* User bubble */}
+                    <div className="flex justify-end">
+                      <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary/10 text-foreground px-3.5 py-2 text-sm whitespace-pre-wrap">
+                        {turn.instruction}
+                      </div>
+                    </div>
+                    {/* Assistant bubble */}
+                    <div className="flex justify-start">
+                      <div className="max-w-[92%] w-full rounded-2xl rounded-bl-sm border border-border bg-muted/40 px-3.5 py-3">
+                        <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-emerald-600">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          {isLatest ? "Latest draft — edit before pushing" : "Draft"}
+                        </div>
+                        {isLatest ? <EditableResult /> : <ResultPreview result={turn.result} />}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* In-flight turn */}
+              {generating && pendingInstruction && (
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary/10 text-foreground px-3.5 py-2 text-sm whitespace-pre-wrap">
+                      {pendingInstruction}
+                    </div>
+                  </div>
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl rounded-bl-sm border border-border bg-muted/40 px-3.5 py-3 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-emerald-600" />
+                      <TextShimmerWave className="text-sm font-medium">
+                        Revising your ad copy…
+                      </TextShimmerWave>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <div ref={bottomRef} />
+            </div>
+
+            {/* Composer — pinned */}
+            <div className="px-6 py-3 border-t border-border flex-shrink-0">
+              <div className="flex items-end gap-2 rounded-xl border border-border bg-background p-1.5 focus-within:border-primary/50 transition-colors">
+                <Textarea
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  rows={1}
+                  placeholder="Ask for another change… (e.g. shorter headlines, lead with the offer)"
+                  className="flex-1 border-0 focus-visible:ring-0 shadow-none resize-none min-h-0 py-1.5"
+                  disabled={generating}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (!generating && feedback.trim()) handleRefine();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={handleRefine}
+                  disabled={generating || pushing || !feedback.trim()}
+                  size="icon"
+                  className="bg-green-700 text-white hover:bg-green-800 transition-colors shrink-0 h-8 w-8 rounded-lg"
+                >
+                  {generating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                Enter to send · Shift+Enter for a new line
+              </p>
+            </div>
+
+            {/* Footer — pinned */}
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border flex-shrink-0">
+              <Button variant="outline" onClick={onClose} disabled={pushing}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePush}
+                disabled={pushing || generating}
+                className="bg-green-700 text-white hover:bg-green-800 transition-colors"
+              >
+                {pushing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Pushing…
+                  </>
+                ) : (
+                  "Push to Ad Copy"
+                )}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

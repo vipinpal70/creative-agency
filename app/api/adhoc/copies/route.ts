@@ -13,21 +13,12 @@ import {
   getOrCreateAdhocContext,
   incrementAdhocScopeCount,
 } from "@/lib/adhoc";
+import { ADHOC_CATEGORIES, ADHOC_FLYER_CATEGORY } from "@/lib/types";
 
-// Adhoc copy types. "flyer" uses the standard copy fields; "unstructured" is a
-// freeform body the writer just writes. Both run the normal content → design
-// lifecycle (neither skips the design phase).
-const ADHOC_TYPES = ["flyer", "unstructured"] as const;
-type AdhocType = (typeof ADHOC_TYPES)[number];
-
-const DELIVERABLE_TYPE: Record<AdhocType, string> = {
-  flyer: "flyer",
-  unstructured: "unstructured",
-};
-const MEDIA_TYPE: Record<AdhocType, string> = {
-  flyer: "Flyer",
-  unstructured: "Unstructured",
-};
+// An adhoc request carries a category (media type) chosen from ADHOC_CATEGORIES
+// and a delivery format (digital | printable). It runs the normal content →
+// design lifecycle (it never skips the design phase).
+const VALID_FORMATS = ["digital", "printable"] as const;
 
 // GET /api/adhoc/copies?clientId=
 // Lists the client's adhoc copies (deliverables under the adhoc calendar, each
@@ -78,11 +69,16 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/adhoc/copies
-// Body: { clientId, type: "flyer"|"unstructured", copy, caption?, referenceUrl?,
-//         publishDate?, publishTime?, title? }
+// Flyer body:     { clientId, category: "Flyer", copy, referenceUrl?, deliveryDate?,
+//                   deliveryFormat?, title? }
+// Non-flyer body: { clientId, category, creativeCopy|copy, caption, hashtags?,
+//                   frames?, platforms?, publishDate?, publishTime?, referenceUrl?,
+//                   videoType?, videoNotes?, articleMode?, articleCopy?, title? }
 // Creates (lazily bootstrapping the client's adhoc calendar + scope), bumps the
 // shared adhoc scope item, and writes the deliverable + draft (status "draft")
-// so the copy enters the normal review pipeline.
+// so the copy enters the normal review pipeline. Adhoc copies never carry
+// buckets. The Flyer category also drops platforms/caption/hashtags and uses a
+// delivery format; every other category is a standalone social copy.
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
@@ -90,21 +86,39 @@ export async function POST(req: NextRequest) {
     if (isClient(session)) return forbidden();
 
     const body = await req.json();
-    const { clientId, type, copy, caption, referenceUrl, publishDate, publishTime, title } = body;
+    const {
+      clientId, category, title, notes,
+      // flyer
+      deliveryFormat, deliveryDate,
+      // shared
+      copy, creativeCopy, referenceUrl,
+      // social
+      caption, hashtags, frames, platforms, publishDate, publishTime,
+      videoType, videoNotes, articleMode, articleCopy,
+    } = body;
 
-    if (!clientId || !ADHOC_TYPES.includes(type)) {
+    if (!clientId || !category || !(ADHOC_CATEGORIES as readonly string[]).includes(category)) {
       return NextResponse.json(
-        { error: "clientId and a valid type (flyer | unstructured) are required" },
+        { error: "clientId and a valid category are required" },
         { status: 400 }
       );
     }
-    if (!copy?.trim()) {
+
+    const isFlyer = category === ADHOC_FLYER_CATEGORY;
+    const isCarousel = String(category).toLowerCase() === "carousel";
+    const bodyCopy = (creativeCopy ?? copy ?? "").toString();
+    const framesClean = Array.isArray(frames) ? frames : [];
+
+    // Validation: carousel needs frame copy; everything else needs body copy.
+    if (isCarousel ? framesClean.length === 0 : !bodyCopy.trim()) {
       return NextResponse.json({ error: "Copy content is required" }, { status: 400 });
     }
 
     await connectDB();
 
-    const adhocType = type as AdhocType;
+    const format = (VALID_FORMATS as readonly string[]).includes(deliveryFormat) ? deliveryFormat : "";
+    // Flyer schedules on its delivery date; social copies on their publish date.
+    const dateStr = isFlyer ? deliveryDate : publishDate;
 
     // Bootstrap (or reuse) the client's adhoc calendar + scope, then record the
     // request against the shared adhoc scope item.
@@ -117,8 +131,7 @@ export async function POST(req: NextRequest) {
       : session.email;
     const now = new Date();
 
-    const resolvedTitle =
-      (title?.trim() || copy.trim()).slice(0, 80) || MEDIA_TYPE[adhocType];
+    const resolvedTitle = (title?.trim() || bodyCopy.trim()).slice(0, 80) || category;
 
     // ── Deliverable ──────────────────────────────────────────────────────
     const deliverable = await Deliverable.create({
@@ -127,12 +140,13 @@ export async function POST(req: NextRequest) {
       calendarId,
       module: ADHOC_MODULE,
       // Deliverable.type is free-text in the schema; the TS union is narrower,
-      // so cast our adhoc type labels through.
-      type: DELIVERABLE_TYPE[adhocType] as DeliverableType,
-      platforms: [],
+      // so cast the chosen category through. Drives carousel detection etc.
+      type: category as DeliverableType,
+      // Flyers have no platform; other adhoc copies are standalone social posts.
+      platforms: isFlyer ? [] : (Array.isArray(platforms) ? platforms : []),
       title: resolvedTitle,
       buckets: [],
-      scheduledDate: publishDate ? new Date(publishDate) : now,
+      scheduledDate: dateStr ? new Date(dateStr) : now,
       status: "pending",
     });
 
@@ -144,12 +158,20 @@ export async function POST(req: NextRequest) {
       version: 1,
       revision: 0,
       createdBy: session.userId,
-      mediaType: MEDIA_TYPE[adhocType],
-      creativeCopy: copy,
-      caption: caption || "",
+      mediaType: category,
+      creativeCopy: isCarousel ? "" : bodyCopy,
+      frames: isFlyer ? [] : framesClean,
+      caption: isFlyer ? "" : (caption || ""),
+      hashtags: isFlyer ? [] : (Array.isArray(hashtags) ? hashtags : []),
       referenceUrl: referenceUrl || "",
-      publishDate: publishDate ? new Date(publishDate) : null,
-      publishTime: publishTime || null,
+      videoType: isFlyer ? "" : (videoType || ""),
+      videoNotes: isFlyer ? "" : (videoNotes || ""),
+      articleMode: isFlyer ? "" : (articleMode || ""),
+      articleCopy: isFlyer ? "" : (articleCopy || ""),
+      deliveryFormat: isFlyer ? format : "",
+      notes: (notes || "").toString(),
+      publishDate: dateStr ? new Date(dateStr) : null,
+      publishTime: isFlyer ? null : (publishTime || null),
       status: "draft",
       lastChangedBy: { userId: session.userId, name: authorName, email: session.email, changedAt: now },
     });

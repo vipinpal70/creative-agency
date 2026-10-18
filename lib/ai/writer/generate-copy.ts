@@ -32,6 +32,18 @@ export interface GenerateSocialCopyArgs {
   context: SelectedCopyContext;
   // Number of slides to produce — only used when category === "carousel".
   frameCount?: number;
+  // "refine" iterates on existing content instead of writing from scratch:
+  // `existing` is the current copy the writer is looking at and `instruction`
+  // is their feedback. The model edits `existing` per the instruction and
+  // returns the same JSON shape, so nothing outside the change is lost.
+  mode?: "generate" | "refine";
+  existing?: {
+    copy?: string;
+    caption?: string;
+    hashtags?: string[];
+    frames?: CarouselFrame[];
+  };
+  instruction?: string;
 }
 
 export interface SocialCopyResult {
@@ -129,7 +141,11 @@ export async function generateSocialCopy({
   customPrompt,
   context,
   frameCount,
+  mode = "generate",
+  existing,
+  instruction,
 }: GenerateSocialCopyArgs): Promise<SocialCopyResult> {
+  const isRefine = mode === "refine";
   // Carousel produces exactly `frames` slides and uses a per-slide schema;
   // everything else returns the flat copy/caption/hashtags shape.
   const isCarousel = category === "carousel";
@@ -167,16 +183,39 @@ ${
     : ""
 }
 
+${
+    isRefine
+      ? `\nYou are REVISING existing content, not writing from scratch. Apply only the requested change and keep everything else as close to the current version as possible.\n`
+      : ""
+  }
 Return ONLY valid JSON matching exactly this structure — no markdown, no commentary, no extra fields:
 
 ${outputSchema}`;
+
+  // Refine sends the current content plus the writer's feedback; generate sends
+  // the original instructions. Either way the model returns the full JSON shape.
+  const userMessage = isRefine
+    ? `Here is the current content as JSON:
+
+${JSON.stringify(
+  isCarousel
+    ? { frames: existing?.frames ?? [], caption: existing?.caption ?? "", hashtags: existing?.hashtags ?? [] }
+    : { copy: existing?.copy ?? "", caption: existing?.caption ?? "", hashtags: existing?.hashtags ?? [] },
+  null,
+  2
+)}
+
+Apply this change: ${instruction?.trim() || customPrompt}
+
+Return the full updated content in the same JSON structure.`
+    : customPrompt;
 
   const response = await anthropic.messages.create({
     model: MODEL,
     // Articles are long-form; the short formats comfortably fit in 2000.
     max_tokens: category === "article" ? 4000 : 2000,
     system: systemPrompt,
-    messages: [{ role: "user", content: customPrompt }],
+    messages: [{ role: "user", content: userMessage }],
   });
 
   const parsed = parseResult(extractText(response));

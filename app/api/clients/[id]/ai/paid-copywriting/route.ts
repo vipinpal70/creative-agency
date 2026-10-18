@@ -36,16 +36,36 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       mediaType,
       selectedContext,
       customPrompt,
+      mode = "generate",
+      existing,
+      instruction,
     }: {
       adPlatform: AdPlatform;
       mediaType: PaidMediaType;
       selectedContext: CopywritingContextKey[];
       customPrompt: string;
+      mode?: "generate" | "refine";
+      existing?: {
+        adCopy?: string;
+        headlines?: string[];
+        primaryTexts?: string[];
+        longHeadline?: string;
+        descriptions?: string[];
+      };
+      instruction?: string;
     } = body;
 
-    if (!adPlatform || !mediaType || !customPrompt?.trim()) {
+    const isRefine = mode === "refine";
+
+    if (!adPlatform || !mediaType) {
       return NextResponse.json(
-        { error: "adPlatform, mediaType and customPrompt are required" },
+        { error: "adPlatform and mediaType are required" },
+        { status: 400 }
+      );
+    }
+    if (isRefine ? !instruction?.trim() : !customPrompt?.trim()) {
+      return NextResponse.json(
+        { error: isRefine ? "instruction is required to refine" : "customPrompt is required" },
         { status: 400 }
       );
     }
@@ -94,8 +114,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       clientName: client.brandName || client.name,
       adPlatform,
       mediaType,
-      customPrompt: customPrompt.trim(),
+      customPrompt: (customPrompt ?? "").trim(),
       context,
+      mode,
+      existing,
+      instruction: instruction?.trim(),
     });
 
     await AIUsage.create({
@@ -103,7 +126,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       clientId: id,
       provider: "anthropic",
       model: process.env.AI_ANTHROPIC_MODEL || "claude-sonnet-5",
-      operation: "paid_copywriting",
+      operation: isRefine ? "paid_copywriting_refine" : "paid_copywriting",
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
       webSearchCount: 0,

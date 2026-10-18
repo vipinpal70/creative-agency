@@ -140,7 +140,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       primaryTexts, headlines, descriptions,
       adPlatform, businessName, longHeadline,
       trackingTemplate, finalUrlSuffix, customParameters,
-      highPriority,
+      highPriority, deliveryFormat,
     } = body;
 
     const customParametersClean =
@@ -225,6 +225,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (publishTime !== undefined)   draft.publishTime  = publishTime;
     if (rejectionNote !== undefined) draft.rejectionNote = rejectionNote;
     if (highPriority !== undefined)  draft.highPriority  = Boolean(highPriority);
+    if (deliveryFormat !== undefined) draft.deliveryFormat = deliveryFormat === "digital" || deliveryFormat === "printable" ? deliveryFormat : "";
     if (publishDate !== undefined)   draft.publishDate  = publishDate ? new Date(publishDate) : null;
     if (Array.isArray(hashtags))     draft.hashtags     = hashtags;
 

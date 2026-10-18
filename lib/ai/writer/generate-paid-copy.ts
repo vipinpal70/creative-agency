@@ -32,6 +32,18 @@ export interface GeneratePaidCopyArgs {
   mediaType: PaidMediaType;
   customPrompt: string;
   context: SelectedCopyContext;
+  // "refine" iterates on existing ad copy instead of writing from scratch:
+  // `existing` is the current copy the writer sees and `instruction` is their
+  // feedback. The model edits `existing` and returns the same JSON shape.
+  mode?: "generate" | "refine";
+  existing?: {
+    adCopy?: string;
+    headlines?: string[];
+    primaryTexts?: string[];
+    longHeadline?: string;
+    descriptions?: string[];
+  };
+  instruction?: string;
 }
 
 export interface PaidCopyResult {
@@ -141,8 +153,12 @@ export async function generatePaidCopy({
   mediaType,
   customPrompt,
   context,
+  mode = "generate",
+  existing,
+  instruction,
 }: GeneratePaidCopyArgs): Promise<PaidCopyResult> {
   const isGoogle = adPlatform === "google";
+  const isRefine = mode === "refine";
   const outputSchema = isGoogle ? googleSchema() : metaSchema();
 
   const platformGuidance = isGoogle
@@ -181,15 +197,45 @@ ${
     : ""
 }
 
+${
+    isRefine
+      ? `\nYou are REVISING existing ad copy, not writing from scratch. Apply only the requested change and keep everything else as close to the current version as possible.\n`
+      : ""
+  }
 Return ONLY valid JSON matching exactly this structure — no markdown, no commentary, no extra fields:
 
 ${outputSchema}`;
+
+  // Refine sends the current ad copy plus the writer's feedback; generate sends
+  // the original instructions. Either way the model returns the full JSON shape.
+  const existingForPlatform = isGoogle
+    ? {
+        adCopy: existing?.adCopy ?? "",
+        headlines: existing?.headlines ?? [],
+        longHeadline: existing?.longHeadline ?? "",
+        descriptions: existing?.descriptions ?? [],
+      }
+    : {
+        adCopy: existing?.adCopy ?? "",
+        primaryTexts: existing?.primaryTexts ?? [],
+        headlines: existing?.headlines ?? [],
+      };
+
+  const userMessage = isRefine
+    ? `Here is the current ad copy as JSON:
+
+${JSON.stringify(existingForPlatform, null, 2)}
+
+Apply this change: ${instruction?.trim() || customPrompt}
+
+Return the full updated ad copy in the same JSON structure.`
+    : customPrompt;
 
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 2000,
     system: systemPrompt,
-    messages: [{ role: "user", content: customPrompt }],
+    messages: [{ role: "user", content: userMessage }],
   });
 
   const parsed = parseResult(extractText(response), adPlatform);

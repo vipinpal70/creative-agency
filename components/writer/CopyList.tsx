@@ -106,6 +106,9 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
           const label = STATUS_LABEL[displayStatus] || displayStatus;
           const colorClass = STATUS_COLOR[displayStatus] || "bg-muted text-muted-foreground";
           const isCarousel = copy.type.toLowerCase() === "carousel";
+          // Mixed-module lists (writer status queue) carry the module per row;
+          // per-calendar lists fall back to the single list-level module.
+          const rowModule = copy.module ?? module;
 
           const previewText = isCarousel && draft?.frames?.length
             ? `[Carousel · ${draft.frames.length} frames] ${draft.frames[0]?.copy || ""}`.trim()
@@ -124,7 +127,7 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${colorClass}`}>
                     {label}
                   </span>
-                  <ModuleTag module={module} />
+                  <ModuleTag module={rowModule} />
                   {draft?.highPriority && <UrgentTag />}
                 </div>
               </div>
@@ -139,7 +142,7 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                     {draft?.publishTime ? ` at ${draft.publishTime}` : ""}
                   </span>
                 )}
-                {module === "paid" && draft?.adPlatform ? (
+                {rowModule === "paid" && draft?.adPlatform ? (
                   <span className="flex items-center gap-1">
                     {AD_PLATFORM_LABEL[draft.adPlatform] ?? draft.adPlatform}
                   </span>
@@ -236,8 +239,8 @@ export function CopyList({ copies, onRemove, onSubmitSingle, onSubmitAll, onOpen
                   </Button>
                 )}
                 {isDraft && (
-                  <Button variant="destructive" size="sm" onClick={() => onRemove(copy.id)}>
-                    <Trash2 className="h-3 w-3 mr-1 text-white" /> <span className="text-white">Remove</span>
+                  <Button className="border border-red-500 bg-white hover:bg-red-50 hover:text-red-700" size="sm" onClick={() => onRemove(copy.id)}>
+                    <Trash2 className="h-3 w-3 mr-1 text-red-500" /> <span className="text-red-500">Delete</span>
                   </Button>
                 )}
               </div>

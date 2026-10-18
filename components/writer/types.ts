@@ -33,6 +33,7 @@ export interface CopyFormData {
   contentBucket: string;
   platforms: string[];
   referenceUrl?: string;
+  note?: string;             // optional free-text note (adhoc copies)
   videoType?: string;
   videoNotes?: string;
   articleMode?: string;      // "with-creative" | "without-creative" — only for article/copy media type
@@ -97,6 +98,7 @@ export interface DraftSnapshot {
   publishTime: string | null;
   mediaType: string;
   referenceUrl?: string;
+  notes?: string;
   videoType?: string;
   videoNotes?: string;
   articleMode?: string;
@@ -119,6 +121,7 @@ export interface DraftSnapshot {
   status: DraftStatus | "submitted" | "approved";
   rejectionNote?: string;
   highPriority?: boolean;
+  deliveryFormat?: "" | "digital" | "printable";
   lastChangedBy?: LastChangedBy | null;
 }
 
@@ -132,6 +135,10 @@ export interface WriterDeliverable {
   status: string;
   scheduledDate: string;
   latestDraft: DraftSnapshot | null;
+  // Optional per-row scope module. Set when a list mixes calendars/modules
+  // (the writer status queue); the per-calendar views omit it and rely on the
+  // list-level `module` prop instead.
+  module?: string;
 }
 
 // Planned item from scope (what the calendar is supposed to deliver)

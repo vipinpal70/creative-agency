@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
   ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck, ChevronDown,
-  Pen, Pencil, Trash2, Calendar, X, Sliders, Sparkles,
+  Pen, Pencil, Trash2, Calendar, X, Sliders, Sparkles, Zap,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -23,6 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ObjectiveStep } from "@/components/writer/ObjectiveStep";
 import { BucketsStep } from "@/components/writer/BucketsStep";
 import { CopyList } from "@/components/writer/CopyList";
+import { WriterCopyQueue, WRITER_STAGES } from "@/components/writer/WriterCopyQueue";
+import { AdhocTab } from "@/components/writer/AdhocTab";
 import { CopyModal } from "@/components/writer/CopyModal";
 import type { CopyModalInitialData } from "@/components/writer/CopyModal";
 import { AiWriterModal } from "@/components/writer/AiWriterModal";
@@ -597,9 +599,15 @@ function getTodayString(): string {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="calendars">My Calendars</TabsTrigger>
-          <TabsTrigger value="work" disabled={!activeCalendar}>
-            {activeCalendar ? `Working: ${activeCalendar.name}` : "Workspace"}
-          </TabsTrigger>
+          {WRITER_STAGES.map((s) => (
+            <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>
+          ))}
+          <TabsTrigger value="adhoc">Adhoc</TabsTrigger>
+          {activeCalendar && (
+            <TabsTrigger value="work">
+              Working: {activeCalendar.name}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ─────────────────── CALENDARS TAB ─────────────────── */}
@@ -740,6 +748,13 @@ function getTodayString(): string {
                       >
                         <CalendarPlus className="h-4 w-4 text-muted-foreground" /> Add social media calendar
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAddMenuOpen(false); setActiveTab("adhoc"); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Zap className="h-4 w-4 text-muted-foreground" /> Add adhoc task
+                      </button>
                     </div>
                   )}
                 </div>
@@ -878,6 +893,18 @@ function getTodayString(): string {
               )}
             </>
           )}
+        </TabsContent>
+
+        {/* ─────────── STATUS QUEUE TABS (own copies only) ─────────── */}
+        {WRITER_STAGES.map((s) => (
+          <TabsContent key={s.key} value={s.key} className="mt-4">
+            {activeTab === s.key && <WriterCopyQueue stage={s.key} />}
+          </TabsContent>
+        ))}
+
+        {/* ─────────────────── ADHOC TAB ─────────────────── */}
+        <TabsContent value="adhoc" className="mt-4">
+          {activeTab === "adhoc" && <AdhocTab clients={clients} me={me} />}
         </TabsContent>
 
         {/* ─────────────────── WORKSPACE TAB ─────────────────── */}

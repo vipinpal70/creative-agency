@@ -15,7 +15,7 @@ export function UrgentTag({ className = "" }: { className?: string }) {
       )}
     >
       <Flame className="h-3 w-3" />
-      Urgent
+      On Priority
     </span>
   );
 }

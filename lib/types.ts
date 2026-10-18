@@ -40,6 +40,42 @@ export const MODULES: ModuleMeta[] = [
 
 export const moduleByKey = (key: ModuleKey) => MODULES.find((m) => m.key === key)!;
 
+// Category (media type) options for an adhoc request. "Flyer" is the special
+// simple type (delivery date + digital/printable, no platform); every other
+// category behaves like a social-media copy minus buckets/calendar linkage.
+export const ADHOC_CATEGORIES = [
+  "Flyer",
+  "Static/Image",
+  "Carousel",
+  "Video",
+  "Reel",
+  "Story",
+  "Article",
+  "Blog",
+  "Email",
+  "Ad",
+] as const;
+
+// The Flyer category alone uses the delivery-format field and omits platforms.
+export const ADHOC_FLYER_CATEGORY = "Flyer";
+
+// How a flyer is produced / handed off.
+export const ADHOC_DELIVERY_FORMATS = [
+  { value: "digital", label: "Digital" },
+  { value: "printable", label: "Printable" },
+] as const;
+
+// Default platform choices for a standalone (adhoc) social copy — it has no
+// scope-of-work to derive platforms from. IDs match CopyModal's PLATFORM_META.
+export const ADHOC_SOCIAL_PLATFORMS = [
+  "instagram",
+  "facebook",
+  "linkedin",
+  "x",
+  "youtube",
+  "pinterest",
+] as const;
+
 // ---------- Scope ----------
 
 export interface ScopeItem {

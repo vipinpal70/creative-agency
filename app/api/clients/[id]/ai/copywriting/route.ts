@@ -35,16 +35,34 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       selectedContext,
       customPrompt,
       frameCount,
+      mode = "generate",
+      existing,
+      instruction,
     }: {
       category: ContentCategory;
       selectedContext: CopywritingContextKey[];
       customPrompt: string;
       frameCount?: number;
+      mode?: "generate" | "refine";
+      existing?: {
+        copy?: string;
+        caption?: string;
+        hashtags?: string[];
+        frames?: { frameNo: number; copy: string }[];
+      };
+      instruction?: string;
     } = body;
 
-    if (!category || !customPrompt?.trim()) {
+    const isRefine = mode === "refine";
+
+    // Generate needs the initial instructions; refine needs the feedback
+    // (and the existing content to revise).
+    if (!category) {
+      return NextResponse.json({ error: "category is required" }, { status: 400 });
+    }
+    if (isRefine ? !instruction?.trim() : !customPrompt?.trim()) {
       return NextResponse.json(
-        { error: "category and customPrompt are required" },
+        { error: isRefine ? "instruction is required to refine" : "customPrompt is required" },
         { status: 400 }
       );
     }
@@ -97,9 +115,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const result = await generateSocialCopy({
       clientName: client.brandName || client.name,
       category,
-      customPrompt: customPrompt.trim(),
+      customPrompt: (customPrompt ?? "").trim(),
       context,
       frameCount: category === "carousel" ? frameCount : undefined,
+      mode,
+      existing,
+      instruction: instruction?.trim(),
     });
 
     await AIUsage.create({
@@ -107,7 +128,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       clientId: id,
       provider: "anthropic",
       model: process.env.AI_ANTHROPIC_MODEL || "claude-sonnet-5",
-      operation: "social_copywriting",
+      operation: isRefine ? "social_copywriting_refine" : "social_copywriting",
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
       webSearchCount: 0,

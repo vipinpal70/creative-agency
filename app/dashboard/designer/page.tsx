@@ -55,19 +55,14 @@ const STAGES = [
 	{ key: "design_in_progress", label: "In Progress" },
 	{ key: "design_internal_review", label: "Internal Review" },
 	{ key: "design_client_review", label: "Client Review" },
+	// Rework merges changes-requested (design_req_change) and rejected
+	// (design_rejected) work into one bucket.
+	{ key: "rework", label: "Rework" },
 	{ key: "publishing", label: "Schedule" },
-	{ key: "history", label: "History" },
+	{ key: "design_approved", label: "Approved" },
 ] as const;
 
 type StageKey = (typeof STAGES)[number]["key"];
-
-// The History tab splits into two status buckets.
-const HISTORY_SUBS = [
-	{ key: "design_approved", label: "Approved" },
-	{ key: "rejected", label: "Rejected" },
-] as const;
-
-type HistorySub = (typeof HISTORY_SUBS)[number]["key"];
 
 function isVideoType(mediaType: string, fileType?: string) {
 	if (fileType) return fileType.startsWith("video/");
@@ -1011,6 +1006,17 @@ function getTodayString(): string {
 	return `${year}-${month}-${day}`;
 }
 
+// Default "from" date for the date-range filter: one month before today, so
+// every workspace opens on at least a 1-month window (e.g. 14 Sep → 14 Oct).
+function getDefaultStartDate(): string {
+	const d = new Date();
+	d.setMonth(d.getMonth() - 1);
+	const year = d.getFullYear();
+	const month = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
 interface MultiSelectOption {
 	label: string;
 	value: string;
@@ -1185,7 +1191,6 @@ function MultiSelectDropdown({
 export default function DesignerPage() {
 	const { user } = useAuth();
 	const [stage, setStage] = useState<StageKey>("content_approved");
-	const [historySub, setHistorySub] = useState<HistorySub>("design_approved");
 	const [copies, setCopies] = useState<ApprovalCopy[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
@@ -1199,7 +1204,7 @@ export default function DesignerPage() {
 	const [moduleFilter, setModuleFilter] = useState<string>("");
 	const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
 	const [selectedDesigners, setSelectedDesigners] = useState<string[]>([]);
-	const [startDate, setStartDate] = useState<string>(getTodayString);
+	const [startDate, setStartDate] = useState<string>(getDefaultStartDate);
 	const [endDate, setEndDate] = useState<string>("");
 
 	const isAdmin = user?.role === "admin";
@@ -1209,11 +1214,11 @@ export default function DesignerPage() {
 	const canAllocate = isAdmin || isCreativeLead || isAccountManager;
 	const canArchive = user?.role === "admin" || user?.role === "member";
 
-	// The tab drives which DB status we list. "history" is a UI-only tab whose
-	// sub-tabs map to real statuses.
-	const activeStatus: string = stage === "history" ? historySub : stage;
-	// The Rejected sub-tab also surfaces archived copies (with an Archived badge).
-	const inRejectedView = stage === "history" && historySub === "rejected";
+	// The tab drives which DB status(es) we list directly.
+	const activeStatus: string = stage;
+	// The Rework tab also surfaces archived copies (with an Archived badge),
+	// mirroring the old Rejected tab's behaviour.
+	const inReworkView = stage === "rework";
 
 	// Per-status cache for instant tab switches (stale-while-revalidate).
 	const cacheRef = useRef<Record<string, ApprovalCopy[]>>({});
@@ -1234,16 +1239,14 @@ export default function DesignerPage() {
 			}
 			reqRef.current = s;
 			try {
-				// The rejected bucket additionally includes archived copies. The In
-				// Progress tab also surfaces designs sent back with change requests.
+				// The Rework bucket merges changes-requested + rejected designs and
+				// additionally includes archived copies.
 				const qs =
-					s === "rejected"
-						? `status=design_rejected&includeArchived=1`
-						: s === "design_in_progress"
-							? `status=design_in_progress,design_req_change`
-							: s === "publishing"
-								? `status=design_approved,scheduled`
-								: `status=${s}`;
+					s === "rework"
+						? `status=design_req_change,design_rejected&includeArchived=1`
+						: s === "publishing"
+							? `status=design_approved,scheduled`
+							: `status=${s}`;
 				const data = await fetch(`/api/approvals/copies?${qs}`).then((r) =>
 					r.json(),
 				);
@@ -1444,7 +1447,7 @@ export default function DesignerPage() {
 		moduleFilter !== "" ||
 		selectedMediaTypes.length > 0 ||
 		selectedDesigners.length > 0 ||
-		startDate !== getTodayString() ||
+		startDate !== getDefaultStartDate() ||
 		endDate !== "";
 
 	const handleResetFilters = () => {
@@ -1452,7 +1455,7 @@ export default function DesignerPage() {
 		setModuleFilter("");
 		setSelectedMediaTypes([]);
 		setSelectedDesigners([]);
-		setStartDate(getTodayString());
+		setStartDate(getDefaultStartDate());
 		setEndDate("");
 	};
 
@@ -1486,21 +1489,6 @@ export default function DesignerPage() {
 								))}
 							</TabsList>
 						</Tabs>
-
-						{stage === "history" && (
-							<Tabs
-								value={historySub}
-								onValueChange={(v) => setHistorySub(v as HistorySub)}
-							>
-								<TabsList>
-									{HISTORY_SUBS.map((s) => (
-										<TabsTrigger key={s.key} value={s.key}>
-											{s.label}
-										</TabsTrigger>
-									))}
-								</TabsList>
-							</Tabs>
-						)}
 					</div>
 				</div>
 
@@ -1629,8 +1617,8 @@ export default function DesignerPage() {
 										? "No approved copies to schedule."
 										: activeStatus === "design_approved"
 											? "No approved copies yet."
-											: activeStatus === "rejected"
-												? "No rejected copies."
+											: activeStatus === "rework"
+												? "No copies in rework."
 												: `No copies in ${STAGES.find((s) => s.key === stage)?.label.toLowerCase()}.`}
 						</p>
 						{hasActiveFilters && (
@@ -1652,7 +1640,7 @@ export default function DesignerPage() {
 							canAllocate={canAllocate}
 							designers={designers}
 							canArchive={canArchive}
-							inRejectedView={inRejectedView}
+							inRejectedView={inReworkView}
 							schedulable={stage === "publishing"}
 							onChanged={handleChanged}
 							onPreview={handlePreview}

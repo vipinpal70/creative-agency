@@ -144,6 +144,7 @@ export interface CopyModalInitialData {
   contentBucket?: string;
   platforms?: string[];
   referenceUrl?: string;
+  note?: string;
   videoType?: string;
   videoNotes?: string;
   articleMode?: string;
@@ -158,6 +159,14 @@ interface Props {
   plannedItems: PlannedItem[];
   onClose: () => void;
   onSave: (form: CopyFormData) => Promise<void>;
+  // Standalone (adhoc) copies have no scope-of-work: pass explicit platform
+  // choices here, and lock the media type to the pre-chosen category.
+  platformOptions?: string[];
+  lockMediaType?: boolean;
+  // Optional title override (e.g. the category for an adhoc copy).
+  heading?: string;
+  // Show an optional free-text Note field (used by adhoc copies).
+  showNotes?: boolean;
 }
 
 function timeAgo(dateStr: string): string {
@@ -192,7 +201,7 @@ const LABEL = "text-xs font-semibold text-muted-foreground uppercase tracking-wi
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CopyModal({ mode, initialData, historyEndpoint, buckets, plannedItems, onClose, onSave }: Props) {
+export function CopyModal({ mode, initialData, historyEndpoint, buckets, plannedItems, onClose, onSave, platformOptions, lockMediaType = false, heading, showNotes = false }: Props) {
   // Derive initial carousel state from initialData
   const initFrames: CarouselFrame[] = initialData?.frames?.length
     ? initialData.frames
@@ -214,6 +223,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
   const [contentBucket,  setContentBucket]  = useState(initialData?.contentBucket ?? "");
   const [selPlatforms,   setSelPlatforms]   = useState<string[]>(initialData?.platforms ?? []);
   const [referenceUrl,   setReferenceUrl]   = useState(initialData?.referenceUrl ?? "");
+  const [note,           setNote]           = useState(initialData?.note ?? "");
   const [videoType,      setVideoType]      = useState(initialData?.videoType ?? "");
   const [videoNotes,     setVideoNotes]     = useState(initialData?.videoNotes ?? "");
   const [saving,         setSaving]         = useState(false);
@@ -264,6 +274,8 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
     frames.find((f) => f.frameNo === frameNo) ?? { frameNo, copy: "", imageUrl: "" };
 
   const availablePlatforms = useMemo<string[]>(() => {
+    // Standalone (adhoc) copies pass an explicit platform list.
+    if (platformOptions) return platformOptions;
     if (plannedItems.length === 0) return [];
     if (mediaType) {
       const match = plannedItems.find(
@@ -272,7 +284,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
       if (match && match.platforms.length > 0) return match.platforms;
     }
     return [...new Set(plannedItems.flatMap((i) => i.platforms))];
-  }, [mediaType, plannedItems]);
+  }, [mediaType, plannedItems, platformOptions]);
 
   const handleMediaTypeChange = (val: string) => {
     setMediaType(val);
@@ -337,6 +349,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
         contentBucket,
         platforms:     selPlatforms,
         referenceUrl:  referenceUrl.trim() || undefined,
+        note:          showNotes ? note : undefined,
         videoType:     isReelOrVideo ? videoType  : undefined,
         videoNotes:    isReelOrVideo ? videoNotes : undefined,
         articleMode:   isArticleCopy ? articleMode : undefined,
@@ -355,7 +368,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
         <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
           <div>
             <h2 className="text-base font-semibold text-foreground">
-              {mode === "create" ? "Add New Copy" : "Edit Copy"}
+              {heading ?? (mode === "create" ? "Add New Copy" : "Edit Copy")}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {mode === "create"
@@ -374,7 +387,8 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
         {/* Body — scrollable */}
         <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
 
-          {/* 1 — Media Type */}
+          {/* 1 — Media Type (hidden for adhoc: category is fixed upstream) */}
+          {!lockMediaType && (
           <div className="space-y-2">
             <label className={LABEL}>Media Type *</label>
             {mediaTypes.length > 0 ? (
@@ -409,6 +423,7 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
               <p className="text-[11px] text-muted-foreground">Media type cannot be changed after creation.</p>
             )}
           </div>
+          )}
 
           {/* 1b — Reel / Video (long-format) extras */}
           {isReelOrVideo && (
@@ -633,6 +648,19 @@ export function CopyModal({ mode, initialData, historyEndpoint, buckets, planned
               onChange={(e) => setReferenceUrl(e.target.value)}
             />
           </div>
+
+          {/* 4c — Note (adhoc only) */}
+          {showNotes && (
+            <div className="space-y-2">
+              <label className={LABEL}>Note <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
+              <Textarea
+                placeholder="Any extra context or instructions…"
+                className="min-h-[80px]"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </div>
+          )}
 
           {/* 5+6 — Publish Date & Time */}
           <div className="grid grid-cols-2 gap-4">

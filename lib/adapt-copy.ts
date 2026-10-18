@@ -8,6 +8,9 @@ export interface ApprovalCopy {
   clientId: string;
   calendarId: string;
   version: number;
+  // Minor edit-version (bumps on copy/creative changes). Displayed as v1.<revision>,
+  // matching the ContentPreviewModal — the card must use this, not `version`.
+  revision: number;
   status: string;
   mediaType: string;
   creativeCopy: string;
@@ -42,6 +45,7 @@ export interface ApprovalCopy {
   notes: string;
   rejectionNote: string;
   highPriority: boolean;
+  deliveryFormat: "" | "digital" | "printable";
   title: string;
   platforms: string[];
   buckets: string[];
@@ -97,6 +101,7 @@ export function toCalendarCopy(copy: ApprovalCopy): CalendarCopy {
     status: copy.status as CalendarDraft["status"],
     rejectionNote: copy.rejectionNote,
     highPriority: copy.highPriority ?? false,
+    deliveryFormat: copy.deliveryFormat ?? "",
     lastChangedBy: copy.lastChangedBy,
     designStartedBy: copy.designStartedBy,
   };

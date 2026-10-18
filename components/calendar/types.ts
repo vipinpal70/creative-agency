@@ -38,6 +38,7 @@ export interface CalendarDraft {
   status: DraftStatus | "submitted" | "approved";
   rejectionNote: string;
   highPriority?: boolean;
+  deliveryFormat?: "" | "digital" | "printable";
   lastChangedBy: {
     userId: string;
     name: string;
