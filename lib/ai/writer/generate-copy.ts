@@ -1,11 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type { ResolvedTextLLM } from "@/lib/ai/llm/resolve";
+import type { LLMProviderId } from "@/lib/ai/llm/catalog";
 import { SelectedCopyContext } from "@/lib/ai/context/context-selector";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-const MODEL = process.env.AI_ANTHROPIC_MODEL || "claude-sonnet-5";
 
 export type ContentCategory = "reel" | "static_image" | "carousel" | "article";
 
@@ -26,6 +22,8 @@ export interface CarouselFrame {
 }
 
 export interface GenerateSocialCopyArgs {
+  // The workspace's resolved text-generation provider/model (see lib/ai/llm/resolve).
+  llm: ResolvedTextLLM;
   clientName: string;
   category: ContentCategory;
   customPrompt: string;
@@ -54,6 +52,8 @@ export interface SocialCopyResult {
   frames: CarouselFrame[];
   inputTokens: number;
   outputTokens: number;
+  provider: LLMProviderId;
+  model: string;
 }
 
 const OUTPUT_SCHEMA = `{
@@ -75,13 +75,6 @@ ${frames}
   "caption": "",
   "hashtags": []
 }`;
-}
-
-function extractText(response: Anthropic.Message): string {
-  return response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
 }
 
 function parseResult(
@@ -144,6 +137,7 @@ export async function generateSocialCopy({
   mode = "generate",
   existing,
   instruction,
+  llm,
 }: GenerateSocialCopyArgs): Promise<SocialCopyResult> {
   const isRefine = mode === "refine";
   // Carousel produces exactly `frames` slides and uses a per-slide schema;
@@ -210,19 +204,20 @@ Apply this change: ${instruction?.trim() || customPrompt}
 Return the full updated content in the same JSON structure.`
     : customPrompt;
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
+  const response = await llm.generateText({
     // Articles are long-form; the short formats comfortably fit in 2000.
-    max_tokens: category === "article" ? 4000 : 2000,
+    maxTokens: category === "article" ? 4000 : 2000,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
   });
 
-  const parsed = parseResult(extractText(response));
+  const parsed = parseResult(response.text);
 
   return {
     ...parsed,
-    inputTokens: response.usage?.input_tokens ?? 0,
-    outputTokens: response.usage?.output_tokens ?? 0,
+    inputTokens: response.inputTokens,
+    outputTokens: response.outputTokens,
+    provider: response.provider,
+    model: response.model,
   };
 }

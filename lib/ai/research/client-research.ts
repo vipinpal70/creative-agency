@@ -1,25 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { AIClientContext, AIResearchResult } from "@/lib/ai/type";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-const MODEL =
-  process.env.AI_ANTHROPIC_MODEL ||
-  "claude-sonnet-5";
-
-function extractText(response: Anthropic.Message) {
-  return response.content
-    .filter(
-      (
-        block
-      ): block is Anthropic.TextBlock =>
-        block.type === "text"
-    )
-    .map((block) => block.text)
-    .join("\n");
-}
+import type { ResolvedTextLLM } from "@/lib/ai/llm/resolve";
+import type { TextMessage } from "@/lib/ai/llm/types";
 
 function cleanJson(text: string): string {
   let value = text.trim();
@@ -87,7 +68,7 @@ function extractJsonObject(
   }
 
   throw new Error(
-    "Claude did not return valid JSON."
+    "The AI model did not return valid JSON."
   );
 }
 
@@ -322,14 +303,10 @@ function tryParseResearch(text: string): any | null {
 
 export async function runClientResearch(
   adminPrompt: string,
-  clientContext: AIClientContext
+  clientContext: AIClientContext,
+  // The workspace's resolved text-generation provider/model (see lib/ai/llm/resolve).
+  llm: ResolvedTextLLM
 ) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error(
-      "ANTHROPIC_API_KEY is not configured."
-    );
-  }
-
   /*
    * IMPORTANT:
    *
@@ -429,86 +406,41 @@ Remember:
 - Return ONLY valid JSON.
 `;
 
-  const messages: Anthropic.MessageParam[] = [
+  const messages: TextMessage[] = [
     {
       role: "user",
       content: userMessage,
     },
   ];
 
-  let response =
-    await anthropic.messages.create({
-      model: MODEL,
-
-      max_tokens: 12000,
-
-      system: systemPrompt,
-
-      messages,
-
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search",
-
-          max_uses: 10,
-        },
-      ],
-    });
-
   /*
-   * The web-search server tool runs its own loop. If it reaches the server's
-   * iteration limit before Claude finishes, the turn ends with
-   * "pause_turn" — re-send the conversation to let it resume. Bounded so a
-   * misbehaving turn can't loop forever.
+   * The adapter runs the provider's web-search loop (including resuming
+   * paused turns) and hands back the full assistant turn for follow-ups.
    */
-  let resumeGuard = 0;
-
-  while (
-    response.stop_reason === "pause_turn" &&
-    resumeGuard < 3
-  ) {
-    messages.push({
-      role: "assistant",
-      content: response.content,
-    });
-
-    response = await anthropic.messages.create({
-      model: MODEL,
-
-      max_tokens: 12000,
+  const response =
+    await llm.generateText({
+      maxTokens: 12000,
 
       system: systemPrompt,
 
       messages,
 
-      tools: [
-        {
-          type: "web_search_20250305",
-          name: "web_search",
-
-          max_uses: 10,
-        },
-      ],
+      webSearch: { maxUses: 10 },
     });
-
-    resumeGuard += 1;
-  }
 
   let inputTokens =
-    response.usage?.input_tokens ?? 0;
+    response.inputTokens;
 
   let outputTokens =
-    response.usage?.output_tokens ?? 0;
+    response.outputTokens;
 
   const webSearchCount =
-    response.usage?.server_tool_use
-      ?.web_search_requests ?? 0;
+    response.webSearchCount;
 
-  let text = extractText(response);
+  let text = response.text;
 
   console.log(
-    "Claude raw response:",
+    `${llm.provider} raw response:`,
     text
   );
 
@@ -526,10 +458,7 @@ Remember:
       "Research response was not valid JSON. Requesting JSON-only follow-up."
     );
 
-    messages.push({
-      role: "assistant",
-      content: response.content,
-    });
+    messages.push(response.assistantMessage);
 
     messages.push({
       role: "user",
@@ -543,10 +472,8 @@ ${RESEARCH_JSON_STRUCTURE}`,
     });
 
     const followup =
-      await anthropic.messages.create({
-        model: MODEL,
-
-        max_tokens: 12000,
+      await llm.generateText({
+        maxTokens: 12000,
 
         system: systemPrompt,
 
@@ -554,28 +481,28 @@ ${RESEARCH_JSON_STRUCTURE}`,
       });
 
     inputTokens +=
-      followup.usage?.input_tokens ?? 0;
+      followup.inputTokens;
 
     outputTokens +=
-      followup.usage?.output_tokens ?? 0;
+      followup.outputTokens;
 
-    text = extractText(followup);
+    text = followup.text;
 
     parsed = tryParseResearch(text);
   }
 
   if (!parsed) {
     console.error(
-      "Claude JSON parsing failed after follow-up."
+      `${llm.provider} JSON parsing failed after follow-up.`
     );
 
     console.error(
-      "Raw Claude response:",
+      `Raw ${llm.provider} response:`,
       text
     );
 
     throw new Error(
-      "Claude returned an invalid research response."
+      "The AI model returned an invalid research response."
     );
   }
 
@@ -591,6 +518,8 @@ ${RESEARCH_JSON_STRUCTURE}`,
 
     webSearchCount,
 
-    rawResponse: response,
+    provider: response.provider,
+
+    model: response.model,
   };
 }

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import mongoose from "mongoose";
+
 import { connectDB } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { isStaff } from "@/lib/authz";
 
 import { AIResearch } from "@/lib/models/ai/ai-research";
 import { AIClientProfile } from "@/lib/models/ai/ai-clientprofile";
@@ -8,6 +12,30 @@ import { AICompetitor } from "@/lib/models/ai/ai-competitor";
 
 export async function POST(req: NextRequest) {
   try {
+    // This overwrites a client's saved AI profile and competitors, so it is
+    // staff-only (the proxy does not cover /api routes).
+    const session = await getSession();
+
+    if (!session?.userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized",
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!isStaff(session)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Forbidden",
+        },
+        { status: 403 }
+      );
+    }
+
     await connectDB();
 
     const body = await req.json();
@@ -22,6 +50,16 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           message: "researchId is required",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!mongoose.isValidObjectId(researchId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid researchId",
         },
         { status: 400 }
       );

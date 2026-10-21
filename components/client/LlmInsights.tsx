@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sparkles, ExternalLink, Lightbulb, CheckCircle2 } from "lucide-react";
+import { apiErrorMessage, readJson } from "@/lib/read-json";
 
 // Mirrors the saved client-research shape (AIResearchResult in lib/ai/type.ts).
 // Everything is optional/defensive — the context is stored as free-form JSON.
@@ -83,7 +84,7 @@ function Field({ label, value, chips, tone }: { label: string; value?: string; c
   );
 }
 
-export function LlmInsights({ clientId }: { clientId: string }) {
+export function LlmInsights({ clientId, refreshKey = 0 }: { clientId: string; refreshKey?: number }) {
   const [context, setContext] = useState<ResearchContext | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,8 +97,8 @@ export function LlmInsights({ clientId }: { clientId: string }) {
       setError(null);
       try {
         const res = await fetch(`/api/clients/${clientId}/ai/research-context`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load insights");
+        const data = await readJson<{ context?: ResearchContext | null; generatedAt?: string | null; error?: string }>(res);
+        if (!res.ok) throw new Error(apiErrorMessage(res, data, "Failed to load insights"));
         if (!active) return;
         setContext(data.context ?? null);
         setGeneratedAt(data.generatedAt ?? null);
@@ -110,7 +111,7 @@ export function LlmInsights({ clientId }: { clientId: string }) {
     return () => {
       active = false;
     };
-  }, [clientId]);
+  }, [clientId, refreshKey]);
 
   const ba = context?.businessAnalysis;
   const competitors = context?.competitors ?? [];
@@ -130,15 +131,11 @@ export function LlmInsights({ clientId }: { clientId: string }) {
 
   const hasAny = tabs.length > 0;
 
-  const [activeTab, setActiveTab] = useState<string>("business");
+  const [selectedTab, setActiveTab] = useState<string>("business");
 
-  // Default to the first available tab once the context loads (or if the
-  // current tab turns out to have no data).
-  useEffect(() => {
-    if (tabs.length && !tabs.some((t) => t.id === activeTab)) {
-      setActiveTab(tabs[0].id);
-    }
-  }, [tabs, activeTab]);
+  // Fall back to the first available tab when the selected one has no data
+  // (derived, so it doesn't re-run an effect on every render).
+  const activeTab = tabs.some((t) => t.id === selectedTab) ? selectedTab : tabs[0]?.id;
 
   return (
     <div className={CARD}>

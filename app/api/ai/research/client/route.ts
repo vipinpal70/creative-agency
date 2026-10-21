@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { connectDB } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { isStaff } from "@/lib/authz";
+import mongoose from "mongoose";
 
 import Client from "@/lib/models/client.model";
 import { AIPrompt } from "@/lib/models/ai/ai-prompt";
@@ -14,6 +16,8 @@ import {
   DEFAULT_CLIENT_RESEARCH_PROMPT,
 } from "@/lib/ai/prompts/client-prompt";
 import { runClientResearch } from "@/lib/ai/research/client-research";
+import { resolveTextLLM } from "@/lib/ai/llm/resolve";
+import { isLLMError } from "@/lib/ai/llm/types";
 
 
 function createSlug(value: string): string {
@@ -23,6 +27,9 @@ function createSlug(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
+// Research with web search can take several minutes.
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   try {
@@ -63,6 +70,31 @@ export async function POST(req: NextRequest) {
           message: "Unauthorized",
         },
         { status: 401 }
+      );
+    }
+
+    // Staff only: research runs on the workspace's AI key, and its result
+    // exposes the client's full intelligence profile.
+    if (!isStaff(session)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Forbidden",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (
+      !mongoose.isValidObjectId(clientId) ||
+      (promptId && !mongoose.isValidObjectId(promptId))
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid clientId or promptId",
+        },
+        { status: 400 }
       );
     }
 
@@ -199,10 +231,14 @@ export async function POST(req: NextRequest) {
     // --------------------------------------------------
 
     try {
+      const llm =
+        await resolveTextLLM();
+
       const aiResponse =
         await runClientResearch(
           adminPrompt,
-          clientContext
+          clientContext,
+          llm
         );
 
       // ------------------------------------------------
@@ -251,11 +287,9 @@ export async function POST(req: NextRequest) {
 
         researchId: research._id,
 
-        provider: "anthropic",
+        provider: aiResponse.provider,
 
-        model:
-          process.env.AI_ANTHROPIC_MODEL ||
-          "claude-sonnet-5",
+        model: aiResponse.model,
 
         operation: "client_research",
 
@@ -343,8 +377,12 @@ export async function POST(req: NextRequest) {
         message:
           error?.message ||
           "Failed to perform AI research",
+
+        ...(isLLMError(error)
+          ? { code: error.code }
+          : {}),
       },
-      { status: 500 }
+      { status: isLLMError(error) ? error.status : 500 }
     );
   }
 }

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Sparkles, AlertCircle, ChevronLeft } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { X, Sparkles, AlertCircle, ChevronLeft, Info } from "lucide-react";
 
 import { DEFAULT_CLIENT_RESEARCH_PROMPT } from "@/lib/ai/prompts/client-prompt";
 import type { AITaskType, AIOutputMode, ChatApiResponse } from "@/lib/ai/type";
 import AITaskResult from "@/components/dashboard/ai/AITaskResult";
 import { TextShimmerWave } from "../ui/aiLoading";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { apiErrorMessage, readJson } from "@/lib/read-json";
 
 type Status = "idle" | "running" | "done" | "error";
 
@@ -14,6 +16,8 @@ interface AIResearchModalProps {
   open: boolean;
   clientId: string;
   onClose: () => void;
+  /** Called whenever a run saves new client research (so insights can refresh). */
+  onResearchUpdated?: () => void;
 }
 
 interface TaskResponse {
@@ -21,6 +25,9 @@ interface TaskResponse {
   outputMode?: AIOutputMode;
   text?: string;
   data?: unknown;
+  /** True when this was the client's first AI request and the full audit ran instead. */
+  bootstrapped?: boolean;
+  requestedTask?: AITaskType;
 }
 
 // Human-readable labels for the result header. The router picks the task
@@ -38,12 +45,37 @@ const TASK_LABELS: Record<AITaskType, string> = {
   client_research: "Client Research",
 };
 
-export default function AIResearchModal({ open, clientId, onClose }: AIResearchModalProps) {
+export default function AIResearchModal({ open, clientId, onClose, onResearchUpdated }: AIResearchModalProps) {
   const [prompt, setPrompt] = useState(DEFAULT_CLIENT_RESEARCH_PROMPT.trim());
   const [status, setStatus] = useState<Status>("idle");
   const [response, setResponse] = useState<TaskResponse | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+  // Identifies the in-flight run. Closing mid-run bumps it so a late result
+  // never lands in the next session of the modal.
+  const runIdRef = useRef(0);
+
+  // Closing while a run is in flight asks first — the result would be lost.
+  const requestClose = useCallback(() => {
+    if (status === "running") setConfirmClose(true);
+    else onClose();
+  }, [status, onClose]);
+
+  const abandonRun = () => {
+    runIdRef.current += 1;
+    setConfirmClose(false);
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!open || confirmClose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") requestClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, confirmClose, requestClose]);
 
   // Reset everything each time the modal is (re)opened so a new client/session
   // never shows a previous run's result.
@@ -54,12 +86,15 @@ export default function AIResearchModal({ open, clientId, onClose }: AIResearchM
       setResponse(null);
       setConversationId(undefined);
       setError(null);
+      setConfirmClose(false);
     }
   }, [open]);
 
   if (!open) return null;
 
   const runPrompt = async () => {
+    if (status === "running") return;
+    const runId = ++runIdRef.current;
     setStatus("running");
     setError(null);
     try {
@@ -68,9 +103,12 @@ export default function AIResearchModal({ open, clientId, onClose }: AIResearchM
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, conversationId, prompt }),
       });
-      const data: ChatApiResponse = await res.json();
+      const data = await readJson<ChatApiResponse & { bootstrapped?: boolean; requestedTask?: AITaskType }>(res);
+      // Research is saved server-side even if the modal was closed meanwhile.
+      if (res.ok && data.success && data.taskType === "client_research") onResearchUpdated?.();
+      if (runId !== runIdRef.current) return; // abandoned run
       if (!res.ok || !data.success) {
-        throw new Error(data.message || "AI request failed");
+        throw new Error(apiErrorMessage(res, data, "AI request failed"));
       }
       // Reuse the conversation on subsequent runs so context is threaded.
       if (data.conversationId) setConversationId(data.conversationId);
@@ -79,9 +117,12 @@ export default function AIResearchModal({ open, clientId, onClose }: AIResearchM
         outputMode: data.outputMode,
         text: data.text,
         data: data.data,
+        bootstrapped: data.bootstrapped,
+        requestedTask: data.requestedTask,
       });
       setStatus("done");
     } catch (err: any) {
+      if (runId !== runIdRef.current) return;
       setError(err?.message || "Something went wrong while running the request.");
       setStatus("error");
     }
@@ -116,7 +157,8 @@ export default function AIResearchModal({ open, clientId, onClose }: AIResearchM
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={requestClose}
+            aria-label="Close"
             className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700"
           >
             <X className="w-4 h-4" />
@@ -176,6 +218,16 @@ export default function AIResearchModal({ open, clientId, onClose }: AIResearchM
           )}
 
           {/* ── RESULT view: branches on taskType ───────────────────────────── */}
+          {status === "done" && response?.bootstrapped && response.requestedTask !== "client_research" && (
+            <div className="flex items-start gap-2 text-xs bg-blue-50 border border-blue-100 text-blue-800 rounded-lg p-3 mb-4">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                This was the first AI request for this client, so the full client research audit
+                ran first and was saved. Click <strong>New prompt</strong> and run your question
+                again for a specific answer.
+              </span>
+            </div>
+          )}
           {status === "done" && response && (
             <AITaskResult
               taskType={response.taskType}
@@ -192,7 +244,7 @@ export default function AIResearchModal({ open, clientId, onClose }: AIResearchM
             {(status === "idle" || status === "error") && (
               <>
                 <button
-                  onClick={onClose}
+                  onClick={requestClose}
                   className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50"
                 >
                   Cancel
@@ -225,6 +277,16 @@ export default function AIResearchModal({ open, clientId, onClose }: AIResearchM
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmClose}
+        title="Close while the AI is still working?"
+        description="The request will keep running on the server and any client research will still be saved, but this answer won't be shown here."
+        confirmLabel="Close anyway"
+        cancelLabel="Keep waiting"
+        onConfirm={abandonRun}
+        onCancel={() => setConfirmClose(false)}
+      />
     </div>
   );
 }

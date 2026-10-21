@@ -6,6 +6,7 @@ import AIProject from "@/lib/models/ai/ai-project";
 import { buildClientAIContext } from "@/lib/ai/context/client-context";
 import { DEFAULT_CLIENT_RESEARCH_PROMPT } from "@/lib/ai/prompts/client-prompt";
 import { runClientResearch } from "@/lib/ai/research/client-research";
+import { resolveTextLLM } from "@/lib/ai/llm/resolve";
 
 interface RunAndSaveArgs {
   client: any;
@@ -68,7 +69,8 @@ export async function runAndSaveClientResearch({
   });
 
   try {
-    const aiResponse = await runClientResearch(adminPrompt, clientContext);
+    const llm = await resolveTextLLM();
+    const aiResponse = await runClientResearch(adminPrompt, clientContext, llm);
 
     await AIResearch.findByIdAndUpdate(research._id, {
       status: "completed",
@@ -84,8 +86,8 @@ export async function runAndSaveClientResearch({
       userId,
       clientId: client._id,
       researchId: research._id,
-      provider: "anthropic",
-      model: process.env.AI_ANTHROPIC_MODEL || "claude-sonnet-5",
+      provider: aiResponse.provider,
+      model: aiResponse.model,
       operation: "client_research",
       inputTokens: aiResponse.inputTokens,
       outputTokens: aiResponse.outputTokens,

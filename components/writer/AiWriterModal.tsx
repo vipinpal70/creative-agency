@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { TextShimmerWave } from "@/components/ui/aiLoading";
 import { Sparkles, Loader2, X, ArrowUp } from "lucide-react";
+import { apiErrorMessage, readJson } from "@/lib/read-json";
 
 // Kept in sync with ContentCategory in lib/ai/writer/generate-copy.ts.
-// Defined locally (not imported) so this client component doesn't pull in the
-// server-only Anthropic SDK that module instantiates at load.
+// Defined locally (not imported) so this client component doesn't pull
+// server-only AI code into the browser bundle.
 export type ContentCategory = "reel" | "static_image" | "carousel" | "article";
 
 // One slide of a carousel — mirrors CarouselFrame used across the copy UI.
@@ -70,6 +71,103 @@ const CONTEXT_OPTIONS: { value: ContextKey; label: string }[] = [
 
 const LABEL = "text-xs font-semibold text-muted-foreground uppercase tracking-wider";
 
+// Hashtags are edited as free text so the writer can type spaces; they are
+// only split into an array when sent to the API or pushed.
+function parseHashtags(text: string): string[] {
+  return text.split(/\s+/).filter(Boolean);
+}
+
+// Read-only rendering of a past turn's result in the transcript.
+function ResultPreview({ result }: { result: ResultSnapshot }) {
+  return (
+    <div className="space-y-1.5 text-sm text-foreground whitespace-pre-wrap">
+      {result.frames.length > 0 ? (
+        result.frames.map((f) => (
+          <p key={f.frameNo}>
+            <span className="text-xs font-semibold text-muted-foreground">
+              Frame {f.frameNo}:{" "}
+            </span>
+            {f.copy}
+          </p>
+        ))
+      ) : (
+        result.copy && <p>{result.copy}</p>
+      )}
+      {result.caption && (
+        <p className="text-muted-foreground">{result.caption}</p>
+      )}
+      {result.hashtags.length > 0 && (
+        <p className="text-emerald-600">{result.hashtags.join(" ")}</p>
+      )}
+    </div>
+  );
+}
+
+// Editable rendering of the latest result — bound to the modal's live state.
+// Defined at module level (not inside the modal) so React keeps the same
+// textarea elements between keystrokes and focus isn't lost while typing.
+function EditableResult({
+  isCarousel,
+  frames,
+  onFrameChange,
+  copy,
+  onCopyChange,
+  caption,
+  onCaptionChange,
+  hashtagsText,
+  onHashtagsChange,
+}: {
+  isCarousel: boolean;
+  frames: AiCarouselFrame[];
+  onFrameChange: (frameNo: number, value: string) => void;
+  copy: string;
+  onCopyChange: (value: string) => void;
+  caption: string;
+  onCaptionChange: (value: string) => void;
+  hashtagsText: string;
+  onHashtagsChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {isCarousel ? (
+        <div className="space-y-3">
+          <label className={LABEL}>Frames ({frames.length})</label>
+          {frames.map((f) => (
+            <div key={f.frameNo} className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                Frame {f.frameNo}
+              </span>
+              <Textarea
+                value={f.copy}
+                onChange={(e) => onFrameChange(f.frameNo, e.target.value)}
+                rows={3}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <label className={LABEL}>Copy</label>
+          <Textarea value={copy} onChange={(e) => onCopyChange(e.target.value)} rows={4} />
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <label className={LABEL}>Caption</label>
+        <Textarea value={caption} onChange={(e) => onCaptionChange(e.target.value)} rows={3} />
+      </div>
+      <div className="space-y-1.5">
+        <label className={LABEL}>Hashtags</label>
+        <Textarea
+          value={hashtagsText}
+          onChange={(e) => onHashtagsChange(e.target.value)}
+          rows={2}
+          placeholder="#brand #campaign"
+        />
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   clientId: string;
   // Creates a brand-new copy (deliverable + draft) from the reviewed AI output.
@@ -90,7 +188,7 @@ export function AiWriterModal({ clientId, onPushToCopy, onClose }: Props) {
   // Live, editable copy of the latest result — what Push sends.
   const [copy, setCopy] = useState("");
   const [caption, setCaption] = useState("");
-  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [hashtagsText, setHashtagsText] = useState("");
   const [frames, setFrames] = useState<AiCarouselFrame[]>([]);
 
   const isCarousel = category === "carousel";
@@ -138,11 +236,12 @@ export function AiWriterModal({ clientId, onPushToCopy, onClose }: Props) {
   function applyResult(result: ResultSnapshot) {
     setCopy(result.copy);
     setCaption(result.caption);
-    setHashtags(result.hashtags);
+    setHashtagsText(result.hashtags.join(" "));
     setFrames(result.frames);
   }
 
   async function handleGenerate() {
+    if (generating) return;
     if (!customPrompt.trim()) {
       setError("Describe what you want the AI to create first.");
       return;
@@ -161,8 +260,8 @@ export function AiWriterModal({ clientId, onPushToCopy, onClose }: Props) {
           ...(isCarousel ? { frameCount } : {}),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Generation failed");
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(apiErrorMessage(res, data, "Generation failed"));
 
       const result = normalizeResult(data);
       applyResult(result);
@@ -178,6 +277,7 @@ export function AiWriterModal({ clientId, onPushToCopy, onClose }: Props) {
   // Refine: send the current (possibly hand-edited) content plus the writer's
   // feedback so the AI revises it in place rather than starting over.
   async function handleRefine() {
+    if (generating) return;
     const instruction = feedback.trim();
     if (!instruction) {
       setError("Type what you'd like to change.");
@@ -196,12 +296,14 @@ export function AiWriterModal({ clientId, onPushToCopy, onClose }: Props) {
           selectedContext,
           mode: "refine",
           instruction,
-          existing: isCarousel ? { caption, hashtags, frames } : { copy, caption, hashtags },
+          existing: isCarousel
+            ? { caption, hashtags: parseHashtags(hashtagsText), frames }
+            : { copy, caption, hashtags: parseHashtags(hashtagsText) },
           ...(isCarousel ? { frameCount } : {}),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Refine failed");
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(apiErrorMessage(res, data, "Refine failed"));
 
       const result = normalizeResult(data);
       applyResult(result);
@@ -234,7 +336,7 @@ export function AiWriterModal({ clientId, onPushToCopy, onClose }: Props) {
         category,
         copy,
         caption,
-        hashtags,
+        hashtags: parseHashtags(hashtagsText),
         ...(isCarousel ? { frames } : {}),
       });
       onClose();
@@ -247,74 +349,6 @@ export function AiWriterModal({ clientId, onPushToCopy, onClose }: Props) {
 
   const categoryLabel =
     CATEGORY_OPTIONS.find((o) => o.value === category)?.label ?? category;
-
-  // Read-only rendering of a past turn's result in the transcript.
-  function ResultPreview({ result }: { result: ResultSnapshot }) {
-    return (
-      <div className="space-y-1.5 text-sm text-foreground whitespace-pre-wrap">
-        {result.frames.length > 0 ? (
-          result.frames.map((f) => (
-            <p key={f.frameNo}>
-              <span className="text-xs font-semibold text-muted-foreground">
-                Frame {f.frameNo}:{" "}
-              </span>
-              {f.copy}
-            </p>
-          ))
-        ) : (
-          result.copy && <p>{result.copy}</p>
-        )}
-        {result.caption && (
-          <p className="text-muted-foreground">{result.caption}</p>
-        )}
-        {result.hashtags.length > 0 && (
-          <p className="text-emerald-600">{result.hashtags.join(" ")}</p>
-        )}
-      </div>
-    );
-  }
-
-  // Editable rendering of the latest result — bound to live state, pushed as-is.
-  function EditableResult() {
-    return (
-      <div className="space-y-3">
-        {isCarousel ? (
-          <div className="space-y-3">
-            <label className={LABEL}>Frames ({frames.length})</label>
-            {frames.map((f) => (
-              <div key={f.frameNo} className="space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Frame {f.frameNo}
-                </span>
-                <Textarea
-                  value={f.copy}
-                  onChange={(e) => updateFrame(f.frameNo, e.target.value)}
-                  rows={3}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            <label className={LABEL}>Copy</label>
-            <Textarea value={copy} onChange={(e) => setCopy(e.target.value)} rows={4} />
-          </div>
-        )}
-        <div className="space-y-1.5">
-          <label className={LABEL}>Caption</label>
-          <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3} />
-        </div>
-        <div className="space-y-1.5">
-          <label className={LABEL}>Hashtags</label>
-          <Textarea
-            value={hashtags.join(" ")}
-            onChange={(e) => setHashtags(e.target.value.split(/\s+/).filter(Boolean))}
-            rows={2}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -484,7 +518,21 @@ export function AiWriterModal({ clientId, onPushToCopy, onClose }: Props) {
                           <Sparkles className="h-3.5 w-3.5" />
                           {isLatest ? "Latest draft — edit before pushing" : "Draft"}
                         </div>
-                        {isLatest ? <EditableResult /> : <ResultPreview result={turn.result} />}
+                        {isLatest ? (
+                          <EditableResult
+                            isCarousel={isCarousel}
+                            frames={frames}
+                            onFrameChange={updateFrame}
+                            copy={copy}
+                            onCopyChange={setCopy}
+                            caption={caption}
+                            onCaptionChange={setCaption}
+                            hashtagsText={hashtagsText}
+                            onHashtagsChange={setHashtagsText}
+                          />
+                        ) : (
+                          <ResultPreview result={turn.result} />
+                        )}
                       </div>
                     </div>
                   </div>

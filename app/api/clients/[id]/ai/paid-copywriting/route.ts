@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { getSession } from "@/lib/auth";
-import { isClient, assertClientAccess, notFound } from "@/lib/authz";
+import { isStaff, forbidden } from "@/lib/authz";
 import { connectDB } from "@/lib/db";
 import Client from "@/lib/models/client.model";
 import AIProject from "@/lib/models/ai/ai-project";
@@ -16,7 +17,12 @@ import {
   PaidMediaType,
 } from "@/lib/ai/writer/generate-paid-copy";
 
+import { resolveTextLLM } from "@/lib/ai/llm/resolve";
+import { llmErrorResponse } from "@/lib/ai/llm/http";
+
 type Ctx = { params: Promise<{ id: string }> };
+
+export const maxDuration = 120;
 
 // POST /api/clients/[id]/ai/paid-copywriting
 // Body: { adPlatform, mediaType, selectedContext, customPrompt }
@@ -25,9 +31,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Staff only: the client portal has no AI writer, and every call is
+    // billed to the workspace's provider key.
+    if (!isStaff(session)) return forbidden();
+
     const { id } = await params;
-    if (isClient(session)) {
-      if (!(await assertClientAccess(session, id))) return notFound();
+    if (!mongoose.isValidObjectId(id)) {
+      return NextResponse.json({ error: "Invalid client id" }, { status: 400 });
     }
 
     const body = await req.json();
@@ -110,7 +120,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     const context = selectCopyContext(savedContext, selectedContext ?? []);
 
+    const llm = await resolveTextLLM();
+
     const result = await generatePaidCopy({
+      llm,
       clientName: client.brandName || client.name,
       adPlatform,
       mediaType,
@@ -124,8 +137,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     await AIUsage.create({
       userId: session.userId,
       clientId: id,
-      provider: "anthropic",
-      model: process.env.AI_ANTHROPIC_MODEL || "claude-sonnet-5",
+      provider: result.provider,
+      model: result.model,
       operation: isRefine ? "paid_copywriting_refine" : "paid_copywriting",
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,
@@ -141,7 +154,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       descriptions: result.descriptions,
     });
   } catch (err: any) {
-    console.error("[ai paid copywriting POST]", err);
+    const llmResponse = llmErrorResponse(err, "ai paid copywriting POST");
+    if (llmResponse) return llmResponse;
     return NextResponse.json({ error: err.message || "Internal error" }, { status: 500 });
   }
 }

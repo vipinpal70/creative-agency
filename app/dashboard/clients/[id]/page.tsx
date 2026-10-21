@@ -435,6 +435,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   // AI client research modal
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  // Bumped when the AI modal saves new research so LLM Insights reloads.
+  const [insightsVersion, setInsightsVersion] = useState(0);
 
   // Profile tab competitor / social state
   const [newComp, setNewComp] = useState({ name: "", websiteLink: "", socialMediaLink: "" });
@@ -922,7 +924,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      <AIResearchModal open={aiModalOpen} clientId={clientId} onClose={() => setAiModalOpen(false)} />
+      <AIResearchModal
+        open={aiModalOpen}
+        clientId={clientId}
+        onClose={() => setAiModalOpen(false)}
+        onResearchUpdated={() => setInsightsVersion((v) => v + 1)}
+      />
 
       {/* Tabs */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-gray-200">
@@ -1063,7 +1070,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             {/* LLM Insights — saved client-research context */}
-            <LlmInsights clientId={clientId} />
+            <LlmInsights clientId={clientId} refreshKey={insightsVersion} />
           </div>
 
           {/* Right col */}

@@ -1,11 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type { ResolvedTextLLM } from "@/lib/ai/llm/resolve";
+import type { LLMProviderId } from "@/lib/ai/llm/catalog";
 import { SelectedCopyContext } from "@/lib/ai/context/context-selector";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-const MODEL = process.env.AI_ANTHROPIC_MODEL || "claude-sonnet-5";
 
 // Paid-media platform — mirrors AdPlatform in components/writer/types.ts.
 export type AdPlatform = "meta" | "google";
@@ -27,6 +23,8 @@ const MEDIA_GUIDANCE: Record<PaidMediaType, string> = {
 };
 
 export interface GeneratePaidCopyArgs {
+  // The workspace's resolved text-generation provider/model (see lib/ai/llm/resolve).
+  llm: ResolvedTextLLM;
   clientName: string;
   adPlatform: AdPlatform;
   mediaType: PaidMediaType;
@@ -59,6 +57,8 @@ export interface PaidCopyResult {
   descriptions: string[];
   inputTokens: number;
   outputTokens: number;
+  provider: LLMProviderId;
+  model: string;
 }
 
 // Meta returns copy + primary text + headline variations.
@@ -84,13 +84,6 @@ function googleSchema(): string {
 }`;
 }
 
-function extractText(response: Anthropic.Message): string {
-  return response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
-}
-
 function toStringArray(value: any): string[] {
   return Array.isArray(value)
     ? value.map((v) => (typeof v === "string" ? v : "")).filter(Boolean)
@@ -99,7 +92,7 @@ function toStringArray(value: any): string[] {
 
 function parseResult(text: string, adPlatform: AdPlatform): Omit<
   PaidCopyResult,
-  "inputTokens" | "outputTokens"
+  "inputTokens" | "outputTokens" | "provider" | "model"
 > {
   const cleaned = text
     .trim()
@@ -156,6 +149,7 @@ export async function generatePaidCopy({
   mode = "generate",
   existing,
   instruction,
+  llm,
 }: GeneratePaidCopyArgs): Promise<PaidCopyResult> {
   const isGoogle = adPlatform === "google";
   const isRefine = mode === "refine";
@@ -231,18 +225,19 @@ Apply this change: ${instruction?.trim() || customPrompt}
 Return the full updated ad copy in the same JSON structure.`
     : customPrompt;
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 2000,
+  const response = await llm.generateText({
+    maxTokens: 2000,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
   });
 
-  const parsed = parseResult(extractText(response), adPlatform);
+  const parsed = parseResult(response.text, adPlatform);
 
   return {
     ...parsed,
-    inputTokens: response.usage?.input_tokens ?? 0,
-    outputTokens: response.usage?.output_tokens ?? 0,
+    inputTokens: response.inputTokens,
+    outputTokens: response.outputTokens,
+    provider: response.provider,
+    model: response.model,
   };
 }

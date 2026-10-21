@@ -1,19 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { AI_TASKS } from "./task-registry";
 import { AIExecutionResult, AITaskType, ProjectContext } from "./type";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-const EXECUTION_MODEL = process.env.AI_ANTHROPIC_MODEL || "claude-sonnet-5";
-
-function extractText(response: Anthropic.Message): string {
-  return response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("\n");
-}
+import type { ResolvedTextLLM } from "./llm/resolve";
 
 /*
  * Defensive cleanup: strips markdown fences AND any inline <cite ...> tags
@@ -54,6 +41,7 @@ function extractJson(text: string, schemaHint: string): unknown {
  * shared or forced across tasks the way the old fixed schema was.
  */
 export async function executeTask(
+  llm: ResolvedTextLLM,
   task: AITaskType,
   userPrompt: string,
   context: ProjectContext
@@ -69,21 +57,14 @@ Return ONLY valid JSON matching exactly this structure — no markdown, no comme
 ${config.outputSchema}`
       : config.buildSystemPrompt(context);
 
-  const response = await anthropic.messages.create({
-    model: EXECUTION_MODEL,
-    max_tokens: 4000,
+  const response = await llm.generateText({
+    maxTokens: 4000,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
-    ...(config.needsWebSearch
-      ? { tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }] }
-      : {}),
+    ...(config.needsWebSearch ? { webSearch: { maxUses: 8 } } : {}),
   });
 
-  const inputTokens = response.usage?.input_tokens ?? 0;
-  const outputTokens = response.usage?.output_tokens ?? 0;
-  const webSearchCount = response.usage?.server_tool_use?.web_search_requests ?? 0;
-
-  const text = extractText(response);
+  const { inputTokens, outputTokens, webSearchCount, text } = response;
 
   if (config.outputMode === "text") {
     return {

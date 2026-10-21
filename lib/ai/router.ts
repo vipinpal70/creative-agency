@@ -1,22 +1,18 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { AI_TASKS } from "./task-registry";
 import { AITaskClassification, AITaskType } from "./type";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+import type { ResolvedTextLLM } from "./llm/resolve";
+import type { StructuredOutputSpec } from "./llm/types";
 
 /*
- * Classification is a cheap, high-volume call — use the fast/small model,
- * not the same model you use for the actual research generation.
+ * Classification is a cheap, high-volume call — use the provider's
+ * fast/small model (llm.routerModel), not the same model you use for the
+ * actual research generation.
  */
-const ROUTER_MODEL = process.env.AI_ROUTER_MODEL || "claude-haiku-4-5-20251001";
-
-const CLASSIFY_TOOL: Anthropic.Tool = {
+const CLASSIFY_OUTPUT: StructuredOutputSpec = {
   name: "classify_request",
   description:
     "Classify a user's free-form request into exactly one CreativeOS AI task type.",
-  input_schema: {
+  schema: {
     type: "object",
     properties: {
       task: {
@@ -53,36 +49,40 @@ Pick the single task that matches what the user actually asked for. Never pick a
 }
 
 export async function classifyRequest(
+  llm: ResolvedTextLLM,
   userPrompt: string,
   recentMessagesSummary?: string
 ): Promise<AITaskClassification> {
-  const response = await anthropic.messages.create({
-    model: ROUTER_MODEL,
-    max_tokens: 300,
-    system: buildRouterSystemPrompt(),
-    tools: [CLASSIFY_TOOL],
-    tool_choice: { type: "tool", name: "classify_request" },
-    messages: [
-      {
-        role: "user",
-        content: recentMessagesSummary
-          ? `Recent conversation context:\n${recentMessagesSummary}\n\nNew request: ${userPrompt}`
-          : userPrompt,
-      },
-    ],
-  });
-
-  const toolUse = response.content.find(
-    (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
-  );
-
-  // Defensive fallback: if the classifier ever fails to call the tool,
-  // default to general_chat rather than failing the whole request.
-  if (!toolUse) {
-    return { task: "general_chat", reasoning: "fallback: no tool call", parameters: {} };
+  let structured: unknown;
+  try {
+    const response = await llm.generateText({
+      modelOverride: llm.routerModel,
+      maxTokens: 300,
+      system: buildRouterSystemPrompt(),
+      structuredOutput: CLASSIFY_OUTPUT,
+      messages: [
+        {
+          role: "user",
+          content: recentMessagesSummary
+            ? `Recent conversation context:\n${recentMessagesSummary}\n\nNew request: ${userPrompt}`
+            : userPrompt,
+        },
+      ],
+    });
+    structured = response.structured;
+  } catch (err) {
+    // Bad credentials etc. must surface, but a router-model-only failure
+    // (e.g. the small model isn't enabled on this key) shouldn't block chat.
+    if ((err as { code?: string })?.code !== "model_unavailable") throw err;
   }
 
-  const input = toolUse.input as {
+  // Defensive fallback: if the classifier ever fails to return the object,
+  // default to general_chat rather than failing the whole request.
+  if (!structured || typeof structured !== "object") {
+    return { task: "general_chat", reasoning: "fallback: no classification", parameters: {} };
+  }
+
+  const input = structured as {
     task: AITaskType;
     reasoning: string;
     parameters?: Record<string, unknown>;

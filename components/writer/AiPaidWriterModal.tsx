@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextShimmerWave } from "@/components/ui/aiLoading";
 import { Sparkles, Loader2, X, ArrowUp } from "lucide-react";
 import type { AdPlatform } from "./types";
+import { apiErrorMessage, readJson } from "@/lib/read-json";
 
 // Paid-media creative format — mirrors VARIANT_MEDIA_TYPES in VariantModal.tsx.
 export type PaidMediaType = "Static" | "Carousel" | "Video";
@@ -68,6 +69,118 @@ const CONTEXT_OPTIONS: { value: ContextKey; label: string }[] = [
 ];
 
 const LABEL = "text-xs font-semibold text-muted-foreground uppercase tracking-wider";
+
+// Editable multi-line field for an array of variations (one per line).
+function ArrayField({
+  label,
+  values,
+  onChange,
+  rows,
+}: {
+  label: string;
+  values: string[];
+  onChange: (v: string[]) => void;
+  rows: number;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className={LABEL}>{label}</label>
+      <Textarea
+        value={values.join("\n")}
+        onChange={(e) => onChange(e.target.value.split("\n"))}
+        rows={rows}
+      />
+      <p className="text-[11px] text-muted-foreground">One per line.</p>
+    </div>
+  );
+}
+
+// Read-only rendering of a past turn's result in the transcript.
+function ResultPreview({ result, isGoogle }: { result: ResultSnapshot; isGoogle: boolean }) {
+  const body = isGoogle ? result.descriptions : result.primaryTexts;
+  return (
+    <div className="space-y-2 text-sm text-foreground whitespace-pre-wrap">
+      {result.adCopy && <p>{result.adCopy}</p>}
+      {result.headlines.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground">Headlines</p>
+          <p>{result.headlines.join("\n")}</p>
+        </div>
+      )}
+      {isGoogle && result.longHeadline && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground">Long headline</p>
+          <p>{result.longHeadline}</p>
+        </div>
+      )}
+      {body.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground">
+            {isGoogle ? "Descriptions" : "Primary text"}
+          </p>
+          <p>{body.join("\n")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface EditableResultProps {
+  isGoogle: boolean;
+  adCopy: string;
+  onAdCopyChange: (v: string) => void;
+  headlines: string[];
+  onHeadlinesChange: (v: string[]) => void;
+  longHeadline: string;
+  onLongHeadlineChange: (v: string) => void;
+  descriptions: string[];
+  onDescriptionsChange: (v: string[]) => void;
+  primaryTexts: string[];
+  onPrimaryTextsChange: (v: string[]) => void;
+}
+
+// Editable rendering of the latest result — bound to the modal's live state.
+// Defined at module level (not inside the modal) so React keeps the same
+// textarea elements between keystrokes and focus isn't lost while typing.
+function EditableResult(p: EditableResultProps) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <label className={LABEL}>Copy</label>
+        <Textarea value={p.adCopy} onChange={(e) => p.onAdCopyChange(e.target.value)} rows={2} />
+      </div>
+      {p.isGoogle ? (
+        <>
+          <ArrayField label="Headlines" values={p.headlines} onChange={p.onHeadlinesChange} rows={4} />
+          <div className="space-y-1.5">
+            <label className={LABEL}>Long headline</label>
+            <Textarea
+              value={p.longHeadline}
+              onChange={(e) => p.onLongHeadlineChange(e.target.value)}
+              rows={2}
+            />
+          </div>
+          <ArrayField
+            label="Descriptions"
+            values={p.descriptions}
+            onChange={p.onDescriptionsChange}
+            rows={4}
+          />
+        </>
+      ) : (
+        <>
+          <ArrayField
+            label="Primary text"
+            values={p.primaryTexts}
+            onChange={p.onPrimaryTextsChange}
+            rows={5}
+          />
+          <ArrayField label="Headlines" values={p.headlines} onChange={p.onHeadlinesChange} rows={4} />
+        </>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   clientId: string;
@@ -140,6 +253,7 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
   }
 
   async function handleGenerate() {
+    if (generating) return;
     if (!customPrompt.trim()) {
       setError("Describe what you want the AI to create first.");
       return;
@@ -158,8 +272,8 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
           customPrompt,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Generation failed");
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(apiErrorMessage(res, data, "Generation failed"));
 
       const result = normalizeResult(data);
       applyResult(result);
@@ -175,6 +289,7 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
   // Refine: send the current (possibly hand-edited) ad copy plus the writer's
   // feedback so the AI revises it in place rather than starting over.
   async function handleRefine() {
+    if (generating) return;
     const instruction = feedback.trim();
     if (!instruction) {
       setError("Type what you'd like to change.");
@@ -199,8 +314,8 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
             : { adCopy, headlines, primaryTexts },
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Refine failed");
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(apiErrorMessage(res, data, "Refine failed"));
 
       const result = normalizeResult(data);
       applyResult(result);
@@ -243,104 +358,8 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
     }
   }
 
-  // Editable multi-line field for an array of variations (one per line).
-  function ArrayField({
-    label,
-    values,
-    onChange,
-    rows,
-  }: {
-    label: string;
-    values: string[];
-    onChange: (v: string[]) => void;
-    rows: number;
-  }) {
-    return (
-      <div className="space-y-1.5">
-        <label className={LABEL}>{label}</label>
-        <Textarea
-          value={values.join("\n")}
-          onChange={(e) => onChange(e.target.value.split("\n"))}
-          rows={rows}
-        />
-        <p className="text-[11px] text-muted-foreground">One per line.</p>
-      </div>
-    );
-  }
-
   const platformLabel =
     PLATFORM_OPTIONS.find((o) => o.value === adPlatform)?.label ?? adPlatform;
-
-  // Read-only rendering of a past turn's result in the transcript.
-  function ResultPreview({ result }: { result: ResultSnapshot }) {
-    const body = isGoogle ? result.descriptions : result.primaryTexts;
-    return (
-      <div className="space-y-2 text-sm text-foreground whitespace-pre-wrap">
-        {result.adCopy && <p>{result.adCopy}</p>}
-        {result.headlines.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground">Headlines</p>
-            <p>{result.headlines.join("\n")}</p>
-          </div>
-        )}
-        {isGoogle && result.longHeadline && (
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground">Long headline</p>
-            <p>{result.longHeadline}</p>
-          </div>
-        )}
-        {body.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground">
-              {isGoogle ? "Descriptions" : "Primary text"}
-            </p>
-            <p>{body.join("\n")}</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Editable rendering of the latest result — bound to live state, pushed as-is.
-  function EditableResult() {
-    return (
-      <div className="space-y-3">
-        <div className="space-y-1.5">
-          <label className={LABEL}>Copy</label>
-          <Textarea value={adCopy} onChange={(e) => setAdCopy(e.target.value)} rows={2} />
-        </div>
-        {isGoogle ? (
-          <>
-            <ArrayField label="Headlines" values={headlines} onChange={setHeadlines} rows={4} />
-            <div className="space-y-1.5">
-              <label className={LABEL}>Long headline</label>
-              <Textarea
-                value={longHeadline}
-                onChange={(e) => setLongHeadline(e.target.value)}
-                rows={2}
-              />
-            </div>
-            <ArrayField
-              label="Descriptions"
-              values={descriptions}
-              onChange={setDescriptions}
-              rows={4}
-            />
-          </>
-        ) : (
-          <>
-            <ArrayField
-              label="Primary text"
-              values={primaryTexts}
-              onChange={setPrimaryTexts}
-              rows={5}
-            />
-            <ArrayField label="Headlines" values={headlines} onChange={setHeadlines} rows={4} />
-          </>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -509,7 +528,23 @@ export function AiPaidWriterModal({ clientId, onPushToCopy, onClose }: Props) {
                           <Sparkles className="h-3.5 w-3.5" />
                           {isLatest ? "Latest draft — edit before pushing" : "Draft"}
                         </div>
-                        {isLatest ? <EditableResult /> : <ResultPreview result={turn.result} />}
+                        {isLatest ? (
+                          <EditableResult
+                            isGoogle={isGoogle}
+                            adCopy={adCopy}
+                            onAdCopyChange={setAdCopy}
+                            headlines={headlines}
+                            onHeadlinesChange={setHeadlines}
+                            longHeadline={longHeadline}
+                            onLongHeadlineChange={setLongHeadline}
+                            descriptions={descriptions}
+                            onDescriptionsChange={setDescriptions}
+                            primaryTexts={primaryTexts}
+                            onPrimaryTextsChange={setPrimaryTexts}
+                          />
+                        ) : (
+                          <ResultPreview result={turn.result} isGoogle={isGoogle} />
+                        )}
                       </div>
                     </div>
                   </div>
