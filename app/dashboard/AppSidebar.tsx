@@ -18,12 +18,12 @@ const Icon = {
   Clients: () => (
     <Briefcase width="17" height="17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
-  Onboarding: () => (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-      <line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
-    </svg>
-  ),
+  // Onboarding: () => (
+  //   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  //     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+  //     <line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+  //   </svg>
+  // ),
   Gantt: () => (
     <ChartBarStacked width="17" height="17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   ),
@@ -106,7 +106,7 @@ const NAV_GROUPS = [
     items: [
       { title: "Dashboard", href: "/dashboard", icon: Icon.Dashboard },
       { title: "Clients", href: "/dashboard/clients", icon: Icon.Clients },
-      { title: "Onboarding", href: "/dashboard/onboarding", icon: Icon.Onboarding },
+      // { title: "Onboarding", href: "/dashboard/onboarding", icon: Icon.Onboarding },
       { title: "Team Management", href: "/dashboard/team", icon: Icon.Team },
     ],
   },
