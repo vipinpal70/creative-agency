@@ -18,8 +18,8 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!canManageRepository(session.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await canManageRepository(session))) {
+      return NextResponse.json({ error: "Forbidden: Only Admin, Client, and Account Manager can create folders" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -49,10 +49,6 @@ export async function POST(req: NextRequest) {
       parent,
       explicitClientId: body.clientId ?? null,
     });
-    // A client account with no linked Client record cannot own repository items.
-    if (session.role === "client" && !clientId) {
-      return NextResponse.json({ error: "No client workspace linked to this account" }, { status: 403 });
-    }
 
     const actor = await resolveActor(session);
 

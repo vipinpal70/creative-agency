@@ -5,26 +5,55 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Save, X, History, ChevronDown } from "lucide-react";
-import type { CopyFormData, HistoryEntry } from "./types";
+import { Loader2, Plus, Save, X, History, ChevronDown, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { isReelOrVideoType } from "@/lib/status-flow";
+import { AdPreviewCard } from "./AdPreviewCard";
+import { GoogleAdPreviewCard } from "./GoogleAdPreviewCard";
+import { RepeatableList } from "./RepeatableList";
+import type { CopyFormData, CarouselFrame, HistoryEntry, AdPlatform, CustomParameter } from "./types";
+import { VIDEO_TYPE_OPTIONS } from "./types";
 
-// A "variant" is a paid-media copy inside a campaign — the paid-media
+// An "ad copy" is a paid-media copy inside a campaign — the paid-media
 // counterpart of a social "copy". It reuses the ContentDraft data model:
-// primary text → creativeCopy, helping URL → referenceUrl, launch date →
-// publishDate, plus paid-only headline / description / cta / landingUrl.
+// primary text → creativeCopy, reference URL → referenceUrl, launch date →
+// publishDate, plus paid-only headline / description / cta / landingUrl / adCopy.
+// Like the social CopyModal, the creative-authoring fields below the
+// Reference URL branch by media type: Carousel gets per-frame copy, Video
+// gets a video type + notes block, Static keeps a single primary text box.
 
 export const VARIANT_MEDIA_TYPES = ["Static", "Carousel", "Video"] as const;
 export const VARIANT_CTAS = ["Sign Up", "Learn More", "Shop Now", "Get Quote", "Download", "Book Demo"] as const;
+// Google Ads uses its own CTA vocabulary.
+export const GOOGLE_CTAS = ["Get Quote", "Learn More", "Sign Up", "Contact Us", "Shop Now"] as const;
+
+export const AD_PLATFORMS: { id: AdPlatform; label: string }[] = [
+  { id: "meta",   label: "Meta" },
+  { id: "google", label: "Google" },
+];
 
 export interface VariantModalInitialData {
   mediaType?: string;
   creativeCopy?: string;   // primary text
-  referenceUrl?: string;   // helping url
+  frames?: CarouselFrame[];
+  referenceUrl?: string;   // reference url
   headline?: string;
   description?: string;
   cta?: string;
   landingUrl?: string;
+  adCopy?: string;         // standalone "Copy" field
+  primaryTexts?: string[];
+  headlines?: string[];
+  descriptions?: string[];
   publishDate?: string;    // launch date
+  videoType?: string;
+  videoNotes?: string;
+  // Paid-media platform + Google Ads-only fields
+  adPlatform?: AdPlatform;
+  businessName?: string;
+  longHeadline?: string;
+  trackingTemplate?: string;
+  finalUrlSuffix?: string;
+  customParameters?: CustomParameter[];
 }
 
 interface Props {
@@ -49,7 +78,7 @@ function timeAgo(dateStr: string): string {
 }
 
 const ACTION_LABEL: Record<string, string> = {
-  created:   "Created variant",
+  created:   "Created ad copy",
   edited:    "Edited",
   submitted: "Submitted for review",
   approved:  "Approved",
@@ -66,17 +95,52 @@ const ACTION_COLOR: Record<string, string> = {
 const LABEL = "text-xs font-semibold text-muted-foreground uppercase tracking-wider";
 
 export function VariantModal({ mode, index, initialData, historyEndpoint, onClose, onSave }: Props) {
+  const initFrames: CarouselFrame[] = initialData?.frames?.length
+    ? initialData.frames
+    : Array.from({ length: 3 }, (_, i) => ({ frameNo: i + 1, copy: "", imageUrl: "" }));
+
+  const [adPlatform,   setAdPlatform]   = useState<AdPlatform>(initialData?.adPlatform ?? "meta");
   const [mediaType,    setMediaType]    = useState(initialData?.mediaType ?? "");
-  const [primaryText,  setPrimaryText]  = useState(initialData?.creativeCopy ?? "");
-  const [helpingUrl,   setHelpingUrl]   = useState(initialData?.referenceUrl ?? "");
-  const [headline,     setHeadline]     = useState(initialData?.headline ?? "");
-  const [description,  setDescription]  = useState(initialData?.description ?? "");
+  const [referenceUrl, setReferenceUrl] = useState(initialData?.referenceUrl ?? "");
+  const [adCopy,       setAdCopy]       = useState(initialData?.adCopy ?? "");
+  // Google Ads-only fields
+  const [businessName,     setBusinessName]     = useState(initialData?.businessName ?? "");
+  const [longHeadline,     setLongHeadline]     = useState(initialData?.longHeadline ?? "");
+  const [trackingTemplate, setTrackingTemplate] = useState(initialData?.trackingTemplate ?? "");
+  const [finalUrlSuffix,   setFinalUrlSuffix]   = useState(initialData?.finalUrlSuffix ?? "");
+  const [customParameters, setCustomParameters] = useState<CustomParameter[]>(initialData?.customParameters ?? []);
+  const [urlOptionsOpen,   setUrlOptionsOpen]   = useState(
+    Boolean(initialData?.trackingTemplate || initialData?.finalUrlSuffix || initialData?.customParameters?.length)
+  );
+  const isGoogle = adPlatform === "google";
+  // Meta-style multi-value fields (up to 5 each). Fall back to the legacy
+  // scalar value for drafts created before these were arrays.
+  const [primaryTexts, setPrimaryTexts] = useState<string[]>(
+    initialData?.primaryTexts?.length ? initialData.primaryTexts
+      : initialData?.creativeCopy ? [initialData.creativeCopy] : [""]
+  );
+  const [headlines,    setHeadlines]    = useState<string[]>(
+    initialData?.headlines?.length ? initialData.headlines
+      : initialData?.headline ? [initialData.headline] : [""]
+  );
+  const [descriptions, setDescriptions] = useState<string[]>(
+    initialData?.descriptions?.length ? initialData.descriptions
+      : initialData?.description ? [initialData.description] : []
+  );
   const [cta,          setCta]          = useState(initialData?.cta ?? "Learn More");
   const [landingUrl,   setLandingUrl]   = useState(initialData?.landingUrl ?? "");
   const [launchDate,   setLaunchDate]   = useState(initialData?.publishDate ?? "");
+  const [videoType,    setVideoType]    = useState(initialData?.videoType ?? "");
+  const [videoNotes,   setVideoNotes]   = useState(initialData?.videoNotes ?? "");
   const [saving,       setSaving]       = useState(false);
+  const [showPreview,  setShowPreview]  = useState(false);
 
   const today = new Date().toLocaleDateString("en-CA");
+
+  // Carousel
+  const [frameCount,   setFrameCount]   = useState(initFrames.length);
+  const [frames,       setFrames]       = useState<CarouselFrame[]>(initFrames);
+  const [currentFrame, setCurrentFrame] = useState(1);
 
   // ── History ──
   const [history,        setHistory]        = useState<HistoryEntry[]>([]);
@@ -93,31 +157,120 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
       .finally(() => setHistoryLoading(false));
   }, [historyEndpoint]);
 
-  const isValid =
-    mediaType.trim() &&
-    primaryText.trim() &&
-    headline.trim() &&
-    landingUrl.trim() &&
-    launchDate;
+  // ── Derived ──
+  const isCarousel = mediaType.toLowerCase() === "carousel";
+  const isVideo     = isReelOrVideoType(mediaType);
+
+  const updateFrame = (frameNo: number, patch: Partial<CarouselFrame>) => {
+    setFrames((prev) => {
+      const existing = prev.find((f) => f.frameNo === frameNo);
+      if (existing) return prev.map((f) => f.frameNo === frameNo ? { ...f, ...patch } : f);
+      return [...prev, { frameNo, copy: "", imageUrl: "", ...patch }];
+    });
+  };
+
+  const getFrame = (frameNo: number): CarouselFrame =>
+    frames.find((f) => f.frameNo === frameNo) ?? { frameNo, copy: "", imageUrl: "" };
+
+  const handleMediaTypeChange = (val: string) => {
+    setMediaType(val);
+    // Only reset creative-authoring state in create mode
+    if (mode === "create") {
+      setVideoType("");
+      setVideoNotes("");
+      setFrames(Array.from({ length: 3 }, (_, i) => ({ frameNo: i + 1, copy: "", imageUrl: "" })));
+      setFrameCount(3);
+      setCurrentFrame(1);
+    }
+  };
+
+  const handlePlatformChange = (val: AdPlatform) => {
+    setAdPlatform(val);
+    // Google requires at least one description row; seed an empty one so the
+    // required list surfaces an input instead of only the "Add" button.
+    if (val === "google" && descriptions.length === 0) setDescriptions([""]);
+    // Keep the CTA within the target platform's vocabulary.
+    const allowed: readonly string[] = val === "google" ? GOOGLE_CTAS : VARIANT_CTAS;
+    if (!allowed.includes(cta)) setCta(allowed[0]);
+  };
+
+  const addCustomParameter    = () => setCustomParameters((p) => [...p, { name: "", value: "" }]);
+  const removeCustomParameter = (i: number) => setCustomParameters((p) => p.filter((_, idx) => idx !== i));
+  const updateCustomParameter = (i: number, patch: Partial<CustomParameter>) =>
+    setCustomParameters((p) => p.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+
+  const carouselFramesFilled = isCarousel
+    ? Array.from({ length: frameCount }, (_, i) => getFrame(i + 1)).every((f) => f.copy.trim())
+    : true;
+
+  const hasPrimary     = primaryTexts.some((t) => t.trim());
+  const hasHeadline    = headlines.some((h) => h.trim());
+  const hasDescription = descriptions.some((d) => d.trim());
+
+  const isValid = isGoogle
+    ? Boolean(
+        mediaType.trim() &&
+        businessName.trim() &&
+        adCopy.trim() &&
+        hasHeadline &&
+        longHeadline.trim() &&
+        hasDescription &&
+        cta &&
+        launchDate
+      )
+    : Boolean(
+        mediaType.trim() &&
+        adCopy.trim() &&
+        (isCarousel ? carouselFramesFilled : true) &&
+        hasPrimary &&
+        hasHeadline &&
+        launchDate
+      );
+
+  const resolvedFrames = isCarousel
+    ? Array.from({ length: frameCount }, (_, i) => getFrame(i + 1))
+    : undefined;
 
   const handleSave = async () => {
     if (!isValid || saving) return;
     setSaving(true);
     try {
+      const primaryTextsClean = primaryTexts.map((t) => t.trim()).filter(Boolean);
+      const headlinesClean    = headlines.map((h) => h.trim()).filter(Boolean);
+      const descriptionsClean = descriptions.map((d) => d.trim()).filter(Boolean);
+      // Google carries no primary text; keep it empty so the scalar mirror the
+      // rest of the pipeline reads stays consistent. Copy (adCopy) is shared.
+      const customParametersClean = customParameters
+        .map((p) => ({ name: p.name.trim(), value: p.value.trim() }))
+        .filter((p) => p.name || p.value);
       await onSave({
         mediaType,
-        creativeCopy: primaryText,
+        creativeCopy: isGoogle ? "" : primaryTextsClean[0] ?? "",
+        frames:       resolvedFrames,
         caption:      "",
         hashtags:     "",
         publishDate:  launchDate,
         publishTime:  "",
         contentBucket: "",
         platforms:    [],           // campaign platforms are injected by the workspace
-        referenceUrl: helpingUrl.trim() || undefined,
-        headline,
-        description,
+        referenceUrl: referenceUrl.trim() || undefined,
+        adCopy,
+        headline:     headlinesClean[0] ?? "",
+        description:  descriptionsClean[0] ?? "",
+        primaryTexts: isGoogle ? [] : primaryTextsClean,
+        headlines:    headlinesClean,
+        descriptions: descriptionsClean,
         cta,
         landingUrl:   landingUrl.trim(),
+        videoType:    isVideo ? videoType  : undefined,
+        videoNotes:   isVideo ? videoNotes : undefined,
+        // Paid-media platform + Google Ads-only fields
+        adPlatform,
+        businessName:     isGoogle ? businessName.trim()     : "",
+        longHeadline:     isGoogle ? longHeadline.trim()     : "",
+        trackingTemplate: isGoogle ? trackingTemplate.trim() : "",
+        finalUrlSuffix:   isGoogle ? finalUrlSuffix.trim()   : "",
+        customParameters: isGoogle ? customParametersClean   : [],
       });
     } finally {
       setSaving(false);
@@ -132,12 +285,12 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
         <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
           <div>
             <h2 className="text-base font-semibold text-foreground">
-              {mode === "create" ? `Add Variant ${index}` : `Edit Variant ${index}`}
+              {mode === "create" ? `Add Ad Copy ${index}` : `Edit Ad Copy ${index}`}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {mode === "create"
-                ? "A variant is a single ad copy inside this campaign"
-                : "Update this variant before submitting for review"}
+                ? "A single ad copy inside this campaign"
+                : "Update this ad copy before submitting for review"}
             </p>
           </div>
           <button
@@ -151,6 +304,31 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
         {/* Body */}
         <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
 
+          {/* 0 — Ad Platform (Meta vs Google) */}
+          <div className="space-y-2">
+            <label className={LABEL}>Ad Platform *</label>
+            <div className="flex flex-wrap gap-2">
+              {AD_PLATFORMS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handlePlatformChange(p.id)}
+                  disabled={mode === "edit"}
+                  className={`text-sm px-4 py-1.5 rounded-full border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                    adPlatform === p.id
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {mode === "edit" && (
+              <p className="text-[11px] text-muted-foreground">Ad platform cannot be changed after creation.</p>
+            )}
+          </div>
+
           {/* 1 — Media Type */}
           <div className="space-y-2">
             <label className={LABEL}>Media Type *</label>
@@ -159,7 +337,7 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setMediaType(m)}
+                  onClick={() => handleMediaTypeChange(m)}
                   disabled={mode === "edit"}
                   className={`text-sm px-3 py-1.5 rounded-full border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                     mediaType === m
@@ -176,63 +354,298 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
             )}
           </div>
 
-          {/* 2 — Helping URL */}
+          {/* 1b — Video Details (Video media type only) */}
+          {isVideo && (
+            <div className="space-y-3 rounded-xl border border-border bg-accent/20 px-4 py-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Video Details</p>
+              <div className="space-y-1.5">
+                <label className={LABEL}>Video Type <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
+                <div className="flex flex-wrap gap-4">
+                  {VIDEO_TYPE_OPTIONS.map((opt) => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="variantVideoType"
+                        value={opt.value}
+                        checked={videoType === opt.value}
+                        onChange={() => setVideoType(opt.value)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      <span className="text-sm text-foreground">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className={LABEL}>Video Notes <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
+                <Input
+                  placeholder="Any notes about the video production…"
+                  value={videoNotes}
+                  onChange={(e) => setVideoNotes(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 2 — Reference URL — present for every media type */}
           <div className="space-y-2">
-            <label className={LABEL}>Helping URL <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
+            <label className={LABEL}>Reference URL <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
             <Input
               type="url"
               placeholder="https://example.com/reference"
-              value={helpingUrl}
-              onChange={(e) => setHelpingUrl(e.target.value)}
+              value={referenceUrl}
+              onChange={(e) => setReferenceUrl(e.target.value)}
             />
           </div>
 
-          {/* 3 — Primary Text */}
+          {/* Google — Business Name (required) */}
+          {isGoogle && (
+            <div className="space-y-2">
+              <label className={LABEL}>Business Name *</label>
+              <Input
+                placeholder="Your business name"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* 2b — Copy (standalone, required) — shown for both Meta & Google */}
           <div className="space-y-2">
-            <label className={LABEL}>Primary Text *</label>
+            <label className={LABEL}>Copy *</label>
             <Textarea
+              placeholder="Ad copy…"
+              className="min-h-[80px]"
+              value={adCopy}
+              onChange={(e) => setAdCopy(e.target.value)}
+            />
+          </div>
+
+          {/* 3 — Primary Texts (Meta allows up to 5; not used by Google) */}
+          {!isGoogle && (
+            <RepeatableList
+              label="Primary Text"
+              addLabel="Add primary text"
+              values={primaryTexts}
+              onChange={setPrimaryTexts}
+              required
+              multiline
               placeholder="The main body copy of the ad…"
-              className="min-h-[100px]"
-              value={primaryText}
-              onChange={(e) => setPrimaryText(e.target.value)}
             />
-          </div>
+          )}
 
-          {/* 4 — Headline */}
-          <div className="space-y-2">
-            <label className={LABEL}>Headline *</label>
-            <Input
-              placeholder="Short attention-grabbing headline"
-              value={headline}
-              onChange={(e) => setHeadline(e.target.value)}
-            />
-          </div>
+          {/* Carousel Frames */}
+          {isCarousel && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <label className={LABEL}>Frames / Cards *</label>
+                {mode === "create" && (
+                  <select
+                    value={frameCount}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setFrameCount(n);
+                      setFrames(Array.from({ length: n }, (_, i) => ({ frameNo: i + 1, copy: "", imageUrl: "" })));
+                      setCurrentFrame(1);
+                    }}
+                    className="px-3 py-1.5 border border-border rounded-md text-sm bg-background text-foreground outline-none focus:border-primary"
+                  >
+                    {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
+                      <option key={n} value={n}>{n} cards</option>
+                    ))}
+                  </select>
+                )}
+                {mode === "edit" && (
+                  <span className="text-xs text-muted-foreground">{frameCount} cards</span>
+                )}
+              </div>
 
-          {/* 5 — Description */}
-          <div className="space-y-2">
-            <label className={LABEL}>Description <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
-            <Input
-              placeholder="Supporting description line"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+              <div className="rounded-xl border border-border bg-accent/20 px-4 py-4 space-y-3">
+                {/* Nav */}
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentFrame((f) => Math.max(1, f - 1))}
+                    disabled={currentFrame === 1}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-sm font-semibold text-foreground">Card {currentFrame}</span>
+                    <div className="flex gap-1">
+                      {Array.from({ length: frameCount }, (_, i) => {
+                        const filled = getFrame(i + 1).copy.trim().length > 0;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setCurrentFrame(i + 1)}
+                            className={`h-1.5 rounded-full transition-all ${
+                              i + 1 === currentFrame
+                                ? "w-4 bg-primary"
+                                : filled
+                                ? "w-1.5 bg-primary/40"
+                                : "w-1.5 bg-border"
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentFrame((f) => Math.min(frameCount, f + 1))}
+                    disabled={currentFrame === frameCount}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-background hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <Textarea
+                  key={`copy-${currentFrame}`}
+                  placeholder={`Copy for card ${currentFrame}…`}
+                  className="min-h-[90px]"
+                  value={getFrame(currentFrame).copy}
+                  onChange={(e) => updateFrame(currentFrame, { copy: e.target.value })}
+                />
+                <Input
+                  key={`url-${currentFrame}`}
+                  type="url"
+                  placeholder="Creative image URL (optional — designer fills later)"
+                  value={getFrame(currentFrame).imageUrl}
+                  onChange={(e) => updateFrame(currentFrame, { imageUrl: e.target.value })}
+                />
+
+                <p className="text-[11px] text-muted-foreground text-right">
+                  {Array.from({ length: frameCount }, (_, i) => getFrame(i + 1).copy.trim()).filter(Boolean).length}
+                  /{frameCount} cards filled
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* 4 — Headlines (Meta allows up to 5) */}
+          <RepeatableList
+            label="Headline"
+            addLabel="Add headline"
+            values={headlines}
+            onChange={setHeadlines}
+            required
+            placeholder="Short attention-grabbing headline"
+          />
+
+          {/* Google — Long Headline (required) */}
+          {isGoogle && (
+            <div className="space-y-2">
+              <label className={LABEL}>Long Headline *</label>
+              <Textarea
+                placeholder="A longer headline shown in larger placements…"
+                className="min-h-[60px]"
+                value={longHeadline}
+                onChange={(e) => setLongHeadline(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* 5 — Descriptions (up to 5; required for Google) */}
+          <RepeatableList
+            label="Description"
+            addLabel="Add description"
+            values={descriptions}
+            onChange={setDescriptions}
+            required={isGoogle}
+            placeholder="Supporting description line"
+          />
+
+          {/* Google — Add URL options (optional) */}
+          {isGoogle && (
+            <div className="rounded-xl border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setUrlOptionsOpen((o) => !o)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/50 transition-colors"
+              >
+                <span className={LABEL}>
+                  Add URL Options <span className="normal-case font-normal text-muted-foreground">(optional)</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${urlOptionsOpen ? "rotate-180" : ""}`} />
+              </button>
+              {urlOptionsOpen && (
+                <div className="px-4 pb-4 pt-1 space-y-4 border-t border-border">
+                  <div className="space-y-2">
+                    <label className={LABEL}>Tracking Template</label>
+                    <Input
+                      placeholder="{lpurl}?utm_source=google"
+                      value={trackingTemplate}
+                      onChange={(e) => setTrackingTemplate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={LABEL}>Final URL Suffix</label>
+                    <Input
+                      placeholder="key=value&key2=value2"
+                      value={finalUrlSuffix}
+                      onChange={(e) => setFinalUrlSuffix(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={LABEL}>
+                      Custom Parameter <span className="normal-case font-normal text-muted-foreground">(optional)</span>
+                    </label>
+                    {customParameters.map((row, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          placeholder="name"
+                          value={row.name}
+                          onChange={(e) => updateCustomParameter(i, { name: e.target.value })}
+                        />
+                        <Input
+                          placeholder="value"
+                          value={row.value}
+                          onChange={(e) => updateCustomParameter(i, { value: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCustomParameter(i)}
+                          title="Remove custom parameter"
+                          className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addCustomParameter}
+                      className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 6+7 — CTA & Landing URL */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className={LABEL}>CTA</label>
+              <label className={LABEL}>{isGoogle ? "Call to Action Text" : "CTA"}</label>
               <Select value={cta} onValueChange={setCta}>
                 <SelectTrigger><SelectValue placeholder="Select CTA" /></SelectTrigger>
                 <SelectContent>
-                  {VARIANT_CTAS.map((c) => (
+                  {(isGoogle ? GOOGLE_CTAS : VARIANT_CTAS).map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className={LABEL}>Landing URL *</label>
+              <label className={LABEL}>Landing URL <span className="normal-case font-normal text-muted-foreground">(optional)</span></label>
               <Input
                 type="url"
                 placeholder="https://"
@@ -330,16 +743,61 @@ export function VariantModal({ mode, index, initialData, historyEndpoint, onClos
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border flex-shrink-0">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="outline" onClick={() => setShowPreview(true)}>
+            <Eye className="h-4 w-4 mr-1.5" /> Preview
+          </Button>
           <Button onClick={handleSave} disabled={!isValid || saving}>
             {saving
               ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
               : mode === "create"
               ? <Plus className="h-4 w-4 mr-1.5" />
               : <Save className="h-4 w-4 mr-1.5" />}
-            {mode === "create" ? "Add Variant to Campaign" : "Save Changes"}
+            {mode === "create" ? "Add Ad Copy to Campaign" : "Save Changes"}
           </Button>
         </div>
       </div>
+
+      {/* Ad preview overlay — shows the in-progress form, unsaved */}
+      {showPreview && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
+          onClick={() => setShowPreview(false)}
+        >
+          <div className="w-full max-w-sm space-y-3 my-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-white">Ad Preview</p>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="h-4 w-4 text-white" />
+              </button>
+            </div>
+            {isGoogle ? (
+              <GoogleAdPreviewCard
+                businessName={businessName}
+                headlines={headlines}
+                longHeadline={longHeadline}
+                descriptions={descriptions}
+                frames={resolvedFrames}
+                cta={cta}
+                landingUrl={landingUrl}
+              />
+            ) : (
+              <AdPreviewCard
+                mediaType={mediaType}
+                primaryTexts={primaryTexts}
+                frames={resolvedFrames}
+                headlines={headlines}
+                descriptions={descriptions}
+                cta={cta}
+                landingUrl={landingUrl}
+                adCopy={adCopy}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

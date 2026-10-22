@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import {Briefcase, ChartBarStacked, Calendar, CheckSquare, BarChart3, Palette, Archive, FolderOpen, LogOut, Loader2 } from "lucide-react";
+import {Briefcase, ChartBarStacked, Calendar, CheckSquare, BarChart3, Palette, Archive, FolderOpen, LogOut, Loader2, Settings } from "lucide-react";
 import logo from "@/public/CO-logo.png";
 import shortLogo from "@/public/CO-short-logo.png";
 
@@ -73,6 +73,9 @@ const Icon = {
   Files: () => (
     <FolderOpen width="17" height="17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /> 
   ),
+  Settings: () => (
+    <Settings width="17" height="17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  ),
   Menu: () => (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
@@ -131,13 +134,14 @@ const NAV_GROUPS = [
       { title: "File Repository", href: "/dashboard/files", icon: Icon.Files },
       { title: "Archived", href: "/dashboard/archived", icon: Icon.Archive },
       { title: "Activity Logs", href: "/dashboard/logs", icon: Icon.Activity },
+      { title: "AI Settings", href: "/dashboard/settings/ai", icon: Icon.Settings, adminOnly: true },
     ],
   },
 ];
 
 // Component
 
-export function AppSidebar() {
+export function AppSidebar({ canManageAI = false }: { canManageAI?: boolean }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -181,7 +185,7 @@ export function AppSidebar() {
             {collapsed && <div className="h-2" />}
 
             {/* Items */}
-            {group.items.map((item) => {
+            {group.items.filter((item) => !("adminOnly" in item) || canManageAI).map((item) => {
               const isActive =
                 item.href === "/dashboard"
                   ? pathname === "/dashboard"

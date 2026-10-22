@@ -22,6 +22,20 @@ import type { DraftStatus } from "@/lib/status-flow";
 
 type Ctx = { params: Promise<{ id: string; delId: string; draftId: string }> };
 
+// Fields whose change counts as a copy/creative edit and advances the minor
+// revision (v1 → v1.1). Copy text + creative files only — scheduling metadata
+// (publishDate/Time, notes, videoType/Notes, referenceUrl, tracking params) and
+// workflow moves (status) deliberately don't bump the version.
+const VERSIONED_FIELDS = new Set<string>([
+  // copy text
+  "creativeCopy", "articleCopy", "caption", "hashtags",
+  "headline", "description", "cta", "adCopy",
+  "primaryTexts", "headlines", "descriptions",
+  "businessName", "longHeadline",
+  // creative files
+  "imageUrl", "videoUrl", "thumbnailUrl", "audioUrl", "frames",
+]);
+
 // GET /api/clients/[id]/deliverables/[delId]/drafts/[draftId]
 export async function GET(req: NextRequest, { params }: Ctx) {
   try {
@@ -69,6 +83,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const body = await req.json();
     await connectDB();
 
+    // A pure "mark urgent" toggle: any agency member may flip priority, so it is
+    // exempt from the design-phase ownership lock below (it touches no copy/
+    // creative content and never changes workflow state).
+    const isPriorityOnly =
+      Object.keys(body).length === 1 && body.highPriority !== undefined;
+
     const draft = await ContentDraft.findOne({ _id: draftId, deliverableId: delId });
     if (!draft) {
       return NextResponse.json({ error: "Draft not found" }, { status: 404 });
@@ -88,6 +108,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     // enforces that only the owner can trigger the Re-work transition
     // (design_rejected → design_in_progress).
     if (
+      !isPriorityOnly &&
       (draft.status === "design_in_progress" ||
         draft.status === "design_req_change" ||
         draft.status === "design_rejected") &&
@@ -113,11 +134,30 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const {
       mediaType, creativeCopy, frames, caption, hashtags,
       publishDate, publishTime, notes, status, rejectionNote,
-      feedbackCategory, highPriority,
+      feedbackCategory,
       imageUrl, videoUrl, thumbnailUrl, audioUrl,
-      articleMode, articleCopy,
-      headline, description, cta, landingUrl,
+      articleMode, articleCopy, referenceUrl, videoType, videoNotes,
+      headline, description, cta, landingUrl, adCopy,
+      primaryTexts, headlines, descriptions,
+      adPlatform, businessName, longHeadline,
+      trackingTemplate, finalUrlSuffix, customParameters,
+      highPriority, deliveryFormat,
     } = body;
+
+    const customParametersClean =
+      customParameters !== undefined
+        ? (Array.isArray(customParameters) ? customParameters : [])
+            .map((p: { name?: string; value?: string }) => ({ name: String(p?.name ?? "").trim(), value: String(p?.value ?? "").trim() }))
+            .filter((p: { name: string; value: string }) => p.name || p.value)
+        : undefined;
+
+    // Meta-style multi-value fields: clean incoming arrays and mirror [0] to the
+    // scalar fields the rest of the pipeline reads.
+    const cleanList = (arr: unknown): string[] =>
+      (Array.isArray(arr) ? arr.map((s) => String(s ?? "").trim()).filter(Boolean) : []).slice(0, 5);
+    const primaryTextsClean = primaryTexts !== undefined ? cleanList(primaryTexts) : undefined;
+    const headlinesClean    = headlines    !== undefined ? cleanList(headlines)    : undefined;
+    const descriptionsClean = descriptions !== undefined ? cleanList(descriptions) : undefined;
 
     // Snapshot old values for diff before any mutation
     const oldValues: Record<string, unknown> = {
@@ -140,18 +180,42 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       articleCopy:   draft.articleCopy,
       headline:      draft.headline,
       description:   draft.description,
+      primaryTexts:  draft.primaryTexts,
+      headlines:     draft.headlines,
+      descriptions:  draft.descriptions,
       cta:           draft.cta,
       landingUrl:    draft.landingUrl,
+      adCopy:        draft.adCopy,
+      adPlatform:       draft.adPlatform,
+      businessName:     draft.businessName,
+      longHeadline:     draft.longHeadline,
+      trackingTemplate: draft.trackingTemplate,
+      finalUrlSuffix:   draft.finalUrlSuffix,
+      customParameters: draft.customParameters,
     };
 
     if (mediaType !== undefined)     draft.mediaType    = mediaType;
     if (creativeCopy !== undefined)  draft.creativeCopy = creativeCopy;
     if (articleMode !== undefined)   draft.articleMode  = articleMode;
     if (articleCopy !== undefined)   draft.articleCopy  = articleCopy;
+    if (referenceUrl !== undefined)  draft.referenceUrl = referenceUrl;
+    if (videoType !== undefined)     draft.videoType    = videoType;
+    if (videoNotes !== undefined)    draft.videoNotes   = videoNotes;
     if (headline !== undefined)      draft.headline     = headline;
     if (description !== undefined)    draft.description  = description;
     if (cta !== undefined)           draft.cta          = cta;
     if (landingUrl !== undefined)    draft.landingUrl   = landingUrl;
+    if (adCopy !== undefined)        draft.adCopy       = adCopy;
+    if (adPlatform !== undefined)    draft.adPlatform   = adPlatform === "google" ? "google" : "meta";
+    if (businessName !== undefined)  draft.businessName = businessName;
+    if (longHeadline !== undefined)  draft.longHeadline = longHeadline;
+    if (trackingTemplate !== undefined) draft.trackingTemplate = trackingTemplate;
+    if (finalUrlSuffix !== undefined)   draft.finalUrlSuffix   = finalUrlSuffix;
+    if (customParametersClean !== undefined) draft.customParameters = customParametersClean;
+    // Multi-value arrays take precedence over their scalar mirror.
+    if (primaryTextsClean !== undefined) { draft.primaryTexts = primaryTextsClean; draft.creativeCopy = primaryTextsClean[0] ?? ""; }
+    if (headlinesClean    !== undefined) { draft.headlines    = headlinesClean;    draft.headline     = headlinesClean[0]    ?? ""; }
+    if (descriptionsClean !== undefined) { draft.descriptions = descriptionsClean; draft.description  = descriptionsClean[0] ?? ""; }
     if (Array.isArray(frames))       draft.frames       = frames;
     if (imageUrl !== undefined)      draft.imageUrl     = imageUrl;
     if (videoUrl !== undefined)      draft.videoUrl     = videoUrl;
@@ -162,7 +226,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (publishTime !== undefined)   draft.publishTime  = publishTime;
     if (rejectionNote !== undefined) draft.rejectionNote = rejectionNote;
     if (feedbackCategory !== undefined) draft.feedbackCategory = feedbackCategory;
-    if (highPriority !== undefined)  draft.highPriority = !!highPriority;
+    if (highPriority !== undefined)  draft.highPriority  = Boolean(highPriority);
+    if (deliveryFormat !== undefined) draft.deliveryFormat = deliveryFormat === "digital" || deliveryFormat === "printable" ? deliveryFormat : "";
     if (publishDate !== undefined)   draft.publishDate  = publishDate ? new Date(publishDate) : null;
     if (Array.isArray(hashtags))     draft.hashtags     = hashtags;
 
@@ -305,12 +370,29 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (description !== undefined)        newValues.description  = description;
     if (cta !== undefined)               newValues.cta          = cta;
     if (landingUrl !== undefined)        newValues.landingUrl   = landingUrl;
+    if (adCopy !== undefined)            newValues.adCopy       = adCopy;
+    if (businessName !== undefined)      newValues.businessName = businessName;
+    if (longHeadline !== undefined)      newValues.longHeadline = longHeadline;
+    if (trackingTemplate !== undefined)  newValues.trackingTemplate = trackingTemplate;
+    if (finalUrlSuffix !== undefined)    newValues.finalUrlSuffix   = finalUrlSuffix;
+    if (customParametersClean !== undefined) newValues.customParameters = customParametersClean;
+    if (primaryTextsClean !== undefined) newValues.primaryTexts = primaryTextsClean;
+    if (headlinesClean    !== undefined) newValues.headlines    = headlinesClean;
+    if (descriptionsClean !== undefined) newValues.descriptions = descriptionsClean;
     if (imageUrl !== undefined)          newValues.imageUrl     = imageUrl;
     if (videoUrl !== undefined)          newValues.videoUrl     = videoUrl;
     if (thumbnailUrl !== undefined)      newValues.thumbnailUrl = thumbnailUrl;
     if (audioUrl !== undefined)          newValues.audioUrl     = audioUrl;
 
     const changes = computeChanges(oldValues, newValues);
+
+    // Edit-version bump: a change to the copy text/content or the creative file
+    // advances the minor revision (v1 → v1.1 → v1.2 …). Pure workflow moves
+    // (status, schedule, assignment) and scheduling metadata don't bump it.
+    const isVersionedChange = changes.some((c) => VERSIONED_FIELDS.has(c.field));
+    if (isVersionedChange) {
+      draft.revision = (draft.revision ?? 0) + 1;
+    }
 
     // Determine action label
     const action: "edited" | "submitted" | "approved" | "rejected" =
@@ -329,6 +411,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         deliverableId: delId,
         draftId:       draft._id,
         draftVersion:  draft.version,
+        revision:      draft.revision ?? 0,
         action,
         changedBy:     { userId: session.userId, name: editorName, email: session.email },
         changedAt:     now,

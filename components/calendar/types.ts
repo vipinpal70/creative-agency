@@ -19,12 +19,27 @@ export interface CalendarDraft {
   videoNotes: string;
   articleMode: string;
   articleCopy: string;
+  headline: string;
+  description: string;
+  primaryTexts?: string[];
+  headlines?: string[];
+  descriptions?: string[];
+  cta: string;
+  landingUrl: string;
+  adCopy: string;
+  adPlatform?: "meta" | "google";
+  businessName?: string;
+  longHeadline?: string;
+  trackingTemplate?: string;
+  finalUrlSuffix?: string;
+  customParameters?: { name: string; value: string }[];
   notes: string;
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";
   rejectionNote: string;
   feedbackCategory?: "" | "copy" | "creative" | "both";
   highPriority?: boolean;
+  deliveryFormat?: "" | "digital" | "printable";
   lastChangedBy: {
     userId: string;
     name: string;

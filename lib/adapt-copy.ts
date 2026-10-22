@@ -8,6 +8,9 @@ export interface ApprovalCopy {
   clientId: string;
   calendarId: string;
   version: number;
+  // Minor edit-version (bumps on copy/creative changes). Displayed as v1.<revision>,
+  // matching the ContentPreviewModal — the card must use this, not `version`.
+  revision: number;
   status: string;
   mediaType: string;
   creativeCopy: string;
@@ -25,10 +28,25 @@ export interface ApprovalCopy {
   publishDate: string | null;
   publishTime: string | null;
   referenceUrl: string;
+  headline: string;
+  description: string;
+  primaryTexts: string[];
+  headlines: string[];
+  descriptions: string[];
+  cta: string;
+  landingUrl: string;
+  adCopy: string;
+  adPlatform: "meta" | "google";
+  businessName: string;
+  longHeadline: string;
+  trackingTemplate: string;
+  finalUrlSuffix: string;
+  customParameters: { name: string; value: string }[];
   notes: string;
   rejectionNote: string;
   feedbackCategory: "" | "copy" | "creative" | "both";
   highPriority: boolean;
+  deliveryFormat: "" | "digital" | "printable";
   title: string;
   platforms: string[];
   buckets: string[];
@@ -66,11 +84,26 @@ export function toCalendarCopy(copy: ApprovalCopy): CalendarCopy {
     videoNotes: copy.videoNotes,
     articleMode: copy.articleMode,
     articleCopy: copy.articleCopy,
+    headline: copy.headline,
+    description: copy.description,
+    primaryTexts: copy.primaryTexts ?? [],
+    headlines: copy.headlines ?? [],
+    descriptions: copy.descriptions ?? [],
+    cta: copy.cta,
+    landingUrl: copy.landingUrl,
+    adCopy: copy.adCopy,
+    adPlatform: copy.adPlatform || "meta",
+    businessName: copy.businessName,
+    longHeadline: copy.longHeadline,
+    trackingTemplate: copy.trackingTemplate,
+    finalUrlSuffix: copy.finalUrlSuffix,
+    customParameters: copy.customParameters ?? [],
     notes: copy.notes,
     status: copy.status as CalendarDraft["status"],
     rejectionNote: copy.rejectionNote,
-    feedbackCategory: copy.feedbackCategory,
-    highPriority: copy.highPriority,
+    feedbackCategory: copy.feedbackCategory ?? "",
+    highPriority: copy.highPriority ?? false,
+    deliveryFormat: copy.deliveryFormat ?? "",
     lastChangedBy: copy.lastChangedBy,
     designStartedBy: copy.designStartedBy,
   };

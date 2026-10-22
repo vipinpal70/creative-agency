@@ -29,6 +29,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const statusParam = searchParams.get("status") || "content_internal_review";
     const includeArchived = searchParams.get("includeArchived") === "1";
+    // Strict-flow scope: the writer workspace passes mine=1 so a writer only
+    // ever sees copies they authored. Other surfaces (designer, approvals)
+    // omit it and keep listing across all authors.
+    const mineOnly = searchParams.get("mine") === "1";
 
     const requested = statusParam
       .split(",")
@@ -49,6 +53,7 @@ export async function GET(req: NextRequest) {
     const filter: Record<string, any> = includeArchived
       ? { $or: [{ status: { $in: dbStatuses } }, { archivedAt: { $ne: null } }] }
       : { status: { $in: dbStatuses }, archivedAt: null };
+    if (mineOnly) filter.createdBy = session.userId;
     const drafts = await ContentDraft.find(filter)
       .populate("clientId", "name brandName")
       .populate("deliverableId", "title platforms buckets type status module scheduledDate")

@@ -13,6 +13,15 @@ export interface CarouselFrame {
   imageUrl: string;  // optional — designer fills post-creation
 }
 
+// Paid-media platform ("meta" | "google") — selected when adding an ad copy.
+export type AdPlatform = "meta" | "google";
+
+// Google Ads URL-option custom parameter row.
+export interface CustomParameter {
+  name: string;
+  value: string;
+}
+
 export interface CopyFormData {
   mediaType: string;
   creativeCopy: string;      // used for non-carousel posts
@@ -24,6 +33,7 @@ export interface CopyFormData {
   contentBucket: string;
   platforms: string[];
   referenceUrl?: string;
+  note?: string;             // optional free-text note (adhoc copies)
   videoType?: string;
   videoNotes?: string;
   articleMode?: string;      // "with-creative" | "without-creative" — only for article/copy media type
@@ -33,6 +43,18 @@ export interface CopyFormData {
   description?: string;
   cta?: string;
   landingUrl?: string;
+  adCopy?: string;           // standalone "Copy" field, separate from creativeCopy (primary text)
+  // Meta-style multi-value fields (up to 5 each)
+  primaryTexts?: string[];
+  headlines?: string[];
+  descriptions?: string[];
+  // Paid-media platform + Google Ads-only fields
+  adPlatform?: AdPlatform;
+  businessName?: string;
+  longHeadline?: string;
+  trackingTemplate?: string;
+  finalUrlSuffix?: string;
+  customParameters?: CustomParameter[];
 }
 
 export interface LastChangedBy {
@@ -64,12 +86,19 @@ export interface DraftSnapshot {
   version: number;
   creativeCopy: string;
   frames?: { frameNo: number; copy: string; imageUrl: string }[];
+  // Design-phase creative files — set by the designer once content is
+  // approved. Present on the API response from the start (full ContentDraft
+  // document); typed here so pre-design vs. post-design states are both safe.
+  imageUrl?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
   caption: string;
   hashtags: string[];
   publishDate: string | null;
   publishTime: string | null;
   mediaType: string;
   referenceUrl?: string;
+  notes?: string;
   videoType?: string;
   videoNotes?: string;
   articleMode?: string;
@@ -78,9 +107,21 @@ export interface DraftSnapshot {
   description?: string;
   cta?: string;
   landingUrl?: string;
+  adCopy?: string;
+  primaryTexts?: string[];
+  headlines?: string[];
+  descriptions?: string[];
+  adPlatform?: AdPlatform;
+  businessName?: string;
+  longHeadline?: string;
+  trackingTemplate?: string;
+  finalUrlSuffix?: string;
+  customParameters?: CustomParameter[];
   // New pipeline statuses, plus legacy "submitted"/"approved" from old documents
   status: DraftStatus | "submitted" | "approved";
   rejectionNote?: string;
+  highPriority?: boolean;
+  deliveryFormat?: "" | "digital" | "printable";
   lastChangedBy?: LastChangedBy | null;
 }
 
@@ -94,6 +135,10 @@ export interface WriterDeliverable {
   status: string;
   scheduledDate: string;
   latestDraft: DraftSnapshot | null;
+  // Optional per-row scope module. Set when a list mixes calendars/modules
+  // (the writer status queue); the per-calendar views omit it and rely on the
+  // list-level `module` prop instead.
+  module?: string;
 }
 
 // Planned item from scope (what the calendar is supposed to deliver)

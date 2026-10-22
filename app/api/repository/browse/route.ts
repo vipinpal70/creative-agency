@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     if (scope === null) {
       return NextResponse.json({
         folderId: null, breadcrumbs: [], folders: [], files: [],
-        canManage: canManageRepository(session.role), searching: false,
+        canManage: await canManageRepository(session), searching: false,
       });
     }
 
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
       breadcrumbs,
       folders: (folders as any[]).map(serializeFolder),
       files: (files as any[]).map(serializeFile),
-      canManage: canManageRepository(session.role),
+      canManage: await canManageRepository(session),
       searching,
     });
   } catch (err: any) {

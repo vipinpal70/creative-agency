@@ -330,9 +330,18 @@ export function CalendarCreateView({ onBack, onCreated }: Props) {
 
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">End Date *</label>
-                  <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  <Input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
                 </div>
               </div>
+
+              {startDate && endDate && endDate < startDate && (
+                <p className="text-xs text-destructive">End date can&apos;t be before the start date.</p>
+              )}
 
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Objective</label>
@@ -348,7 +357,7 @@ export function CalendarCreateView({ onBack, onCreated }: Props) {
 
               <div className="flex justify-between pt-2">
                 <Button variant="outline" onClick={() => setStep(1)}>← Back</Button>
-                <Button disabled={!module || !name.trim() || !startDate || !endDate} onClick={() => setStep(3)}>
+                <Button disabled={!module || !name.trim() || !startDate || !endDate || endDate < startDate} onClick={() => setStep(3)}>
                   Next: Planned Items →
                 </Button>
               </div>

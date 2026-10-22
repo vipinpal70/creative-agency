@@ -21,8 +21,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!canManageRepository(session.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await canManageRepository(session))) {
+      return NextResponse.json({ error: "Forbidden: Only Admin, Client, and Account Manager can edit folders" }, { status: 403 });
     }
 
     const { id } = await params;
@@ -122,8 +122,8 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!canManageRepository(session.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await canManageRepository(session))) {
+      return NextResponse.json({ error: "Forbidden: Only Admin, Client, and Account Manager can delete folders" }, { status: 403 });
     }
 
     const { id } = await params;

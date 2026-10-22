@@ -10,6 +10,7 @@ export type CalendarModule =
   | "orm"
   | "video"
   | "design"
+  | "adhoc"
   | "custom";
 
 export type CalendarStatus = "draft" | "active" | "completed" | "paused";
@@ -61,7 +62,7 @@ const calendarSchema = new Schema<ICalendar>(
     createdBy: { type: Schema.Types.ObjectId, ref: "User",        required: true },
     module: {
       type: String,
-      enum: ["social", "paid", "seo", "email", "influencer", "website", "orm", "video", "design", "custom"],
+      enum: ["social", "paid", "seo", "email", "influencer", "website", "orm", "video", "design", "adhoc", "custom"],
       required: true,
     },
     name:      { type: String, required: true, trim: true },

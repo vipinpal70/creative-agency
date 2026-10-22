@@ -22,7 +22,8 @@ export interface IContentDraft extends Document {
   clientId:       mongoose.Types.ObjectId;
   calendarId:     mongoose.Types.ObjectId;
   deliverableId:  mongoose.Types.ObjectId;
-  version:        number;          // auto-incremented per deliverable
+  version:        number;          // auto-incremented per deliverable (draft identity)
+  revision:       number;          // minor edit-version; bumps on copy/creative changes (display: v1.<revision>)
   createdBy:      mongoose.Types.ObjectId;
   lastChangedBy:  ILastChangedBy | null;
 
@@ -45,8 +46,27 @@ export interface IContentDraft extends Document {
   // creativeCopy; helping URL reuses referenceUrl; launch date reuses publishDate.
   headline:       string;
   description:    string;
+  // Meta-style multi-value paid fields (up to 5 each). Scalar creativeCopy /
+  // headline / description are kept synced to element [0] for the rest of the
+  // pipeline (designer, published, analytics, social flow, history, old docs).
+  primaryTexts:   string[];
+  headlines:      string[];
+  descriptions:   string[];
   cta:            string;
   landingUrl:     string;
+  adCopy:         string;   // paid-media: standalone "Copy" field, separate from primary text (creativeCopy)
+
+  // Paid-media platform switch. "meta" (default) uses the Meta field set /
+  // preview; "google" uses the Google Ads field set / preview below.
+  adPlatform:     "meta" | "google";
+  // Google Ads-only fields (adPlatform === "google"). Headlines / descriptions /
+  // cta / landingUrl are shared with Meta; the rest are Google-specific.
+  businessName:   string;
+  longHeadline:   string;
+  trackingTemplate: string;
+  finalUrlSuffix:   string;
+  customParameters: { name: string; value: string }[];
+
   articleMode:    string;   // "with-creative" | "without-creative" | "" — only for article/copy media type
   articleCopy:    string;   // written article/copy text — only for article/copy media type
   notes:          string;
@@ -57,12 +77,17 @@ export interface IContentDraft extends Document {
   // Drives the rework cycle: "copy" → writer, "creative" → designer, "both" →
   // writer first then designer. "" when no change has been requested.
   feedbackCategory: "" | "copy" | "creative" | "both";
-  // Staff-toggled high-priority flag; surfaces a tag + filter in both workspaces.
+  // High-priority flag. Any agency member can toggle it; when true the card
+  // shows an "Urgent" tag. Internal signal — never surfaced to clients.
   highPriority:   boolean;
   designStartedBy: IDesignStartedBy | null;
 
+  // Adhoc-only: how the deliverable is produced/handed off. "" for normal
+  // (calendar) copies.
+  deliveryFormat: "" | "digital" | "printable";
+
   // Soft-archive: when set, the copy is hidden from active lists but retained
-  // (and still visible in the designer Rejected tab / Archived page) until it is
+  // (and still visible in the designer Rework tab / Archived page) until it is
   // permanently deleted — manually by an admin or automatically 14 days later.
   archivedAt:     Date | null;
   archivedBy:     ILastChangedBy | null;
@@ -77,6 +102,7 @@ const contentDraftSchema = new Schema<IContentDraft>(
     calendarId:    { type: Schema.Types.ObjectId, ref: "Calendar",    required: true },
     deliverableId: { type: Schema.Types.ObjectId, ref: "Deliverable", required: true },
     version:       { type: Number, required: true, default: 1 },
+    revision:      { type: Number, required: true, default: 0 },
     createdBy:     { type: Schema.Types.ObjectId, ref: "User",        required: true },
 
     mediaType:     { type: String, default: "" },
@@ -98,8 +124,21 @@ const contentDraftSchema = new Schema<IContentDraft>(
     videoNotes:    { type: String, default: "" },
     headline:      { type: String, default: "" },
     description:   { type: String, default: "" },
+    primaryTexts:  { type: [String], default: [] },
+    headlines:     { type: [String], default: [] },
+    descriptions:  { type: [String], default: [] },
     cta:           { type: String, default: "" },
     landingUrl:    { type: String, default: "" },
+    adCopy:        { type: String, default: "" },
+    adPlatform:    { type: String, enum: ["meta", "google"], default: "meta" },
+    businessName:  { type: String, default: "" },
+    longHeadline:  { type: String, default: "" },
+    trackingTemplate: { type: String, default: "" },
+    finalUrlSuffix:   { type: String, default: "" },
+    customParameters: {
+      type: [{ name: String, value: String }],
+      default: [],
+    },
     articleMode:   { type: String, default: "" },
     articleCopy:   { type: String, default: "" },
     notes:         { type: String, default: "" },
@@ -135,6 +174,7 @@ const contentDraftSchema = new Schema<IContentDraft>(
       default: "",
     },
     highPriority:  { type: Boolean, default: false },
+    deliveryFormat: { type: String, enum: ["", "digital", "printable"], default: "" },
 
     lastChangedBy: {
       type: {
@@ -176,6 +216,15 @@ contentDraftSchema.index({ createdBy: 1, status: 1 });
 // Cleanup job scans archived copies by archive date; active-list queries filter
 // on archivedAt: null.
 contentDraftSchema.index({ archivedAt: 1 });
+
+// In development, Next.js hot-reloads this module, but Mongoose keeps previously
+// compiled models on its (non-reloaded) singleton — so newly added schema fields
+// are silently ignored on read/write until a full server restart. Recompiling the
+// model whenever this file re-evaluates keeps the schema in sync during dev. In
+// production the module is imported once, so this runs a single time.
+if (process.env.NODE_ENV !== "production" && mongoose.models.ContentDraft) {
+  mongoose.deleteModel("ContentDraft");
+}
 
 const ContentDraft: Model<IContentDraft> =
   mongoose.models.ContentDraft ||

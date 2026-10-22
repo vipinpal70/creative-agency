@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Building2, Calendar, Hash, Film, Check, X, User,
   ShieldCheck, FileText, MessageSquare, Palette, Image as ImageIcon, ChevronDown,
@@ -13,6 +12,8 @@ import { toast, Toaster } from "sonner";
 import { STATUS_LABEL, STATUS_COLOR } from "@/lib/status-flow";
 import { ContentPreviewModal } from "@/components/calendar/ContentPreviewModal";
 import { FeedbackModal, type FeedbackCategory } from "@/components/ui/feedback-modal";
+import { ModuleTag } from "@/components/ui/ModuleTag";
+import { UrgentTag } from "@/components/ui/UrgentTag";
 import { toCalendarCopy } from "@/lib/adapt-copy";
 import type { ApprovalCopy } from "@/lib/adapt-copy";
 
@@ -42,6 +43,13 @@ const COPY_STAGES = [
 ] as const;
 
 type CopyStageKey = (typeof COPY_STAGES)[number]["key"];
+
+// Edit-version label — mirrors ContentPreviewModal's formatVersion so the card
+// (outside) and the preview (inside) agree: major stays 1, minor is the revision.
+function formatVersion(revision?: number): string {
+  const r = revision ?? 0;
+  return r > 0 ? `v1.${r}` : "v1";
+}
 
 const PRIORITY_COLOR: Record<string, string> = {
   LOW: "bg-gray-100 text-gray-600",
@@ -164,11 +172,15 @@ function CopyApprovalCard({
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-medium text-foreground whitespace-pre-wrap line-clamp-3 flex-1 min-w-0">{copyText}</p>
-          <span
-            className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
-          >
-            {STATUS_LABEL[copy.status] || copy.status}
-          </span>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <span
+              className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_COLOR[copy.status] || "bg-muted text-muted-foreground"}`}
+            >
+              {STATUS_LABEL[copy.status] || copy.status}
+            </span>
+            <ModuleTag module={copy.module} />
+            {copy.highPriority && <UrgentTag />}
+          </div>
         </div>
 
         {copy.caption && (
@@ -204,7 +216,7 @@ function CopyApprovalCard({
           <span className="flex items-center gap-1">
             <User className="h-3 w-3" /> {copy.writerName}
           </span>
-          <span className="text-muted-foreground/60">v{copy.version}</span>
+          <span className="text-muted-foreground/60">{formatVersion(copy.revision)}</span>
         </div>
 
         {/* Attached creative preview for design review stages */}
@@ -421,6 +433,17 @@ function getTodayString(): string {
   return `${year}-${month}-${day}`;
 }
 
+// Default "from" date for the date-range filter: one month before today, so
+// the list opens on at least a 1-month window (e.g. 14 Sep → 14 Oct).
+function getDefaultStartDate(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 interface MultiSelectOption {
   label: string;
   value: string;
@@ -592,8 +615,9 @@ export default function ApprovalsPage() {
   const [previewCopy, setPreviewCopy] = useState<ApprovalCopy | null>(null);
   const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
   const [clientFilter, setClientFilter] = useState<string>("");
+  const [moduleFilter, setModuleFilter] = useState<string>("");
   const [selectedMediaTypes, setSelectedMediaTypes] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState<string>(getTodayString);
+  const [startDate, setStartDate] = useState<string>(getDefaultStartDate);
   const [endDate, setEndDate] = useState<string>("");
 
   const loadCopies = useCallback(async (stage: CopyStageKey) => {
@@ -674,6 +698,10 @@ export default function ApprovalsPage() {
     return copies.filter((copy) => {
       if (clientFilter && copy.clientId !== clientFilter) return false;
 
+      // Module filter: "" (All) shows every module including adhoc; otherwise
+      // match exactly (social / paid / adhoc).
+      if (moduleFilter && copy.module !== moduleFilter) return false;
+
       if (selectedMediaTypes.length > 0) {
         const copyMedia = (copy.mediaType || "").toLowerCase();
         const match = selectedMediaTypes.some(
@@ -698,20 +726,22 @@ export default function ApprovalsPage() {
 
       return true;
     });
-  }, [copies, clientFilter, selectedMediaTypes, startDate, endDate]);
+  }, [copies, clientFilter, moduleFilter, selectedMediaTypes, startDate, endDate]);
 
   const filteredTasks = tasks.filter((t) => !clientFilter || t.clientId === clientFilter);
 
   const hasActiveFilters =
     clientFilter !== "" ||
+    moduleFilter !== "" ||
     selectedMediaTypes.length > 0 ||
-    startDate !== getTodayString() ||
+    startDate !== getDefaultStartDate() ||
     endDate !== "";
 
   const handleResetFilters = () => {
     setClientFilter("");
+    setModuleFilter("");
     setSelectedMediaTypes([]);
-    setStartDate(getTodayString());
+    setStartDate(getDefaultStartDate());
     setEndDate("");
   };
 
@@ -750,6 +780,32 @@ export default function ApprovalsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-gray-100">
+              {/* Module filter: All / Social / Paid / Adhoc */}
+              <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50/80 p-0.5">
+                {[
+                  { value: "", label: "All" },
+                  { value: "social", label: "Social Media" },
+                  { value: "paid", label: "Paid Media" },
+                  { value: "adhoc", label: "Adhoc" },
+                ].map((opt) => {
+                  const on = moduleFilter === opt.value;
+                  return (
+                    <button
+                      key={opt.value || "all"}
+                      type="button"
+                      onClick={() => setModuleFilter(opt.value)}
+                      className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                        on
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-gray-500 hover:text-gray-800"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* Client filter */}
               <div className="relative">
                 <Building2 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />

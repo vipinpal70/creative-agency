@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!canManageRepository(session.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await canManageRepository(session))) {
+      return NextResponse.json({ error: "Forbidden: Only Admin, Client, and Account Manager can upload or edit files" }, { status: 403 });
     }
 
     const form = await req.formData();
@@ -61,9 +61,6 @@ export async function POST(req: NextRequest) {
       parent: folder,
       explicitClientId: (form.get("clientId") as string | null) ?? null,
     });
-    if (session.role === "client" && !clientId) {
-      return NextResponse.json({ error: "No client workspace linked to this account" }, { status: 403 });
-    }
 
     const name = file.name.trim();
     // Reject up front for a clear message (the unique index is the real guard).

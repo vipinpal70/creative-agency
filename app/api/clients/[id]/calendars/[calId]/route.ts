@@ -68,7 +68,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
 }
 
 // PATCH /api/clients/[id]/calendars/[calId]
-// Updatable: name, objective, startDate, endDate, status, plannedItems
+// Updatable: name, objective, startDate, endDate, status, plannedItems,
+// buckets, platforms, funnelStages (the last two apply to paid campaigns)
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
@@ -91,7 +92,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       return forbidden("You can only edit calendars you created");
     }
 
-    const { name, objective, startDate, endDate, status, plannedItems, buckets } = body;
+    const { name, objective, startDate, endDate, status, plannedItems, buckets, platforms, funnelStages } = body;
 
     if (name !== undefined) {
       if (!name?.trim()) return NextResponse.json({ error: "name cannot be empty" }, { status: 400 });
@@ -107,6 +108,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     }
 
     if (Array.isArray(buckets))      calendar.buckets      = buckets;
+    if (Array.isArray(platforms))    calendar.platforms    = platforms;
+    if (Array.isArray(funnelStages)) calendar.funnelStages = funnelStages;
 
     if (Array.isArray(plannedItems)) {
       calendar.plannedItems = plannedItems.map((item) => ({

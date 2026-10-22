@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText, Clock, Building2, ChevronRight, CalendarPlus,
   ArrowLeft, Mail, Megaphone, Search, Loader2, Target, Layers, Plus, ShieldCheck, ChevronDown,
-  Pen, Pencil, Trash2, Calendar, X, Sliders,
+  Pen, Pencil, Trash2, Calendar, X, Sliders, Sparkles, Zap,
 } from "lucide-react";
 
 const Instagram = (props: React.ComponentProps<"svg">) => (
@@ -23,10 +23,15 @@ import { useToast } from "@/hooks/use-toast";
 import { ObjectiveStep } from "@/components/writer/ObjectiveStep";
 import { BucketsStep } from "@/components/writer/BucketsStep";
 import { CopyList } from "@/components/writer/CopyList";
+import { WriterCopyQueue, WRITER_STAGES } from "@/components/writer/WriterCopyQueue";
+import { AdhocTab } from "@/components/writer/AdhocTab";
 import { CopyModal } from "@/components/writer/CopyModal";
 import type { CopyModalInitialData } from "@/components/writer/CopyModal";
+import { AiWriterModal } from "@/components/writer/AiWriterModal";
+import type { AiPushPayload, ContentCategory } from "@/components/writer/AiWriterModal";
 import { CalendarCreateView } from "@/components/writer/CalendarCreateView";
 import { CalendarEditDialog } from "@/components/writer/CalendarEditDialog";
+import { CampaignEditDialog } from "@/components/writer/CampaignEditDialog";
 import { CalendarScopeEditModal } from "@/components/writer/CalendarScopeEditModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmailCampaignWizard } from "@/components/writer/EmailCampaignWizard";
@@ -83,6 +88,9 @@ export default function WriterDashboard() {
   // ── Copy modal (create or edit) ──
   const [copyModal, setCopyModal] = useState<CopyModalState>(null);
 
+  // ── Write with AI modal ──
+  const [aiWriterOpen, setAiWriterOpen] = useState(false);
+
 function getTodayString(): string {
   const d = new Date();
   const year = d.getFullYear();
@@ -105,6 +113,20 @@ function getTodayString(): string {
   const [editingScopeCalendar, setEditingScopeCalendar] = useState<WriterCalendar | null>(null);
   const [deletingCalendar, setDeletingCalendar]         = useState<WriterCalendar | null>(null);
   const [deletingBusy, setDeletingBusy]                 = useState(false);
+
+  // ── "Add New" dropdown ──
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [addMenuOpen]);
 
   // ── Load calendars ──
   const loadCalendars = useCallback(async () => {
@@ -282,6 +304,72 @@ function getTodayString(): string {
 
     setCopies((prev) => [...prev, { ...del, latestDraft: draftRes.ok ? draft : null }]);
     toast({ title: "Copy added to calendar" });
+  };
+
+  // ── Push AI-generated content into a NEW copy (deliverable + draft) ──
+  // Mirrors addCopy so the AI copy lands in the same calendar the writer is
+  // working in and behaves identically to a manually-created copy downstream.
+  // Media type mirrors CopyModal's freeform labels so isCarousel/scope matching
+  // stays consistent. scheduledDate defaults to now — the writer can change it
+  // afterward via Edit.
+  const AI_CATEGORY_TO_TYPE: Record<ContentCategory, string> = {
+    reel: "Reel",
+    static_image: "Static",
+    carousel: "Carousel",
+    // "Blog" (not an article/* type) so the pushed copy renders as plain
+    // creativeCopy rather than triggering CopyModal's article mode.
+    article: "Blog",
+  };
+
+  const pushAiCopy = async ({ category, copy, caption, hashtags, frames }: AiPushPayload) => {
+    if (!activeCalendar) throw new Error("No active calendar");
+
+    const mediaType = AI_CATEGORY_TO_TYPE[category];
+    const isCarousel = category === "carousel";
+    const carouselFrames = isCarousel && Array.isArray(frames) ? frames : [];
+
+    const title =
+      (isCarousel ? carouselFrames[0]?.copy.trim().slice(0, 80) : copy.trim().slice(0, 80)) ||
+      caption.trim().slice(0, 80) ||
+      `${mediaType} – AI`;
+
+    const delRes = await fetch(`/api/clients/${activeCalendar.clientId}/deliverables`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        calendarId:    activeCalendar.id,
+        module:        activeCalendar.module,
+        type:          mediaType,
+        platforms:     [],
+        title,
+        buckets:       [],
+        scheduledDate: new Date().toISOString(),
+        notes:         "",
+      }),
+    });
+    const del = await delRes.json();
+    if (!delRes.ok) throw new Error(del.error || "Failed to create copy");
+
+    const draftRes = await fetch(
+      `/api/clients/${activeCalendar.clientId}/deliverables/${del.id}/drafts`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // Carousel stores slide text in `frames`, not creativeCopy.
+          creativeCopy: isCarousel ? "" : copy,
+          frames: isCarousel ? carouselFrames : [],
+          caption,
+          hashtags,
+          mediaType,
+        }),
+      }
+    );
+    const draft = await draftRes.json();
+    if (!draftRes.ok) throw new Error(draft.error || "Failed to save copy content");
+
+    setCopies((prev) => [...prev, { ...del, latestDraft: draft }]);
+    toast({ title: "Copy added via AI" });
   };
 
   // ── Submit one copy for internal review ──
@@ -511,9 +599,15 @@ function getTodayString(): string {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="calendars">My Calendars</TabsTrigger>
-          <TabsTrigger value="work" disabled={!activeCalendar}>
-            {activeCalendar ? `Working: ${activeCalendar.name}` : "Workspace"}
-          </TabsTrigger>
+          {WRITER_STAGES.map((s) => (
+            <TabsTrigger key={s.key} value={s.key}>{s.label}</TabsTrigger>
+          ))}
+          <TabsTrigger value="adhoc">Adhoc</TabsTrigger>
+          {activeCalendar && (
+            <TabsTrigger value="work">
+              Working: {activeCalendar.name}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ─────────────────── CALENDARS TAB ─────────────────── */}
@@ -633,13 +727,36 @@ function getTodayString(): string {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setCalendarsView("create-campaign")}>
-                    <Megaphone className="h-4 w-4 mr-1.5" /> New Campaign
+                <div className="relative" ref={addMenuRef}>
+                  <Button size="sm" className="bg-green-700 text-white hover:bg-green-800 transition-colors" onClick={() => setAddMenuOpen((o) => !o)}>
+                    <Plus className="h-4 w-4 mr-1.5" /> Add New
+                    <ChevronDown className={`h-4 w-4 ml-1.5 transition-transform ${addMenuOpen ? "rotate-180" : ""}`} />
                   </Button>
-                  <Button size="sm" onClick={() => setCalendarsView("create")}>
-                    <CalendarPlus className="h-4 w-4 mr-1.5" /> New Calendar
-                  </Button>
+                  {addMenuOpen && (
+                    <div className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white shadow-lg py-1">
+                      <button
+                        type="button"
+                        onClick={() => { setAddMenuOpen(false); setCalendarsView("create-campaign"); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Megaphone className="h-4 w-4 text-muted-foreground" /> Add campaign
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAddMenuOpen(false); setCalendarsView("create"); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <CalendarPlus className="h-4 w-4 text-muted-foreground" /> Add social media calendar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAddMenuOpen(false); setActiveTab("adhoc"); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Zap className="h-4 w-4 text-muted-foreground" /> Add adhoc task
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -736,19 +853,21 @@ function getTodayString(): string {
 
                         {canManage(cal) && (
                           <div className="flex items-center gap-1 shrink-0">
+                            {cal.module !== "paid" && (
+                              <button
+                                type="button"
+                                title="Edit scope of work"
+                                aria-label="Edit scope of work"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); setEditingScopeCalendar(cal); }}
+                              >
+                                <Sliders className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
                               type="button"
-                              title="Edit scope of work"
-                              aria-label="Edit scope of work"
-                              className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                              onClick={(e) => { e.stopPropagation(); setEditingScopeCalendar(cal); }}
-                            >
-                              <Sliders className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              title="Edit calendar metadata"
-                              aria-label="Edit calendar metadata"
+                              title={cal.module === "paid" ? "Edit campaign" : "Edit calendar metadata"}
+                              aria-label={cal.module === "paid" ? "Edit campaign" : "Edit calendar metadata"}
                               className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                               onClick={(e) => { e.stopPropagation(); setEditingCalendar(cal); }}
                             >
@@ -774,6 +893,18 @@ function getTodayString(): string {
               )}
             </>
           )}
+        </TabsContent>
+
+        {/* ─────────── STATUS QUEUE TABS (own copies only) ─────────── */}
+        {WRITER_STAGES.map((s) => (
+          <TabsContent key={s.key} value={s.key} className="mt-4">
+            {activeTab === s.key && <WriterCopyQueue stage={s.key} />}
+          </TabsContent>
+        ))}
+
+        {/* ─────────────────── ADHOC TAB ─────────────────── */}
+        <TabsContent value="adhoc" className="mt-4">
+          {activeTab === "adhoc" && <AdhocTab clients={clients} me={me} />}
         </TabsContent>
 
         {/* ─────────────────── WORKSPACE TAB ─────────────────── */}
@@ -934,8 +1065,11 @@ function getTodayString(): string {
                         </div>
                       ) : (
                         <>
-                          <div className="flex justify-end">
-                            <Button onClick={() => setCopyModal({ mode: "create" })}>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => setAiWriterOpen(true)}>
+                              <Sparkles className="h-4 w-4 mr-1.5" /> Write with AI
+                            </Button>
+                            <Button onClick={() => setCopyModal({ mode: "create" })} className="bg-green-700 text-white hover:bg-green-800 transition-colors">
                               <Plus className="h-4 w-4 mr-1.5" /> Add New Copy
                             </Button>
                           </div>
@@ -948,6 +1082,7 @@ function getTodayString(): string {
                             onRecall={recallCopy}
                             canRecallClientReview={me?.role === "admin" || !!me?.roles?.includes("ACCOUNT_MANAGER")}
                             submitting={submitting}
+                            module={activeCalendar.module}
                           />
                         </>
                       )}
@@ -968,7 +1103,11 @@ function getTodayString(): string {
 
               {/* ── Paid module (campaign) ── */}
               {activeCalendar.module === "paid" && (
-                <PaidCampaignWorkspace campaign={activeCalendar} me={me} />
+                <PaidCampaignWorkspace
+                  campaign={activeCalendar}
+                  me={me}
+                  onEditCampaign={() => setEditingCalendar(activeCalendar)}
+                />
               )}
 
               {/* ── SEO module ── */}
@@ -1018,6 +1157,7 @@ function getTodayString(): string {
                         onRecall={recallCopy}
                         canRecallClientReview={me?.role === "admin" || !!me?.roles?.includes("ACCOUNT_MANAGER")}
                         submitting={submitting}
+                        module={activeCalendar.module}
                       />
                     </>
                   )}
@@ -1051,21 +1191,45 @@ function getTodayString(): string {
         />
       )}
 
-      {/* ── Edit calendar dialog ── */}
-      {editingCalendar && (
-        <CalendarEditDialog
-          calendar={editingCalendar}
-          onClose={() => setEditingCalendar(null)}
-          onOpenScopeEdit={() => setEditingScopeCalendar(editingCalendar)}
-          onSaved={(patch) => {
-            setCalendars((prev) =>
-              prev.map((c) => (c.id === editingCalendar.id ? { ...c, ...patch } : c))
-            );
-            if (activeCalendar?.id === editingCalendar.id) {
-              setActiveCalendar((c) => (c ? { ...c, ...patch } : c));
-            }
-          }}
+      {/* ── Write with AI modal ── */}
+      {aiWriterOpen && activeCalendar && (
+        <AiWriterModal
+          clientId={activeCalendar.clientId}
+          onPushToCopy={pushAiCopy}
+          onClose={() => setAiWriterOpen(false)}
         />
+      )}
+
+      {/* ── Edit calendar / campaign dialog ── */}
+      {editingCalendar && (
+        editingCalendar.module === "paid" ? (
+          <CampaignEditDialog
+            campaign={editingCalendar}
+            onClose={() => setEditingCalendar(null)}
+            onSaved={(patch) => {
+              setCalendars((prev) =>
+                prev.map((c) => (c.id === editingCalendar.id ? { ...c, ...patch } : c))
+              );
+              if (activeCalendar?.id === editingCalendar.id) {
+                setActiveCalendar((c) => (c ? { ...c, ...patch } : c));
+              }
+            }}
+          />
+        ) : (
+          <CalendarEditDialog
+            calendar={editingCalendar}
+            onClose={() => setEditingCalendar(null)}
+            onOpenScopeEdit={() => setEditingScopeCalendar(editingCalendar)}
+            onSaved={(patch) => {
+              setCalendars((prev) =>
+                prev.map((c) => (c.id === editingCalendar.id ? { ...c, ...patch } : c))
+              );
+              if (activeCalendar?.id === editingCalendar.id) {
+                setActiveCalendar((c) => (c ? { ...c, ...patch } : c));
+              }
+            }}
+          />
+        )
       )}
 
       {/* ── Edit calendar scope of work modal ── */}

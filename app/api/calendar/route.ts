@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/db";
 import Calendar from "@/lib/models/calendar.model";
 import Deliverable from "@/lib/models/deliverable.model";
 import ContentDraft from "@/lib/models/content-draft.model";
+import { ADHOC_MODULE } from "@/lib/adhoc";
 import mongoose from "mongoose";
 
 // GET /api/calendar?clientId=&scopeId=
@@ -27,8 +28,10 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    // Fetch calendars for this client+scope
-    const calFilter: Record<string, unknown> = { clientId };
+    // Fetch calendars for this client+scope. Adhoc copies live under a hidden
+    // "adhoc" calendar and only run the approval cycle — they never appear in
+    // the content calendar.
+    const calFilter: Record<string, unknown> = { clientId, module: { $ne: ADHOC_MODULE } };
     if (scopeId) calFilter.scopeId = scopeId;
     const calendars = await Calendar.find(calFilter).lean();
 
@@ -118,8 +121,20 @@ export async function GET(req: NextRequest) {
               videoNotes:    draft.videoNotes ?? "",
               headline:      draft.headline ?? "",
               description:   draft.description ?? "",
+              primaryTexts:  draft.primaryTexts ?? [],
+              headlines:     draft.headlines ?? [],
+              descriptions:  draft.descriptions ?? [],
               cta:           draft.cta ?? "",
               landingUrl:    draft.landingUrl ?? "",
+              adCopy:        draft.adCopy ?? "",
+              // Paid-media platform + Google Ads-only fields — needed so the
+              // calendar preview renders the Google ad unit for google copies.
+              adPlatform:       draft.adPlatform ?? "meta",
+              businessName:     draft.businessName ?? "",
+              longHeadline:     draft.longHeadline ?? "",
+              trackingTemplate: draft.trackingTemplate ?? "",
+              finalUrlSuffix:   draft.finalUrlSuffix ?? "",
+              customParameters: draft.customParameters ?? [],
               articleMode:   draft.articleMode ?? "",
               articleCopy:   draft.articleCopy ?? "",
               notes:         draft.notes ?? "",

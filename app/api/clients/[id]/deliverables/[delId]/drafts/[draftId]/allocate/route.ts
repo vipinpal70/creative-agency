@@ -18,11 +18,15 @@ type Ctx = { params: Promise<{ id: string; delId: string; draftId: string }> };
 const ASSIGNABLE_ROLES = ["GRAPHIC_DESIGNER", "VIDEO_EDITOR", "PHOTO_VIDEOGRAPHER"];
 
 // POST /api/clients/[id]/deliverables/[delId]/drafts/[draftId]/allocate
-// Allocate a queued design (content_approved) to another team member. This is
-// the same "claim" the PATCH self-allocate performs (status → design_in_progress
-// + designStartedBy stamp + deliverable cascade + timeline/history), except the
-// owner is the chosen target user instead of the acting session user.
-// Only an admin / creative lead / account manager may allocate to others.
+// Allocate a design to a team member. Two cases:
+//   • Claim — a queued copy (content_approved): mirrors Start Work
+//     (status → design_in_progress + designStartedBy stamp + deliverable
+//     cascade + timeline/history), but owned by the chosen target.
+//   • Reassignment — an in-progress copy (design_in_progress / design_req_change):
+//     hands ownership to a different designer. Status is left untouched; only
+//     designStartedBy is re-stamped.
+// Allowed actors: admin / creative lead / account manager (any copy), plus the
+// designer who currently owns an in-progress copy (handing off their own work).
 export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const session = await getSession();
@@ -37,20 +41,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     await connectDB();
 
-    // Authorise the actor: admin, creative lead, or account manager only.
-    const actor = await User.findById(session.userId).select("firstName lastName email roles").lean();
-    const actorRoles = (actor?.roles as string[]) ?? [];
-    const canAllocate =
-      session.role === "admin" ||
-      actorRoles.includes("CREATIVE_LEAD") ||
-      actorRoles.includes("ACCOUNT_MANAGER");
-    if (!canAllocate) {
-      return NextResponse.json(
-        { error: "Only an admin, creative lead, or account manager can allocate a task" },
-        { status: 403 }
-      );
-    }
-
+    // Load the draft first — authorisation depends on its current owner.
     const draft = await ContentDraft.findOne({ _id: draftId, deliverableId: delId });
     if (!draft) {
       return NextResponse.json({ error: "Draft not found" }, { status: 404 });
@@ -62,12 +53,36 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       );
     }
 
-    // Queue-only: allocation is a fresh claim, mirroring Start Work. Anything
-    // already in progress / reviewed is off-limits here.
-    if (draft.status !== "content_approved") {
+    // A fresh claim from the queue, or a reassignment of an in-progress copy
+    // (the two statuses surfaced in the In Progress tab).
+    const isClaim = draft.status === "content_approved";
+    const isReassignment =
+      draft.status === "design_in_progress" || draft.status === "design_req_change";
+    if (!isClaim && !isReassignment) {
       return NextResponse.json(
-        { error: "Only copies ready for design (approved copy) can be allocated" },
+        { error: "Only copies ready for design or already in progress can be allocated" },
         { status: 409 }
+      );
+    }
+
+    // Authorise the actor: admin / creative lead / account manager may allocate
+    // any copy; additionally, the designer who currently owns an in-progress copy
+    // may hand it off to someone else.
+    const actor = await User.findById(session.userId).select("firstName lastName email roles").lean();
+    const actorRoles = (actor?.roles as string[]) ?? [];
+    const isPrivileged =
+      session.role === "admin" ||
+      actorRoles.includes("CREATIVE_LEAD") ||
+      actorRoles.includes("ACCOUNT_MANAGER");
+    const isCurrentOwner =
+      !!draft.designStartedBy && draft.designStartedBy.userId === session.userId.toString();
+    if (!isPrivileged && !(isReassignment && isCurrentOwner)) {
+      return NextResponse.json(
+        {
+          error:
+            "Only an admin, creative lead, account manager, or the assigned designer can allocate this task",
+        },
+        { status: 403 }
       );
     }
 
@@ -84,6 +99,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       );
     }
 
+    // No-op guard: reassigning a copy to its current owner changes nothing.
+    if (draft.designStartedBy && draft.designStartedBy.userId === (target._id as any).toString()) {
+      return NextResponse.json(
+        { error: "This copy is already assigned to that team member" },
+        { status: 409 }
+      );
+    }
+
     const targetName = `${target.firstName} ${(target.lastName as string) || ""}`.trim();
     const actorName = actor
       ? `${actor.firstName} ${(actor.lastName as string) || ""}`.trim()
@@ -91,50 +114,62 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const now = new Date();
 
     const oldStatus = draft.status;
+    const previousOwnerName = draft.designStartedBy?.name ?? "";
 
-    // Same claim the PATCH self-allocate performs — owner is the target user.
+    // Re-stamp ownership to the target. On a fresh claim the status also advances
+    // to design_in_progress; on a reassignment the status is left as-is.
     draft.designStartedBy = {
       userId: (target._id as any).toString(),
       name: targetName,
       email: target.email,
       startedAt: now,
     };
-    draft.status = "design_in_progress";
+    if (isClaim) {
+      draft.status = "design_in_progress";
+    }
     draft.lastChangedBy = { userId: session.userId, name: actorName, email: session.email, changedAt: now };
     await draft.save();
 
-    // Cascade to the parent deliverable.
-    const deliverable = await Deliverable.findOne({ _id: delId, clientId: id });
-    if (deliverable) {
-      deliverable.status = DELIVERABLE_STATUS_FOR_DRAFT["design_in_progress"] as any;
-      await deliverable.save();
+    // A fresh claim is a genuine status change: cascade to the parent deliverable
+    // and push a designer timeline entry. A reassignment keeps the same status,
+    // so the deliverable and timeline are unaffected.
+    if (isClaim) {
+      const deliverable = await Deliverable.findOne({ _id: delId, clientId: id });
+      if (deliverable) {
+        deliverable.status = DELIVERABLE_STATUS_FOR_DRAFT["design_in_progress"] as any;
+        await deliverable.save();
+      }
+
+      // Push the designer timeline entry (recorded against the acting user).
+      const timelineKey = timelineForStatus("design_in_progress");
+      await Deliverable.updateOne(
+        { _id: delId },
+        {
+          $push: {
+            [`statusTimeline.${timelineKey}`]: {
+              status: "design_in_progress",
+              timestamp: now,
+              changedBy: { userId: session.userId, name: actorName, email: session.email },
+            },
+          },
+        }
+      );
     }
 
-    // Push the designer timeline entry (recorded against the acting user).
-    const timelineKey = timelineForStatus("design_in_progress");
-    await Deliverable.updateOne(
-      { _id: delId },
-      {
-        $push: {
-          [`statusTimeline.${timelineKey}`]: {
-            status: "design_in_progress",
-            timestamp: now,
-            changedBy: { userId: session.userId, name: actorName, email: session.email },
-          },
-        },
-      }
-    );
-
-    // History: record both the status move and who it was allocated to, so the
-    // activity trail reads "Allocated to <name>" rather than a bare "Started work".
-    const changes = computeChanges({ status: oldStatus }, { status: "design_in_progress" });
-    changes.push({ field: "assignedTo", label: "Assigned To", from: "", to: targetName });
+    // History: record who the task was allocated to (from → to drives the
+    // "Allocated to <name>" activity entry). A fresh claim also records the
+    // status move; a reassignment records the owner change only.
+    const changes = isClaim
+      ? computeChanges({ status: oldStatus }, { status: "design_in_progress" })
+      : [];
+    changes.push({ field: "assignedTo", label: "Assigned To", from: previousOwnerName, to: targetName });
     await DraftHistory.create({
       clientId: id,
       calendarId: draft.calendarId,
       deliverableId: delId,
       draftId: draft._id,
       draftVersion: draft.version,
+      revision: draft.revision ?? 0,
       action: "edited",
       changedBy: { userId: session.userId, name: actorName, email: session.email },
       changedAt: now,

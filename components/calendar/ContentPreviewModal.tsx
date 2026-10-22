@@ -23,9 +23,11 @@ import {
   MessageCircle,
   AlertTriangle,
   ExternalLink,
-  Flag,
+  Download,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UrgentTag } from "@/components/ui/UrgentTag";
 import { MODULES } from "@/lib/types";
 import {
   STATUS_LABEL,
@@ -39,6 +41,9 @@ import {
 } from "@/lib/status-flow";
 import type { DraftStatus } from "@/lib/status-flow";
 import { FeedbackModal, type FeedbackCategory } from "@/components/ui/feedback-modal";
+import { AdPreviewCard } from "@/components/writer/AdPreviewCard";
+import { GoogleAdPreviewCard } from "@/components/writer/GoogleAdPreviewCard";
+import { PaidDetailsForm } from "./PaidDetailsForm";
 import { useAuth } from "@/hooks/useAuth";
 import type { CalendarCopy, CalendarDraft } from "./types";
 
@@ -55,6 +60,7 @@ interface HistoryEntry {
   changedBy: { userId: string; name: string; email: string };
   changedAt: string;
   draftVersion: number;
+  revision?: number;
   changes: HistoryChange[];
 }
 
@@ -84,6 +90,54 @@ function timeAgo(dateStr: string): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   return d < 7 ? `${d}d ago` : new Date(dateStr).toLocaleDateString();
+}
+
+// Edit-version label. The major stays at 1; the minor is the stored revision,
+// so v1 (initial) → v1.1 → v1.2 … as copy/creative is modified.
+function formatVersion(revision?: number): string {
+  const r = revision ?? 0;
+  return r > 0 ? `v1.${r}` : "v1";
+}
+
+// History change fields that hold a creative file URL. For these we surface the
+// previous and new files as download links (so a reuploaded creative keeps the
+// prior file retrievable) instead of printing the raw URL.
+const CREATIVE_URL_FIELDS = new Set([
+  "imageUrl",
+  "videoUrl",
+  "thumbnailUrl",
+  "audioUrl",
+]);
+
+// A compact download link for a stored creative file.
+function CreativeFileLink({
+  url,
+  label,
+  tone,
+}: {
+  url: string;
+  label: string;
+  tone: "old" | "new";
+}) {
+  return (
+    <a
+      href={url}
+      download
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium hover:underline",
+        tone === "old"
+          ? "bg-destructive/10 text-destructive/80"
+          : "bg-primary/10 text-primary"
+      )}
+      title={url}
+    >
+      <Download className="h-2.5 w-2.5" />
+      {label}
+    </a>
+  );
 }
 
 function getMediaCategory(
@@ -122,12 +176,12 @@ function CarouselSlider({
   const frame = frames[current];
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full flex items-center justify-center">
       {frame?.imageUrl ? (
         <img
           src={frame.imageUrl}
           alt={`Frame ${frame.frameNo}`}
-          className="w-full h-full object-fit"
+          className="max-h-full max-w-full w-auto h-auto object-contain"
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-muted p-4">
@@ -205,7 +259,7 @@ function VideoPreview({
           src={videoUrl}
           controls
           autoPlay
-          className="w-full h-full object-fit"
+          className="w-full h-full object-contain"
         />
         <a
           href={videoUrl}
@@ -233,7 +287,7 @@ function VideoPreview({
         <img
           src={thumbnailUrl}
           alt="Video thumbnail"
-          className="w-full h-full object-fit"
+          className="w-full h-full object-contain"
         />
       ) : videoUrl ? (
         <video
@@ -241,7 +295,7 @@ function VideoPreview({
           preload="metadata"
           muted
           playsInline
-          className="w-full h-full object-fit"
+          className="w-full h-full object-contain"
         />
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
@@ -305,11 +359,11 @@ function ImagePreview({
 }) {
   if (imageUrl) {
     return (
-      <div className="relative w-full h-full">
+      <div className="relative w-full h-full flex items-center justify-center">
         <img
           src={imageUrl}
           alt="Content preview"
-          className="w-full h-full object-contain"
+          className="max-h-full max-w-full w-auto h-auto object-contain"
         />
           <a
             href={imageUrl}
@@ -411,17 +465,19 @@ function SocialMockup({
   mediaCategory: ReturnType<typeof getMediaCategory>;
 }) {
   const draft = item.draft;
-  const isPortrait = mediaCategory === "story";
+  const mt = (draft?.mediaType || item.type || "").toLowerCase();
+  const isPortraitStory = mediaCategory === "story" || mt.includes("story") || mt.includes("reel");
+  const isPortraitFeed = mt.includes("portrait") || mt.includes("vertical") || mt.includes("4:5");
 
   return (
     <div
       className={cn(
-        "rounded-[1.5rem] bg-card border border-border shadow-xl overflow-hidden transition-all flex-shrink-0",
-        isPortrait ? "w-[240px] sm:w-[280px]" : "w-[300px] sm:w-[340px]"
+        "rounded-[1.5rem] bg-card border border-border shadow-xl overflow-hidden transition-all flex-shrink-0 flex flex-col",
+        isPortraitStory ? "w-[240px] sm:w-[280px]" : "w-[300px] sm:w-[340px]"
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-2.5 p-3">
+      <div className="flex items-center gap-2.5 p-3 flex-shrink-0">
         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-pink-500 via-orange-400 to-yellow-400 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">
@@ -432,7 +488,12 @@ function SocialMockup({
       </div>
 
       {/* Media */}
-      <div className={cn("bg-muted relative overflow-hidden", isPortrait ? "aspect-[9/16]" : "aspect-square")}>
+      <div
+        className={cn(
+          "bg-muted relative overflow-hidden flex items-center justify-center",
+          isPortraitStory ? "aspect-[9/16]" : isPortraitFeed ? "aspect-[4/5]" : "aspect-square"
+        )}
+      >
         {mediaCategory === "carousel" && (draft?.frames?.length ?? 0) > 0 ? (
           <CarouselSlider frames={draft!.frames} />
         ) : mediaCategory === "video" ? (
@@ -441,11 +502,11 @@ function SocialMockup({
             thumbnailUrl={draft?.thumbnailUrl || draft?.imageUrl || ""}
           />
         ) : draft?.imageUrl ? (
-          <div className="relative w-full h-full group">
+          <div className="relative w-full h-full group flex items-center justify-center">
             <img
               src={draft.imageUrl}
               alt="Preview"
-              className="w-full h-full object-cover"
+              className="max-h-full max-w-full w-auto h-auto object-contain"
             />
             <a
               href={draft.imageUrl}
@@ -553,9 +614,11 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
   const draft = item.draft;
   const mediaCategory = getMediaCategory(draft?.mediaType || "", item.type);
   const isArticleCopy = isArticleType(draft?.mediaType || item.type);
+  // Paid variants have no caption/hashtags (SocialMockup's body text) — they
+  // have headline/description/CTA/landing URL instead, so they get their own
+  // ad-mockup rendering rather than the Instagram-style social card.
   const isSocial =
     item.module === "social" ||
-    item.module === "paid" ||
     item.module === "influencer";
 
   const renderMedia = () => {
@@ -564,6 +627,41 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
         <AudioPreview
           audioUrl={draft?.audioUrl || ""}
           title={item.title}
+        />
+      );
+    }
+
+    if (item.module === "paid") {
+      if (draft?.adPlatform === "google") {
+        return (
+          <GoogleAdPreviewCard
+            businessName={draft?.businessName}
+            headlines={draft?.headlines}
+            longHeadline={draft?.longHeadline}
+            descriptions={draft?.descriptions}
+            frames={draft?.frames}
+            imageUrl={draft?.imageUrl}
+            cta={draft?.cta}
+            landingUrl={draft?.landingUrl}
+          />
+        );
+      }
+      return (
+        <AdPreviewCard
+          mediaType={draft?.mediaType || item.type}
+          primaryTexts={draft?.primaryTexts}
+          primaryText={draft?.creativeCopy}
+          frames={draft?.frames}
+          imageUrl={draft?.imageUrl}
+          videoUrl={draft?.videoUrl}
+          thumbnailUrl={draft?.thumbnailUrl}
+          headlines={draft?.headlines}
+          headline={draft?.headline}
+          descriptions={draft?.descriptions}
+          description={draft?.description}
+          cta={draft?.cta}
+          landingUrl={draft?.landingUrl}
+          adCopy={draft?.adCopy}
         />
       );
     }
@@ -589,7 +687,7 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
 
     if (mediaCategory === "image" || mediaCategory === "gif") {
       return (
-        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
+        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl bg-muted flex items-center justify-center p-2 min-h-[300px] max-h-[500px]">
           <ImagePreview
             imageUrl={draft?.imageUrl || ""}
             mediaType={draft?.mediaType || item.type}
@@ -611,7 +709,7 @@ function MediaPreviewPane({ item }: { item: CalendarCopy }) {
     }
     if (draft?.imageUrl) {
       return (
-        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl aspect-square bg-muted">
+        <div className="w-full max-w-md rounded-xl overflow-hidden border border-border shadow-xl bg-muted flex items-center justify-center p-2 min-h-[300px] max-h-[500px]">
           <ImagePreview
             imageUrl={draft.imageUrl}
             mediaType={draft?.mediaType || item.type}
@@ -757,8 +855,18 @@ function HistoryTab({
       </p>
     );
 
+  const currentVersion = formatVersion(history[0]?.revision);
+
   return (
     <div className="space-y-3">
+      <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          Current version
+        </span>
+        <span className="text-[11px] font-semibold text-foreground">
+          {currentVersion}
+        </span>
+      </div>
       {history.map((entry, ei) => {
         const key = entry.id ?? `h-${ei}`;
         return (
@@ -779,8 +887,8 @@ function HistoryTab({
                 <p className="text-xs font-medium text-foreground">
                   {ACTION_LABEL[entry.action] ?? entry.action}
                 </p>
-                <span className="text-[10px] text-muted-foreground">
-                  v{entry.draftVersion}
+                <span className="text-[10px] font-medium text-muted-foreground rounded bg-muted px-1.5 py-0.5">
+                  {formatVersion(entry.revision)}
                 </span>
               </div>
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
@@ -793,6 +901,48 @@ function HistoryTab({
                 <div className="mt-1.5 space-y-1">
                   {entry.changes.map((ch, ci) => {
                     const eKey = `${key}-${ci}`;
+
+                    // Creative file fields: render the previous and new files as
+                    // download links so a reuploaded creative keeps the prior
+                    // file retrievable, instead of dumping the raw URL.
+                    if (CREATIVE_URL_FIELDS.has(ch.field)) {
+                      return (
+                        <div
+                          key={ci}
+                          className="text-[10px] rounded bg-muted/60 px-2 py-1"
+                        >
+                          <span className="font-medium text-muted-foreground">
+                            {ch.label}:{" "}
+                          </span>
+                          <span className="inline-flex flex-wrap items-center gap-1.5 align-middle">
+                            {ch.from ? (
+                              <CreativeFileLink
+                                url={ch.from}
+                                label="Previous creative"
+                                tone="old"
+                              />
+                            ) : (
+                              <span className="text-muted-foreground">
+                                (none)
+                              </span>
+                            )}
+                            <span className="text-muted-foreground">→</span>
+                            {ch.to ? (
+                              <CreativeFileLink
+                                url={ch.to}
+                                label="New creative"
+                                tone="new"
+                              />
+                            ) : (
+                              <span className="text-muted-foreground">
+                                (removed)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    }
+
                     const isSeeMore =
                       ch.to.length > 80 || ch.from.length > 80;
                     const isExpanded = expanded.has(eKey);
@@ -855,8 +1005,8 @@ export function ContentPreviewModal({
   const [form, setForm] = useState<Partial<CalendarDraft>>({});
   const [saving, setSaving]     = useState(false);
   const [actioning, setActioning] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [togglingPriority, setTogglingPriority] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const { user } = useAuth();
   // Only admin / account manager may mark a scheduled copy as published (final).
@@ -910,6 +1060,20 @@ export function ContentPreviewModal({
           articleCopy:  d.articleCopy,
           notes:        d.notes,
           referenceUrl: d.referenceUrl,
+          // Paid-media fields — seeded so the paid Details form is editable.
+          // Required multi-value lists keep at least one row.
+          adCopy:       d.adCopy,
+          primaryTexts: d.primaryTexts?.length ? d.primaryTexts : d.creativeCopy ? [d.creativeCopy] : [""],
+          headlines:    d.headlines?.length ? d.headlines : d.headline ? [d.headline] : [""],
+          descriptions: d.descriptions?.length ? d.descriptions : d.description ? [d.description] : [],
+          cta:          d.cta,
+          landingUrl:   d.landingUrl,
+          adPlatform:       d.adPlatform ?? "meta",
+          businessName:     d.businessName ?? "",
+          longHeadline:     d.longHeadline ?? "",
+          trackingTemplate: d.trackingTemplate ?? "",
+          finalUrlSuffix:   d.finalUrlSuffix ?? "",
+          customParameters: d.customParameters ?? [],
         });
       }
       setFeedbackOpen(false);
@@ -938,24 +1102,49 @@ export function ContentPreviewModal({
     if (!item?.draft) return;
     setSaving(true);
     try {
-      const updated = await patchDraft({
-        caption:      form.caption,
-        hashtags:     form.hashtags,
-        creativeCopy: form.creativeCopy,
-        frames:       form.frames,
-        publishDate:  form.publishDate || null,
-        publishTime:  form.publishTime || null,
-        imageUrl:     form.imageUrl,
-        videoUrl:     form.videoUrl,
-        thumbnailUrl: form.thumbnailUrl,
-        audioUrl:     form.audioUrl,
-        videoType:    form.videoType,
-        videoNotes:   form.videoNotes,
-        articleMode:  form.articleMode,
-        articleCopy:  form.articleCopy,
-        notes:        form.notes,
-        referenceUrl: form.referenceUrl,
-      });
+      // Paid-media drafts save a distinct field set (Copy / primary texts /
+      // headlines / descriptions / CTA / landing URL) instead of the
+      // social caption + hashtags, so we don't blank out the paid fields.
+      const body: Record<string, unknown> =
+        item.module === "paid"
+          ? {
+              adCopy:       form.adCopy,
+              primaryTexts: form.primaryTexts,
+              headlines:    form.headlines,
+              descriptions: form.descriptions,
+              cta:          form.cta,
+              landingUrl:   form.landingUrl,
+              frames:       form.frames,
+              publishDate:  form.publishDate || null,
+              videoType:    form.videoType,
+              videoNotes:   form.videoNotes,
+              notes:        form.notes,
+              referenceUrl: form.referenceUrl,
+              businessName:     form.businessName,
+              longHeadline:     form.longHeadline,
+              trackingTemplate: form.trackingTemplate,
+              finalUrlSuffix:   form.finalUrlSuffix,
+              customParameters: form.customParameters,
+            }
+          : {
+              caption:      form.caption,
+              hashtags:     form.hashtags,
+              creativeCopy: form.creativeCopy,
+              frames:       form.frames,
+              publishDate:  form.publishDate || null,
+              publishTime:  form.publishTime || null,
+              imageUrl:     form.imageUrl,
+              videoUrl:     form.videoUrl,
+              thumbnailUrl: form.thumbnailUrl,
+              audioUrl:     form.audioUrl,
+              videoType:    form.videoType,
+              videoNotes:   form.videoNotes,
+              articleMode:  form.articleMode,
+              articleCopy:  form.articleCopy,
+              notes:        form.notes,
+              referenceUrl: form.referenceUrl,
+            };
+      const updated = await patchDraft(body);
       if (updated) {
         onUpdate(item.deliverableId, {
           ...item.draft,
@@ -965,22 +1154,6 @@ export function ContentPreviewModal({
       }
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleTogglePriority = async () => {
-    if (!item?.draft) return;
-    const next = !item.draft.highPriority;
-    setTogglingPriority(true);
-    try {
-      const updated = await patchDraft({ highPriority: next });
-      if (updated) {
-        onUpdate(item.deliverableId, { ...item.draft, ...updated, id: item.draft.id });
-      }
-    } catch {
-      /* surfaced by the badge not flipping */
-    } finally {
-      setTogglingPriority(false);
     }
   };
 
@@ -1006,6 +1179,25 @@ export function ContentPreviewModal({
       }
     } finally {
       setActioning(false);
+    }
+  };
+
+  // High-priority toggle. Any agency member may flag/unflag urgency; it's a
+  // priority-only PATCH, so the server exempts it from the design-phase lock.
+  const handleTogglePriority = async () => {
+    if (!item?.draft) return;
+    setTogglingPriority(true);
+    try {
+      const updated = await patchDraft({ highPriority: !item.draft.highPriority });
+      if (updated) {
+        onUpdate(item.deliverableId, {
+          ...item.draft,
+          ...updated,
+          id: item.draft.id,
+        });
+      }
+    } finally {
+      setTogglingPriority(false);
     }
   };
 
@@ -1092,33 +1284,36 @@ export function ContentPreviewModal({
                     {DELIVERABLE_STATUS_LABEL[item.status] ?? item.status}
                   </span>
                 )}
-                {/* High-priority toggle (staff) / badge (read-only clients) */}
-                {draft && !readOnly ? (
-                  <button
-                    type="button"
-                    onClick={handleTogglePriority}
-                    disabled={togglingPriority}
-                    title={draft.highPriority ? "Remove high priority" : "Mark high priority"}
-                    className={cn(
-                      "flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full transition-colors disabled:opacity-60",
-                      draft.highPriority
-                        ? "bg-red-100 text-red-700 hover:bg-red-200"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                  >
-                    <Flag className={cn("h-3 w-3", draft.highPriority && "fill-red-600 text-red-600")} />
-                    {draft.highPriority ? "High Priority" : "Priority"}
-                  </button>
-                ) : draft?.highPriority ? (
-                  <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">
-                    <Flag className="h-3 w-3 fill-red-600 text-red-600" /> High Priority
-                  </span>
-                ) : null}
+                {/* Internal urgency signal — never shown to clients (read-only). */}
+                {!readOnly && draft?.highPriority && <UrgentTag className="text-[10px]" />}
               </div>
             </div>
 
-            {/* Header controls: Prev / Next / Close */}
+            {/* Header controls: Priority / Prev / Next / Close */}
             <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Urgent toggle — any agency member can flag priority; hidden in
+                  the read-only client portal. */}
+              {!readOnly && draft && (
+                <button
+                  onClick={handleTogglePriority}
+                  disabled={togglingPriority}
+                  title={draft.highPriority ? "Remove urgent flag" : "Mark as urgent"}
+                  aria-pressed={!!draft.highPriority}
+                  className={cn(
+                    "mr-1 flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+                    draft.highPriority
+                      ? "bg-red-100 text-red-700 hover:bg-red-200"
+                      : "text-muted-foreground hover:bg-muted border"
+                  )}
+                >
+                  {togglingPriority ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Flame className="h-3.5 w-3.5" />
+                  )}
+                  {draft.highPriority ? "On Priority" : "Mark On Priority"}
+                </button>
+              )}
               {(onNavigatePrev || onNavigateNext) && (
                 <div className="flex items-center gap-1 mr-1 border-r border-border pr-2">
                   <button
@@ -1192,7 +1387,13 @@ export function ContentPreviewModal({
                     )}
                     {!readOnly && (
                       <TabsTrigger value="approve" className="flex-1">
-                        Client Feedback
+                        {normDraftStatus === "content_internal_review" ||
+                        normDraftStatus === "design_internal_review"
+                          ? "Internal Feedback"
+                          : normDraftStatus === "content_client_review" ||
+                            normDraftStatus === "design_client_review"
+                          ? "Client Feedback"
+                          : "Review"}
                       </TabsTrigger>
                     )}
                   </TabsList>
@@ -1204,6 +1405,15 @@ export function ContentPreviewModal({
                   className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-4"
                 >
                   <fieldset disabled={readOnly} className="contents">
+                  {item.module === "paid" ? (
+                    <PaidDetailsForm
+                      form={form}
+                      setForm={setForm}
+                      draft={draft}
+                      item={item}
+                    />
+                  ) : (
+                  <>
                   {/* Carousel frames — editable */}
                   {mediaCategory === "carousel" && draft.frames.length > 0 && (
                     <div className="space-y-3 p-3 rounded-lg bg-muted/40 border border-border">
@@ -1399,7 +1609,8 @@ export function ContentPreviewModal({
                       }
                     />
                   </div>
-
+                  </>
+                  )}
                   </fieldset>
                   {!readOnly && (
                     <Button className="w-full" onClick={handleSave} disabled={saving}>

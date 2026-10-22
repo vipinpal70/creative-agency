@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AppSidebar } from "./AppSidebar";
+import { canManageLLMSettings } from "@/lib/ai/llm/config-service";
 
 export const metadata: Metadata = {
   title: "Dashboard — CreativeOS",
@@ -27,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans antialiased flex">
 
       {/* ── Sidebar (client component) ─────────────────────────────────── */}
-      <AppSidebar />
+      <AppSidebar canManageAI={canManageLLMSettings(session)} />
 
       {/* ── Main column ────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
